@@ -69,6 +69,7 @@ repos:
         name: Pin GitHub Actions
         entry: pinact run
         language: golang
+        language_version: "1.27.3"
         additional_dependencies:
           - github.com/suzuki-shunsuke/pinact/v5/cmd/pinact@v5.0.2
         files: ^\.github/(workflows|actions)/.*\.ya?ml$

@@ -3,23 +3,10 @@ experimental = true
 
 [tools]
 bun = "1.4.4"
-go = "1.27.1"
+go = "1.27.3"
+prek = "0.5.7"
 "conda:tesseract" = "5.5.3"
+"conda:poppler" = "26.09.0"
 
-[tasks.bootstrap]
-description = "Install dependencies and write .env with a fresh AUTH_SECRET"
-run = """
-set -e
-bun install
-if [ ! -f .env ]; then
-  sed "s|^AUTH_SECRET=.*|AUTH_SECRET=$(openssl rand -base64 32)|" .env.example > .env
-fi
-"""
-
-[tasks.verify]
-description = "Every prek hook over the whole repo at the commit and push stages, what CI runs"
-run = """
-set -e
-node_modules/.bin/prek run --all-files
-node_modules/.bin/prek run --all-files --hook-stage pre-push
-"""
+[hooks]
+postinstall = "prek install"

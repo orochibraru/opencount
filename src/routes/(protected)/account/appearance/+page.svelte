@@ -10,6 +10,7 @@
 	const { data } = $props();
 
 	const accents = [
+		{ value: "bordeaux", label: "Bordeaux", hue: "oklch(0.44 0.15 8)" },
 		{ value: "green", label: "Green", hue: "oklch(0.6 0.14 165)" },
 		{ value: "blue", label: "Blue", hue: "oklch(0.6 0.19 255)" },
 		{ value: "violet", label: "Violet", hue: "oklch(0.6 0.2 293)" },

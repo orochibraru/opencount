@@ -16,7 +16,9 @@ const runWithBun: RunCommand = async (command, input) => {
 		timeout: timeoutMs,
 	});
 	const [stdout, stderr, exitCode] = await Promise.all([
-		new Response(child.stdout).arrayBuffer().then(Buffer.from),
+		new Response(child.stdout)
+			.arrayBuffer()
+			.then((bytes) => Buffer.from(bytes)),
 		new Response(child.stderr).text(),
 		child.exited,
 	]);

@@ -10,7 +10,7 @@ export type Appearance = Omit<
 >;
 
 export const defaultAppearance: Appearance = {
-	accent: "green",
+	accent: "bordeaux",
 	theme: "system",
 	darkVariant: "default",
 	font: "default",

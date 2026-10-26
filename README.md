@@ -1,82 +1,148 @@
+<!-- markdownlint-disable MD041 -->
+
+![OpenCount: split expenses with friends, on your own server](docs/images/feature.webp)
+
 # OpenCount
 
-Split expenses with friends, see who owes whom, settle up. An open-source,
-self-hosted alternative to Tricount that installs on your phone as an app.
+Split expenses with friends, see who owes whom, settle up. A self-hosted,
+open-source alternative to Tricount that installs on your phone like an app.
 
-## Run it
+[![Docker Hub](https://img.shields.io/docker/v/orochibraru/opencount?label=docker%20hub&sort=semver)](https://hub.docker.com/r/orochibraru/opencount)
+[![Image size](https://img.shields.io/docker/image-size/orochibraru/opencount/latest)](https://hub.docker.com/r/orochibraru/opencount)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-OpenCount is one container and one SQLite file. The compose file in this repo
-runs it:
+[See every screen, on a desktop and a phone](docs/showcase.md)
+
+## Features
+
+- **Groups** for a trip, a flat or a dinner, in one of twelve currencies. Add
+  people by name before they have an account; they claim their name with
+  **That's me** once they join.
+- **Expenses** split equally, by shares or by exact amounts, between everyone or
+  only some. Amounts are whole cents, so a split always adds up.
+- **Balances and settle-up**: everyone's balance, and the fewest payments that
+  bring the group back to zero. Record a payment in one tap.
+- **Repeating expenses**: rent and subscriptions every week, month or year,
+  anchored to their day of the month, with pause and resume.
+- **Less typing**: categories guessed from the description in English and French
+  and from the group's own categories, merchants remembered per group, custom
+  categories per group.
+- **Receipt reading**, optional and local: a photo or a PDF fills in the amount,
+  the date and the merchant. Read on your server with Tesseract, never stored,
+  never sent anywhere.
+- **Insights** by period, category, merchant and payer, and over time.
+- **Archiving**: hide a finished group from your own list without touching
+  anyone else's.
+- **Feels native**: an installable PWA with a bottom tab bar and sheets on
+  phones, a full layout with a sidebar on desktop. Per-account accent colour,
+  light, dark or AMOLED theme, font and corners.
+- **Invite-only by default**, administered from the app: invites, sign-ups once
+  email works, required authenticator apps or passkeys, password and passkey
+  sign-in on or off, and single sign-on through any OpenID Connect provider.
+
+## Documentation
+
+The full documentation lives in [`docs/`](docs/) and is published at
+<https://orochibraru.com/opencount>: install and configuration, every screen,
+the admin area, backups and upgrades, troubleshooting.
+
+## Install
+
+OpenCount is one container and one SQLite file. The image,
+[`docker.io/orochibraru/opencount`](https://hub.docker.com/r/orochibraru/opencount),
+is built for `linux/amd64` and `linux/arm64`.
+
+Download the compose file into an empty directory:
 
 ```bash
-export AUTH_SECRET="$(openssl rand -base64 32)"
-docker compose up -d
+mkdir opencount && cd opencount
+curl -fsSLO https://raw.githubusercontent.com/orochibraru/opencount/main/compose.prod.yaml
 ```
+
+```yaml
+services:
+  opencount:
+    image: docker.io/orochibraru/opencount:latest
+    restart: unless-stopped
+    ports:
+      - 3000:3000
+    volumes:
+      - opencount:/data
+    environment:
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET, e.g. openssl rand -base64 32}
+      # The URL people open, like https://opencount.example.com.
+      ORIGIN: ${ORIGIN:-}
+
+volumes:
+  opencount: {}
+```
+
+Write a `.env` next to it with a fresh secret and your public URL, then start
+it:
+
+```bash
+cat > .env <<EOF
+AUTH_SECRET=$(openssl rand -base64 32)
+ORIGIN=https://opencount.example.com
+EOF
+docker compose -f compose.prod.yaml up -d
+```
+
+Keep `AUTH_SECRET` with your backups: it signs sessions and encrypts the secrets
+stored in the database. Changing it signs everyone out and loses them.
+
+### Configuration
+
+| Variable        | Default                  | What it does                                                      |
+| --------------- | ------------------------ | ----------------------------------------------------------------- |
+| `AUTH_SECRET`   | none, required           | Signs sessions and encrypts stored secrets; 32 characters or more |
+| `ORIGIN`        | from the proxy headers   | The public URL; required on plain HTTP with no proxy              |
+| `DATABASE_PATH` | `/data/opencount.sqlite` | The SQLite file, on the `/data` volume                            |
+| `PORT`          | `3000`                   | The HTTP port                                                     |
+| `LOG_LEVEL`     | `info`                   | `trace`, `debug`, `info`, `warn` or `error`                       |
+| `LOG_FORMAT`    | `console`                | `json` or `console`                                               |
 
 Put it behind an HTTPS reverse proxy that sets `X-Forwarded-Proto` and
-`X-Forwarded-Host`; the app takes its public origin from those. Without a proxy,
-set `ORIGIN` to the URL you open (for example `http://192.168.1.10:3000`), or
-every form submission is refused as cross-site.
+`X-Forwarded-Host`: passkeys and installing the app both need HTTPS. On plain
+HTTP with no proxy, `ORIGIN` must be the exact URL you open (like
+`http://192.168.1.10:3000`), or every form is refused as cross-site.
 
-Then open the app. A fresh instance walks you through creating the admin
-account: enter the setup code printed in the container's log
-(`docker compose logs opencount`, a line starting with `Setup code`), then your
-email and a password. That first account is the admin; it can make others admins
-later. From the admin area you can then invite people, set up SMTP, open
-sign-ups, require an authenticator app or passkeys, and turn on receipt reading.
+Every other variable, from the background worker to traces and error reporting,
+is in [Configuration](docs/configuration.md). Sign-ups, sign-in methods, email
+and receipt reading are set in the app's admin area.
 
-On a phone, use "Add to Home Screen" to install it.
+### First run
 
-### Receipt reading
-
-Optional, and local: the image ships Tesseract with English, French, German,
-Spanish and Italian. Turn it on in Admin, Receipts, and pick the languages your
-receipts use. Photos are read by the background worker on your server; nothing
-is sent anywhere. To ship other languages, build the image with
-`--build-arg OCR_LANGUAGES="eng nld por"` (any Alpine `tesseract-ocr-data-*`
-package name).
-
-## Configuration
-
-| Variable             | Default                  | Purpose                                                     |
-| -------------------- | ------------------------ | ----------------------------------------------------------- |
-| `AUTH_SECRET`        | none, required           | Signs sessions and encrypts stored secrets. Keep it stable. |
-| `ORIGIN`             | from the proxy headers   | Public URL, needed only without an HTTPS proxy.             |
-| `DATABASE_PATH`      | `/data/opencount.sqlite` | The SQLite file.                                            |
-| `PORT`               | `3000`                   | HTTP port.                                                  |
-| `LOG_LEVEL`          | `info`                   | `trace`, `debug`, `info`, `warn` or `error`.                |
-| `LOG_FORMAT`         | `json`                   | `json` or `console`.                                        |
-| `WORKER_CONCURRENCY` | `2`                      | Background jobs run at once.                                |
-
-Every variable is declared, documented and validated in `src/env.ts`; the server
-refuses to start with an invalid one and names it.
-
-Everything else (SMTP, sign-ups, required sign-in factors, receipt reading) is
-set in the admin area. Running from source, `mise install` brings Tesseract for
-receipt reading (with every language pack); without mise, install it yourself
-(`brew install tesseract tesseract-lang` or `apt install tesseract-ocr`).
-
-### Homerun
-
-`.homerun.json` deploys it on [Homerun](https://github.com/orochibraru/homerun)
-with traces on. Homerun injects `OTEL_EXPORTER_OTLP_ENDPOINT`,
-`OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES` and `SENTRY_DSN`, so requests,
-page loads, form actions and background jobs show up as traces and unhandled
-errors as issues, from the server and the worker alike. Any other OTLP/HTTP
-collector or Sentry-protocol DSN works the same way; with neither set, nothing
-is sent.
-
-## Develop
+A fresh instance has no account, and every page sends you to the setup screen.
+It asks for a code only the server's log shows, so nobody who stumbles on the
+URL can claim the instance:
 
 ```bash
-mise run bootstrap
-bun run dev
+docker compose -f compose.prod.yaml logs opencount
 ```
 
-Without mise: `bun install`, copy `.env.example` to `.env` and set
-`AUTH_SECRET`. The dev server starts the background worker itself.
-`bun run build && bun run start` runs the compiled binaries locally, using
-`ORIGIN` from `.env`.
+Look for the line starting with `Setup code`: six digits, valid 15 minutes.
+Enter it, then your email, name and password. That first account is the admin.
+From the admin area, set up email, secure your account with an authenticator app
+or a passkey, and invite people.
+
+On a phone, use **Add to Home Screen** to install it.
+
+Step by step, with what each screen does: [First run](docs/first-run.md).
+
+### Upgrades and backups
+
+```bash
+docker compose -f compose.prod.yaml pull
+docker compose -f compose.prod.yaml up -d
+```
+
+Migrations run at boot. Your data is the `opencount` volume: back it up, with
+`AUTH_SECRET`. See [Backups and upgrades](docs/backups-and-upgrades.md).
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

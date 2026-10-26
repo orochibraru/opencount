@@ -5,12 +5,12 @@ RUN bun install --frozen-lockfile --ignore-scripts
 
 FROM deps AS builder
 COPY . .
-RUN bun run build
+RUN AUTH_SECRET=placeholder-for-the-build-step-only-000000 bun run build
 
 FROM alpine:3.24
 ARG OCR_LANGUAGES="eng fra deu spa ita"
 # hadolint ignore=SC2046
-RUN apk add --no-cache ca-certificates libgcc libstdc++ tesseract-ocr \
+RUN apk add --no-cache ca-certificates libgcc libstdc++ poppler-utils tesseract-ocr \
         $(for language in $OCR_LANGUAGES; do printf 'tesseract-ocr-data-%s ' "$language"; done) \
     && mkdir -p /data \
     && chown 1000:1000 /data
@@ -25,7 +25,6 @@ ENV APP_VERSION=$APP_VERSION \
     DATABASE_PATH=/data/opencount.sqlite \
     PROTOCOL_HEADER=x-forwarded-proto \
     HOST_HEADER=x-forwarded-host \
-    LOG_FORMAT=json \
     LOG_LEVEL=info
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

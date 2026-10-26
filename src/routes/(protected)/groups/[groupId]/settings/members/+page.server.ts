@@ -97,7 +97,7 @@ export const actions = {
 		member.remove();
 		return { removed: true };
 	},
-	leave: async ({ locals, params }) => {
+	leave: ({ locals, params }) => {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
 		}

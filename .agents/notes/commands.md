@@ -31,10 +31,21 @@ never Node.
 
 ## mise
 
-`mise.toml` pins Bun (matching `packageManager`) and Go (pinact builds with it).
-Tasks: `bootstrap` (install, then `.env` from `.env.example` with a fresh
-`AUTH_SECRET`) and `verify` (prek over every file at the commit and push stages,
-what CI runs). Plain `bun install` works without mise.
+`mise.toml` pins Bun (matching `packageManager`), Go (pinact builds with it),
+prek, Tesseract and Poppler (`pdftotext` and `pdftoppm` read PDF receipts), and
+its `postinstall` hook runs `prek install`. Every task is a file under
+`.mise/tasks/`, never a `[tasks]` table:
+
+- `bootstrap`: install, then `.env` from `.env.example` with a fresh
+  `AUTH_SECRET`.
+- `verify`: prek over every file at the commit and push stages, what CI runs.
+- `screenshots`: builds the app, seeds a throwaway demo database through the
+  DTOs, boots `build/server` on it and has Playwright's Chromium shoot the docs
+  screenshots into `docs/images/`. Scratch files go to `tmp/`.
+- `showcase`: renders `docs/images/feature.webp`, the README hero, from those
+  screenshots.
+
+Plain `bun install` works without mise.
 
 ## Git hooks
 

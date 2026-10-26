@@ -40,6 +40,9 @@ on:
           "Whether to push the built image. False builds to the layer cache only,
           for pull requests from a fork, which get no registry credentials."
         type: boolean
+    secrets:
+      registry_password:
+        required: false
     outputs:
       image:
         description: "Registry path of the built image, without a tag"
@@ -47,7 +50,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 env:
   IMAGE: ${{ inputs.registry_name }}/${{ inputs.image_name }}
@@ -133,7 +135,7 @@ jobs:
         with:
           registry: ${{ inputs.registry_name }}
           username: ${{ inputs.registry_username }}
-          password: ${{ github.token }}
+          password: ${{ secrets.registry_password }}
 
       - name: Build
         id: bake

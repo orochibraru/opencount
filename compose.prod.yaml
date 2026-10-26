@@ -1,0 +1,14 @@
+services:
+  opencount:
+    image: docker.io/orochibraru/opencount:latest
+    restart: unless-stopped
+    ports:
+      - 3000:3000
+    volumes:
+      - opencount:/data
+    environment:
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET, e.g. openssl rand -base64 32}
+      ORIGIN: ${ORIGIN:-}
+
+volumes:
+  opencount: {}

@@ -1,6 +1,6 @@
 services:
   opencount:
-    image: ghcr.io/orochibraru/opencount:latest
+    build: .
     restart: unless-stopped
     ports:
       - 3000:3000

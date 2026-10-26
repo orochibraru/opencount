@@ -34,23 +34,23 @@ export function forwardAuthLog(
 	logger[level](message, ...args);
 }
 
-const passkeySignInPaths = [
+const passkeySignInPaths = new Set([
 	"/passkey/generate-authenticate-options",
 	"/passkey/verify-authentication",
-];
+]);
 
-/** Refuses the sign-in methods an admin turned off, whether the request came over HTTP or from a server action. */
-const enforceSignInMethods = createAuthMiddleware(async (context) => {
+/** Why a request uses a sign-in method an admin turned off, if it does. */
+function refusal(context: {
+	path: string;
+	body?: { provider?: unknown };
+}): APIError | undefined {
 	if (context.path === "/sign-in/email" && !getSetting("passwordSignIn")) {
-		throw new APIError("FORBIDDEN", {
+		return new APIError("FORBIDDEN", {
 			message: "Password sign-in is turned off on this server.",
 		});
 	}
-	if (
-		passkeySignInPaths.includes(context.path) &&
-		!getSetting("passkeySignIn")
-	) {
-		throw new APIError("FORBIDDEN", {
+	if (passkeySignInPaths.has(context.path) && !getSetting("passkeySignIn")) {
+		return new APIError("FORBIDDEN", {
 			message: "Passkey sign-in is turned off on this server.",
 		});
 	}
@@ -65,11 +65,18 @@ const enforceSignInMethods = createAuthMiddleware(async (context) => {
 			(entry) => entry.id === providerId,
 		);
 		if (!provider?.enabled) {
-			throw new APIError("FORBIDDEN", {
+			return new APIError("FORBIDDEN", {
 				message: "That sign-in method is turned off on this server.",
 			});
 		}
 	}
+	return undefined;
+}
+
+/** Refuses the sign-in methods an admin turned off, whether the request came over HTTP or from a server action. */
+const enforceSignInMethods = createAuthMiddleware((context) => {
+	const error = refusal(context);
+	return error ? Promise.reject(error) : Promise.resolve();
 });
 
 function createAuth(providers: SsoProvider[], signUpsEnabled: boolean) {

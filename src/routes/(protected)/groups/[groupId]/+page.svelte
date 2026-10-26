@@ -137,8 +137,10 @@
 	</form>
 {/if}
 
-<div class="grid gap-6 xl:grid-cols-[minmax(20rem,26rem)_1fr] xl:items-start">
-	<div class="flex flex-col gap-4 xl:sticky xl:top-24">
+<div
+	class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(20rem,26rem)_minmax(0,1fr)] xl:items-start"
+>
+	<div class="flex min-w-0 flex-col gap-4 xl:sticky xl:top-24">
 		<BalanceHero
 			balanceMinor={data.myMemberId ? (data.balances[data.myMemberId] ?? 0) : 0}
 			totalSpentMinor={totalSpent}
@@ -150,7 +152,7 @@
 		/>
 	</div>
 
-	<section aria-label="Expenses">
+	<section aria-label="Expenses" class="min-w-0">
 		{#if data.expenses.length === 0}
 			<EmptyState
 				icon={ReceiptIcon}

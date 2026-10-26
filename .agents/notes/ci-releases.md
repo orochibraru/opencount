@@ -4,13 +4,15 @@
 
 - `pull_request.yaml` runs code quality (prek over every file, then the pre-push
   hooks), builds the image on native amd64 and arm64 runners and tags it
-  `pr-<number>` on ghcr.io.
+  `pr-<number>` on Docker Hub (`docker.io/orochibraru/opencount`). A PR from a
+  fork gets no credentials: its image is built, not pushed.
 - A docs-only PR gets the checks but no image. A release PR (`releaser/release`)
   may only touch `CHANGELOG.md` and `package.json`'s version, and builds
   nothing.
 - `CI Gate` is the one required check. `pr-title.yaml` enforces a Conventional
   Commit title, which squash merges turn into the commit releaser reads.
-- `pr-cleanup.yaml` deletes `pr-<number>` from ghcr.io when a PR closes.
+- `pr-cleanup.yaml` deletes `pr-<number>` from Docker Hub when a PR closes
+  unmerged; Publish deletes it after a merge, once the canary is out.
 
 ## Releases
 
@@ -20,14 +22,14 @@
   changes), otherwise it's rebuilt. Tags: `X.Y.Z-canary.N` and `canary`.
 - releaser keeps a `chore(release): X.Y.Z` PR open. Merging it retags the last
   canary as `X.Y.Z` and `latest`. Nothing is rebuilt.
-- CI images live on ghcr.io (pushed with `github.token`); only published tags
-  are copied to Docker Hub.
+- Every image, PR, canary and release, lives on Docker Hub only
+  (`docker.io/orochibraru/opencount`). Nothing is pushed to ghcr.io.
 
 ## One-time setup
 
-- Secrets: `DOCKER_HUB_TOKEN` (Docker Hub mirroring) and `RELEASE_DEPLOY_KEY`
-  (private half of a deploy key with write access, bypassing the branch and tag
-  rulesets).
+- Secrets: `DOCKER_REGISTRY_PASSWORD` (a Docker Hub access token for
+  `orochibraru` with read, write and delete scope: deleting PR tags needs it)
+  and `RELEASE_DEPLOY_KEY` (private half of a deploy key with write access,
+  bypassing the branch and tag rulesets).
+- The Docker Hub repository must be public: self-hosters pull `latest` from it.
 - `CI Gate` as the required check, squash merges only.
-- The ghcr.io package starts private: make it public if anything outside the
-  repo pulls it.

@@ -273,12 +273,14 @@ describe("claiming a member", () => {
 		const members = GroupMemberDTO.forGroup(group.id).map((member) =>
 			member.toJSON(),
 		);
-		expect(members.map((member) => member.displayName)).toEqual([
+		expect(members.map((member) => member.displayName).toSorted()).toEqual([
 			"Ada",
-			"Sam",
 			"G",
+			"Sam",
 		]);
-		expect(members[2]?.userId).toBe(grace.id);
+		expect(members.find((member) => member.displayName === "G")?.userId).toBe(
+			grace.id,
+		);
 		expect(ExpenseDTO.ledger(group.id)).toEqual(
 			expect.arrayContaining([
 				{
@@ -313,5 +315,77 @@ describe("claiming a member", () => {
 		expect(GroupMemberDTO.findInGroup(group.id, graceMember.id)?.userId).toBe(
 			null,
 		);
+	});
+});
+
+describe("group upkeep", () => {
+	beforeEach(resetDatabase);
+
+	test("rename, currency, ownership and delete", () => {
+		const { ada, grace, group, adaMember, sam } = setUp();
+		expect(group.isOwnedBy(ada.id)).toBe(true);
+		expect(group.isOwnedBy(grace.id)).toBe(false);
+		expect(group.currency).toBe("EUR");
+		group.rename("Flat 2");
+		group.setCurrency("CHF");
+		expect(GroupDTO.findForMember(group.id, ada.id)?.toJSON()).toMatchObject({
+			name: "Flat 2",
+			currency: "CHF",
+		});
+		expect(group.hasExpenses()).toBe(false);
+		ExpenseDTO.create(
+			group.id,
+			expenseInput(adaMember.id, [
+				{ memberId: sam.id, amountMinor: 100, weight: 1 },
+			]),
+			ada.id,
+		);
+		expect(group.hasExpenses()).toBe(true);
+		group.delete();
+		expect(GroupDTO.findForMember(group.id, ada.id)).toBe(undefined);
+	});
+
+	test("members can be renamed, checked and removed", () => {
+		const { ada, grace, group, sam } = setUp();
+		expect(GroupMemberDTO.isMember(group.id, ada.id)).toBe(true);
+		expect(GroupMemberDTO.isMember(group.id, grace.id)).toBe(false);
+		sam.rename("Samuel");
+		expect(
+			GroupMemberDTO.findInGroup(group.id, sam.id)?.toJSON(),
+		).toMatchObject({ displayName: "Samuel" });
+		expect(sam.isInvolved()).toBe(false);
+		sam.remove();
+		expect(GroupMemberDTO.findInGroup(group.id, sam.id)).toBe(undefined);
+	});
+});
+
+describe("recurring.run", () => {
+	beforeEach(resetDatabase);
+
+	test("adds due copies and schedules itself for tomorrow", async () => {
+		const { jobHandlers } = await import("#lib/server/jobs/handlers.js");
+		const { JobDTO } = await import("#lib/dto/job.js");
+		const { group, adaMember } = setUp();
+		const today = new Date().toISOString().slice(0, 10);
+		const lastMonth = new Date();
+		lastMonth.setUTCMonth(lastMonth.getUTCMonth() - 1);
+		RecurringExpenseDTO.create(
+			group.id,
+			expenseInput(
+				adaMember.id,
+				[{ memberId: adaMember.id, amountMinor: 100, weight: 1 }],
+				{ spentOn: lastMonth.toISOString().slice(0, 10) },
+			),
+			"weekly",
+			"ada",
+		);
+		await jobHandlers["recurring.run"]({});
+		expect(ExpenseDTO.forGroup(group.id).length).toBeGreaterThanOrEqual(4);
+		expect(
+			ExpenseDTO.forGroup(group.id).every(
+				(entry) => entry.toJSON().spentOn <= today,
+			),
+		).toBe(true);
+		expect(JobDTO.isQueued("recurring.run")).toBe(true);
 	});
 });

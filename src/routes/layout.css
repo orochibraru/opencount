@@ -18,8 +18,8 @@
 @custom-variant data-vertical (&:where([data-orientation="vertical"]));
 
 :root {
-	--hue: 165;
-	--primary-chroma: 0.14;
+	--hue: 8;
+	--primary-chroma: 0.15;
 	--app-font: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
 	--display-font: "Sora Variable", var(--app-font);
 	--radius: 1rem;
@@ -111,6 +111,21 @@
 	--aurora-3: oklch(
 		0.3 calc(var(--primary-chroma) * 0.8) calc(var(--hue) - 60) / 12%
 	);
+}
+
+[data-accent="bordeaux"] {
+	--hue: 8;
+	--primary-chroma: 0.15;
+	--primary: oklch(0.44 0.15 8);
+}
+
+.dark[data-accent="bordeaux"] {
+	--primary: oklch(0.62 0.17 12);
+}
+
+[data-accent="green"] {
+	--hue: 165;
+	--primary-chroma: 0.14;
 }
 
 [data-accent="blue"] {

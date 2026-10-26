@@ -236,6 +236,7 @@ export const invite = sqliteTable(
 );
 
 export const accents = [
+	"bordeaux",
 	"green",
 	"blue",
 	"violet",
@@ -254,7 +255,7 @@ export const appearance = sqliteTable("appearance", {
 	userId: text("user_id")
 		.primaryKey()
 		.references(() => user.id, { onDelete: "cascade" }),
-	accent: text("accent", { enum: accents }).notNull().default("green"),
+	accent: text("accent", { enum: accents }).notNull().default("bordeaux"),
 	theme: text("theme", { enum: themes }).notNull().default("system"),
 	darkVariant: text("dark_variant", { enum: darkVariants })
 		.notNull()

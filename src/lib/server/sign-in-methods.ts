@@ -49,6 +49,7 @@ export function providerSlug(name: string): string {
 		name
 			.toLowerCase()
 			.normalize("NFKD")
+			.replaceAll(/\p{Diacritic}/gu, "")
 			.replaceAll(/[^a-z0-9]+/g, "-")
 			.replaceAll(/^-|-$/g, "")
 			.slice(0, 40) || "sso"

@@ -67,9 +67,6 @@ jobs:
     name: Docker Build (App)
     needs: [changes, code_quality]
     if: needs.changes.outputs.image == 'true'
-    permissions:
-      contents: read
-      packages: write
     uses: ./.github/workflows/docker.yaml
     with:
       image_tag: pr-${{ github.event.pull_request.number }}
@@ -77,23 +74,24 @@ jobs:
         ${{ github.event.pull_request.head.repo.full_name == github.repository
         }}
       image_name: orochibraru/opencount
-      registry_name: ghcr.io
-      registry_username: ${{ github.actor }}
+      registry_name: docker.io
+      registry_username: orochibraru
       bake_target: app
+    secrets:
+      registry_password: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
 
   publish:
     name: Publish pr-${{ github.event.pull_request.number }}
     needs: [build-app]
     if: github.event.pull_request.head.repo.full_name == github.repository
-    permissions:
-      contents: read
-      packages: write
     uses: ./.github/workflows/docker-manifest.yaml
     with:
       image_name: orochibraru/opencount
-      registry_name: ghcr.io
-      registry_username: ${{ github.actor }}
+      registry_name: docker.io
+      registry_username: orochibraru
       bake_target: app
+    secrets:
+      registry_password: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
 
   gate:
     name: CI Gate

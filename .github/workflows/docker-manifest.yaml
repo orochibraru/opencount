@@ -19,18 +19,9 @@ on:
         required: true
         description: "The target whose digests should be merged, e.g. app"
         type: string
-      mirror_registry:
-        required: false
-        default: ""
-        description: "A second registry that gets every tag too, e.g. docker.io"
-        type: string
-      mirror_username:
-        required: false
-        default: ""
-        type: string
     secrets:
-      mirror_password:
-        required: false
+      registry_password:
+        required: true
     outputs:
       image-tag:
         description: "The primary image tag that was published"
@@ -38,7 +29,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 env:
   IMAGE: ${{ inputs.registry_name }}/${{ inputs.image_name }}
@@ -74,7 +64,7 @@ jobs:
         with:
           registry: ${{ inputs.registry_name }}
           username: ${{ inputs.registry_username }}
-          password: ${{ github.token }}
+          password: ${{ secrets.registry_password }}
 
       - name: Create manifest list and push
         working-directory: ${{ runner.temp }}/digests
@@ -83,25 +73,6 @@ jobs:
           docker buildx imagetools create \
             $(jq -cr '.target."docker-metadata-action".tags | map("-t " + .) | join(" ")' "$RUNNER_TEMP/bake-meta.json") \
             $(printf "$IMAGE@sha256:%s " *)
-
-      - name: Login to the mirror registry
-        if: inputs.mirror_registry != ''
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
-        with:
-          registry: ${{ inputs.mirror_registry }}
-          username: ${{ inputs.mirror_username }}
-          password: ${{ secrets.mirror_password }}
-
-      - name: Copy every tag to the mirror
-        if: inputs.mirror_registry != ''
-        env:
-          MIRROR: ${{ inputs.mirror_registry }}/${{ inputs.image_name }}
-        run: |
-          set -euo pipefail
-          jq -r '.target."docker-metadata-action".tags[] | sub(".*:"; "")' "$RUNNER_TEMP/bake-meta.json" \
-            | while read -r tag; do
-                docker buildx imagetools create -t "$MIRROR:$tag" "$IMAGE:$tag"
-              done
 
       - name: Inspect image
         id: inspect

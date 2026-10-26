@@ -53,7 +53,9 @@
 	>
 		{formatMoney(Math.abs(balanceMinor), currency)}
 	</p>
-	<div class="text-muted-foreground relative mt-5 flex items-end gap-6 text-sm">
+	<div
+		class="text-muted-foreground relative mt-5 flex flex-wrap items-end gap-x-6 gap-y-3 text-sm"
+	>
 		<p>
 			<span class="text-foreground block font-medium tabular"
 				>{formatMoney(totalSpentMinor, currency)}</span
