@@ -62,9 +62,11 @@ payments that bring everyone to zero; record each one when it happens. See
 
 ## Install it on a phone
 
-Open the instance in the phone's browser and add it to the home screen: **Share,
-Add to Home Screen** in Safari, **Install app** in Chrome. It then opens
-standalone, without browser chrome, like any other app. This needs HTTPS.
+Open the instance in the phone's browser and sign in: OpenCount offers to
+install itself the first time. Otherwise add it to the home screen yourself:
+**Share, Add to Home Screen** in Safari, **Install app** in Chrome. It then
+opens standalone, without browser chrome, like any other app, and can send
+notifications. This needs HTTPS.
 
 ## If something is wrong
 

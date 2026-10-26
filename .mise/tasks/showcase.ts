@@ -2,8 +2,8 @@
 //MISE description="Render docs/images/feature.webp, the README hero, from the screenshots `mise run screenshots` takes"
 import { join } from "node:path";
 
+import { chromium } from "@playwright/test";
 import { Image } from "bun";
-import { chromium } from "playwright";
 
 const root = join(import.meta.dir, "..", "..");
 const images = join(root, "docs", "images");

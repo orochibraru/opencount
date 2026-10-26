@@ -1,19 +1,29 @@
 import { hasLinkedProvider } from "#lib/dto/account.js";
 import { PasskeyDTO } from "#lib/dto/passkey.js";
 import { allSettings, type SsoProvider } from "#lib/dto/setting.js";
+import { UserDTO } from "#lib/dto/user.js";
+import { isEmailConfigured } from "#lib/server/mailer.js";
 
 export interface SignInMethods {
 	password: boolean;
 	passkey: boolean;
+	magicLink: boolean;
+	emailCode: boolean;
 	sso: Pick<SsoProvider, "id" | "name">[];
 }
 
-/** The sign-in methods an admin left on, with only the enabled single sign-on providers. */
+/**
+ * The sign-in methods an admin left on, with only the enabled single sign-on providers. Email links and codes count
+ * only while email delivery works.
+ */
 export function enabledSignInMethods(): SignInMethods {
 	const settings = allSettings();
+	const email = isEmailConfigured();
 	return {
 		password: settings.passwordSignIn,
 		passkey: settings.passkeySignIn,
+		magicLink: settings.magicLinkSignIn && email,
+		emailCode: settings.emailCodeSignIn && email,
 		sso: settings.ssoProviders
 			.filter((provider) => provider.enabled)
 			.map(({ id, name }) => ({ id, name })),
@@ -39,6 +49,12 @@ export function usableMethods(
 		)
 	) {
 		usable.push("sso");
+	}
+	if (
+		(methods.magicLink || methods.emailCode) &&
+		!UserDTO.twoFactorEnabled(userId)
+	) {
+		usable.push("email");
 	}
 	return usable;
 }

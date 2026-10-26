@@ -22,6 +22,7 @@
 	position={desktop.current ? "top-right" : "bottom-center"}
 	closeButton
 	closeButtonAriaLabel="Dismiss"
+	swipeDirections={desktop.current ? ["right"] : ["left", "right"]}
 	offset={{ top: "4.75rem", right: "1.5rem" }}
 	mobileOffset={{
 		bottom: "calc(max(0.75rem, env(safe-area-inset-bottom)) + 4.75rem)",

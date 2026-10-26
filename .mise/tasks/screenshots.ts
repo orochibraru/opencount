@@ -3,9 +3,13 @@
 import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 
+import {
+	type BrowserContextOptions,
+	chromium,
+	type Page,
+} from "@playwright/test";
 import { hashPassword } from "better-auth/crypto";
 import { $, Image } from "bun";
-import { type BrowserContextOptions, chromium, type Page } from "playwright";
 
 import { ExpenseDTO, type ExpenseInput } from "#lib/dto/expense.js";
 import { GroupCategoryDTO } from "#lib/dto/group-category.js";
@@ -316,6 +320,15 @@ try {
 	await shoot(phone, "picker-mobile");
 
 	await browser.close();
+	for (const [source, target] of [
+		["group-mobile", "narrow"],
+		["group-desktop", "wide"],
+	]) {
+		await Bun.write(
+			join(root, "static", "screenshots", `${target}.webp`),
+			Bun.file(join(images, `${source}.webp`)),
+		);
+	}
 } finally {
 	server.kill();
 	await server.exited;

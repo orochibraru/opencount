@@ -13,12 +13,15 @@ SvelteKit 3 with Svelte 5 runes on Bun, compiled by `@sveltejs/adapter-bun` into
 one `build/server` binary. better-auth (email and password) over Drizzle on
 SQLite (`bun:sqlite`, WAL). Slow work runs in a second compiled Bun binary,
 `build/worker`, which the server spawns and supervises: one container, one
-SQLite file. better-auth adds TOTP two-factor and passkeys; email goes out over
-SMTP configured in the admin UI; receipt reading is optional and local:
-Tesseract in the image, run by the worker, its text parsed by
-`#lib/server/ocr.ts`. Tailwind v4 and shadcn-svelte (vega, per-account accent,
-theme, font and corners), oxlint lints, `bun fmt` formats, prek runs every check
-as a git hook, mise pins the toolchain.
+SQLite file. better-auth adds TOTP two-factor, passkeys, and sign-in by email
+link or code (never for accounts with an authenticator app, which those would
+skip); email goes out over SMTP configured in the admin UI; push notifications
+go out from the worker through `web-push`, with VAPID keys made on first use and
+kept encrypted in the settings; receipt reading is optional and local: Tesseract
+in the image, run by the worker, its text parsed by `#lib/server/ocr.ts`.
+Tailwind v4 and shadcn-svelte (vega, per-account accent, theme, font and
+corners), oxlint lints, `bun fmt` formats, prek runs every check as a git hook,
+mise pins the toolchain.
 
 ## How to work here
 
@@ -29,11 +32,11 @@ as a git hook, mise pins the toolchain.
   manual step is fine: say so and move on. The conventions still apply.
 - End every turn that edited files with a suggested one-line conventional commit
   message in a code block. Suggest, never commit.
-- `TODO.md` is the only backlog. Pick from it when there's no specific ask, mark
-  an item `**[WIP]**` before starting and delete it when done, add a line for
-  anything found out of scope. `Small`/`Medium`/`Large` are size, not priority.
-  No personal data in it, ever (it's pushed): no real domains, IPs, emails,
-  tokens or log excerpts.
+- `TODO.md` is the only backlog, one `- [ ]` checkbox per entry. Pick from it
+  when there's no specific ask, mark an item `**[WIP]**` before starting and
+  delete it when done, add a line for anything found out of scope.
+  `Small`/`Medium`/`Large` are size, not priority. No personal data in it, ever
+  (it's pushed): no real domains, IPs, emails, tokens or log excerpts.
 
 ## Conventions
 

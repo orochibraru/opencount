@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getSetting, setSetting, type SsoProvider } from "#lib/dto/setting.js";
 import { adminFrom } from "#lib/server/admin.js";
 import { publicOrigin } from "#lib/server/auth.js";
+import { isEmailConfigured } from "#lib/server/mailer.js";
 import { encryptSecret } from "#lib/server/secrets.js";
 import { providerSlug, usableMethods } from "#lib/server/sign-in-methods.js";
 import { parseForm } from "#lib/server/validation/form.js";
@@ -11,6 +12,8 @@ import { parseForm } from "#lib/server/validation/form.js";
 const methodsSchema = z.object({
 	passwordSignIn: z.stringbool().default(false),
 	passkeySignIn: z.stringbool().default(false),
+	magicLinkSignIn: z.stringbool().default(false),
+	emailCodeSignIn: z.stringbool().default(false),
 });
 
 const providerSchema = z.object({
@@ -49,6 +52,9 @@ async function checkDiscovery(url: string): Promise<string | undefined> {
 export const load = ({ url }) => ({
 	passwordSignIn: getSetting("passwordSignIn"),
 	passkeySignIn: getSetting("passkeySignIn"),
+	magicLinkSignIn: getSetting("magicLinkSignIn"),
+	emailCodeSignIn: getSetting("emailCodeSignIn"),
+	emailConfigured: isEmailConfigured(),
 	providers: getSetting("ssoProviders").map(
 		({ encryptedClientSecret: _secret, ...provider }) => provider,
 	),
@@ -68,12 +74,29 @@ export const actions = {
 		const sso = getSetting("ssoProviders")
 			.filter((provider) => provider.enabled)
 			.map(({ id, name }) => ({ id, name }));
+		const email = isEmailConfigured();
+		if (
+			(parsed.data.magicLinkSignIn || parsed.data.emailCodeSignIn) &&
+			!email
+		) {
+			return fail(400, {
+				error: "Email links and codes need email delivery: set up SMTP first.",
+			});
+		}
 		const next = {
 			password: parsed.data.passwordSignIn,
 			passkey: parsed.data.passkeySignIn,
+			magicLink: parsed.data.magicLinkSignIn,
+			emailCode: parsed.data.emailCodeSignIn,
 			sso,
 		};
-		if (!next.password && !next.passkey && sso.length === 0) {
+		if (
+			!next.password &&
+			!next.passkey &&
+			!next.magicLink &&
+			!next.emailCode &&
+			sso.length === 0
+		) {
 			return fail(400, { error: "Keep at least one way to sign in." });
 		}
 		if (usableMethods(admin.id, next).length === 0) {
@@ -84,6 +107,8 @@ export const actions = {
 		}
 		setSetting("passwordSignIn", next.password);
 		setSetting("passkeySignIn", next.passkey);
+		setSetting("magicLinkSignIn", next.magicLink);
+		setSetting("emailCodeSignIn", next.emailCode);
 		return { saved: true };
 	},
 	saveProvider: async ({ locals, request }) => {

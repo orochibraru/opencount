@@ -28,6 +28,11 @@ export interface SsoProvider {
 	enabled: boolean;
 }
 
+export interface VapidKeys {
+	publicKey: string;
+	encryptedPrivateKey: string;
+}
+
 export interface SettingValues {
 	signUpsEnabled: boolean;
 	requireTwoFactor: boolean;
@@ -36,7 +41,10 @@ export interface SettingValues {
 	ocr: OcrSettings | null;
 	passwordSignIn: boolean;
 	passkeySignIn: boolean;
+	magicLinkSignIn: boolean;
+	emailCodeSignIn: boolean;
 	ssoProviders: SsoProvider[];
+	vapid: VapidKeys | null;
 }
 
 const defaults: SettingValues = {
@@ -47,7 +55,10 @@ const defaults: SettingValues = {
 	ocr: null,
 	passwordSignIn: true,
 	passkeySignIn: true,
+	magicLinkSignIn: false,
+	emailCodeSignIn: false,
 	ssoProviders: [],
+	vapid: null,
 };
 
 /** The stored value of `key`, or its default. */
@@ -72,7 +83,10 @@ export function allSettings(): SettingValues {
 		ocr: getSetting("ocr"),
 		passwordSignIn: getSetting("passwordSignIn"),
 		passkeySignIn: getSetting("passkeySignIn"),
+		magicLinkSignIn: getSetting("magicLinkSignIn"),
+		emailCodeSignIn: getSetting("emailCodeSignIn"),
 		ssoProviders: getSetting("ssoProviders"),
+		vapid: getSetting("vapid"),
 	};
 }
 

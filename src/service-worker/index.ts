@@ -53,3 +53,42 @@ worker.addEventListener("fetch", (event) => {
 			),
 	);
 });
+
+worker.addEventListener("push", (event) => {
+	const payload = (event.data?.json() ?? {}) as {
+		title?: string;
+		body?: string;
+		url?: string;
+	};
+	event.waitUntil(
+		worker.registration.showNotification(payload.title ?? "OpenCount", {
+			body: payload.body,
+			icon: "/pwa-192x192.png",
+			badge: "/pwa-64x64.png",
+			data: { url: payload.url ?? "/" },
+		}),
+	);
+});
+
+worker.addEventListener("notificationclick", (event) => {
+	event.notification.close();
+	const target = new URL(
+		String((event.notification.data as { url?: string } | null)?.url ?? "/"),
+		worker.location.origin,
+	);
+	event.waitUntil(
+		worker.clients
+			.matchAll({ type: "window", includeUncontrolled: true })
+			.then(async (windows) => {
+				const open = windows.find(
+					(client) => new URL(client.url).origin === target.origin,
+				);
+				if (open) {
+					await open.focus();
+					await open.navigate(target.href);
+					return;
+				}
+				await worker.clients.openWindow(target.href);
+			}),
+	);
+});

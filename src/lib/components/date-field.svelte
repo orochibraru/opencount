@@ -102,7 +102,7 @@
 				{@render trigger(props)}
 			{/snippet}
 		</Popover.Trigger>
-		<Popover.Content align="start" class="glass w-auto rounded-xl p-0">
+		<Popover.Content align="start" class="w-auto rounded-xl p-0">
 			{@render picker(false)}
 		</Popover.Content>
 	</Popover.Root>

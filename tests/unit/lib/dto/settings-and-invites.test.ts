@@ -23,7 +23,10 @@ describe("settings", () => {
 			ocr: null,
 			passwordSignIn: true,
 			passkeySignIn: true,
+			magicLinkSignIn: false,
+			emailCodeSignIn: false,
 			ssoProviders: [],
+			vapid: null,
 		});
 		setSetting("signUpsEnabled", true);
 		setSetting("signUpsEnabled", false);

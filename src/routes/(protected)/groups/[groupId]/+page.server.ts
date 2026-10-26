@@ -1,11 +1,14 @@
+import { resolve } from "$app/paths";
 import { fail } from "@sveltejs/kit";
 import { z } from "zod";
 
 import { categoryOptions } from "#lib/categories.js";
 import { ExpenseDTO } from "#lib/dto/expense.js";
 import { GroupCategoryDTO } from "#lib/dto/group-category.js";
+import { JobDTO } from "#lib/dto/job.js";
 import { MerchantDTO } from "#lib/dto/merchant.js";
 import { RecurringExpenseDTO } from "#lib/dto/recurring-expense.js";
+import { formatMoney } from "#lib/money.js";
 import { groupForMember } from "#lib/server/group-access.js";
 import { isOcrConfigured } from "#lib/server/ocr.js";
 import { readUploadedReceipt } from "#lib/server/receipt-upload.js";
@@ -58,6 +61,17 @@ export const actions = {
 			locals.user.id,
 		);
 		rule?.materialize(today());
+		const recipients = members
+			.map((member) => member.userId)
+			.filter((userId) => userId !== null && userId !== locals.user?.id);
+		if (recipients.length > 0) {
+			JobDTO.enqueue("push.send", {
+				userIds: recipients as string[],
+				title: group.toJSON().name,
+				body: `${locals.user.name} added ${input.description}, ${formatMoney(input.amountMinor, group.currency)}`,
+				url: resolve("/(protected)/groups/[groupId]", { groupId: group.id }),
+			});
+		}
 		return { created: true };
 	},
 	update: async ({ locals, params, request }) => {

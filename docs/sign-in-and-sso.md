@@ -12,17 +12,29 @@ sign-in are on by default; there is no provider until you add one.
 - **Passkeys**: Face ID, Touch ID, Windows Hello or a security key, registered
   from **Account, Security**. Browsers only offer them over HTTPS (or on
   `localhost`).
+- **Link by email**: a one-time link that signs the browser that opens it in. It
+  works once, for 10 minutes.
+- **Code by email**: a 6-digit code to type in, handy when the email arrives on
+  another device. It expires after 10 minutes or 5 wrong tries.
 
-An admin can turn either off. Turned off means refused on the server, not only
-hidden: the sign-in endpoints answer 403 whatever calls them.
+Passwords and passkeys are on by default; the two email methods are off until an
+admin turns them on, and need [email delivery](email). Both only sign in
+existing accounts: they never create one, so the instance stays invite-only. An
+account with an authenticator app can't use them, since they would skip its
+code: the sign-in sheet tells it to use the password instead. The codes are only
+ever for signing in: OpenCount refuses to send one to reset a password or change
+an email.
+
+An admin can turn any method off. Turned off means refused on the server, not
+only hidden: the sign-in endpoints answer 403 whatever calls them.
 
 Two rules keep the instance reachable:
 
-- At least one way to sign in stays on: passwords, passkeys, or an enabled
-  provider.
+- At least one way to sign in stays on: passwords, passkeys, email links or
+  codes, or an enabled provider.
 - The admin turning a method off must still have a way in afterwards: a passkey,
-  or an account already linked to an enabled provider. Otherwise the change is
-  refused with what to do first.
+  an email method (without an authenticator app), or an account already linked
+  to an enabled provider. Otherwise the change is refused with what to do first.
 
 With passwords off, anyone who has neither a passkey nor a linked provider is
 sent to **Account, Security** on their next page load to add a passkey while

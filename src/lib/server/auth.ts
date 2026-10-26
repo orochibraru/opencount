@@ -4,15 +4,27 @@ import { passkey } from "@better-auth/passkey";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
-import { genericOAuth, twoFactor } from "better-auth/plugins";
+import {
+	emailOTP,
+	genericOAuth,
+	magicLink,
+	twoFactor,
+} from "better-auth/plugins";
 import { sveltekitCookies } from "better-auth/svelte-kit";
 
 import { getSetting, type SsoProvider } from "#lib/dto/setting.js";
+import { UserDTO } from "#lib/dto/user.js";
 import { passwordMaxLength, passwordMinLength } from "#lib/password-policy.js";
 import { getConfig } from "#lib/server/config.js";
 import { getDb } from "#lib/server/db/lib.js";
 import * as schema from "#lib/server/db/schema.js";
+import {
+	magicLinkEmail,
+	queueEmail,
+	signInCodeEmail,
+} from "#lib/server/emails.js";
 import { Logger } from "#lib/server/logger.js";
+import { isEmailConfigured } from "#lib/server/mailer.js";
 import { decryptSecret } from "#lib/server/secrets.js";
 
 const logger = new Logger("Auth");
@@ -40,10 +52,49 @@ const passkeySignInPaths = new Set([
 ]);
 
 /** Why a request uses a sign-in method an admin turned off, if it does. */
+const magicLinkPaths = new Set(["/sign-in/magic-link", "/magic-link/verify"]);
+const emailCodePaths = new Set([
+	"/email-otp/send-verification-otp",
+	"/sign-in/email-otp",
+]);
+
+function emailRefusal(
+	setting: "magicLinkSignIn" | "emailCodeSignIn",
+	body: { email?: unknown; type?: unknown } | undefined,
+): APIError | undefined {
+	if (!getSetting(setting) || !isEmailConfigured()) {
+		return new APIError("FORBIDDEN", {
+			message: "That sign-in method is turned off on this server.",
+		});
+	}
+	if (body?.type !== undefined && body.type !== "sign-in") {
+		return new APIError("FORBIDDEN", {
+			message: "Codes by email are only for signing in.",
+		});
+	}
+	const userId =
+		typeof body?.email === "string"
+			? UserDTO.idForEmail(body.email.trim().toLowerCase())
+			: undefined;
+	if (userId && UserDTO.twoFactorEnabled(userId)) {
+		return new APIError("FORBIDDEN", {
+			message:
+				"This account uses an authenticator app: sign in with your password, then your code.",
+		});
+	}
+	return undefined;
+}
+
 function refusal(context: {
 	path: string;
-	body?: { provider?: unknown };
+	body?: { provider?: unknown; email?: unknown; type?: unknown };
 }): APIError | undefined {
+	if (magicLinkPaths.has(context.path)) {
+		return emailRefusal("magicLinkSignIn", context.body);
+	}
+	if (emailCodePaths.has(context.path)) {
+		return emailRefusal("emailCodeSignIn", context.body);
+	}
 	if (context.path === "/sign-in/email" && !getSetting("passwordSignIn")) {
 		return new APIError("FORBIDDEN", {
 			message: "Password sign-in is turned off on this server.",
@@ -105,13 +156,41 @@ function createAuth(providers: SsoProvider[], signUpsEnabled: boolean) {
 			minPasswordLength: passwordMinLength,
 			maxPasswordLength: passwordMaxLength,
 		},
-		disabledPaths: ["/sign-up/email"],
+		disabledPaths: [
+			"/sign-up/email",
+			"/email-otp/verify-email",
+			"/email-otp/request-password-reset",
+			"/email-otp/reset-password",
+			"/email-otp/request-email-change",
+			"/email-otp/change-email",
+			"/forget-password/email-otp",
+		],
 		hooks: { before: enforceSignInMethods },
 		telemetry: { enabled: false },
 		logger: { log: forwardAuthLog },
 		plugins: [
 			twoFactor({ issuer: "OpenCount" }),
 			passkey({ rpName: "OpenCount" }),
+			magicLink({
+				disableSignUp: true,
+				expiresIn: 600,
+				sendMagicLink: ({ email, url }) => {
+					queueEmail(magicLinkEmail(email, url));
+					return Promise.resolve();
+				},
+			}),
+			emailOTP({
+				disableSignUp: true,
+				otpLength: 6,
+				expiresIn: 600,
+				allowedAttempts: 5,
+				sendVerificationOTP: ({ email, otp, type }) => {
+					if (type === "sign-in") {
+						queueEmail(signInCodeEmail(email, otp));
+					}
+					return Promise.resolve();
+				},
+			}),
 			genericOAuth({
 				config: providers.map((provider) => ({
 					providerId: provider.id,

@@ -239,7 +239,7 @@
 		</Popover.Trigger>
 		<Popover.Content
 			align="start"
-			class="glass w-(--bits-popover-anchor-width) min-w-64 rounded-xl p-0"
+			class="w-(--bits-popover-anchor-width) min-w-64 rounded-xl p-0"
 		>
 			<Command.Root class="bg-transparent">
 				{@render list("", false)}

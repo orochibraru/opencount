@@ -1,18 +1,56 @@
 {
 	"name": "OpenCount",
 	"short_name": "OpenCount",
-	"description": "Split expenses with friends and settle up.",
+	"description": "Split costs with friends, see who owes whom and settle up, on a server you run.",
 	"id": "/",
 	"start_url": "/",
 	"scope": "/",
 	"display": "standalone",
 	"orientation": "portrait",
-	"background_color": "#0b0f0e",
-	"theme_color": "#0b0f0e",
+	"background_color": "#120a0d",
+	"theme_color": "#120a0d",
 	"icons": [
-		{ "src": "/pwa-64x64.png", "sizes": "64x64", "type": "image/png" },
-		{ "src": "/pwa-192x192.png", "sizes": "192x192", "type": "image/png" },
-		{ "src": "/pwa-512x512.png", "sizes": "512x512", "type": "image/png" },
-		{ "src": "/maskable-icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+		{
+			"src": "/pwa-64x64.png",
+			"sizes": "64x64",
+			"type": "image/png"
+		},
+		{
+			"src": "/pwa-192x192.png",
+			"sizes": "192x192",
+			"type": "image/png"
+		},
+		{
+			"src": "/pwa-512x512.png",
+			"sizes": "512x512",
+			"type": "image/png"
+		},
+		{
+			"src": "/maskable-icon-512x512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "maskable"
+		}
+	],
+	"lang": "en",
+	"categories": [
+		"finance",
+		"utilities"
+	],
+	"screenshots": [
+		{
+			"src": "/screenshots/narrow.webp",
+			"sizes": "1170x2532",
+			"type": "image/webp",
+			"form_factor": "narrow",
+			"label": "A group's expenses and balance"
+		},
+		{
+			"src": "/screenshots/wide.webp",
+			"sizes": "2880x1800",
+			"type": "image/webp",
+			"form_factor": "wide",
+			"label": "A group on desktop"
+		}
 	]
 }

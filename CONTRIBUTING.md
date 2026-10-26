@@ -49,6 +49,8 @@ bun run lint         # every prek hook over every file
 bun run format       # bun fmt, Markdown included
 bun run circular     # fails on an import cycle
 bun run test         # unit tests
+bun run test:integration  # HTTP flows against the built server
+bun run test:e2e     # Playwright against the built server
 bun run db:generate  # a migration from the schema
 mise run verify      # every hook at the commit and push stages, as CI runs them
 ```

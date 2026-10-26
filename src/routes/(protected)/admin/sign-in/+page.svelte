@@ -62,6 +62,24 @@
 				description="Face ID, Touch ID, Windows Hello or a security key."
 				checked={data.passkeySignIn}
 			/>
+			<SettingSwitch
+				name="magicLinkSignIn"
+				label="Link by email"
+				description={data.emailConfigured
+					? "A one-time link that signs people in. Not for accounts with an authenticator app."
+					: "Needs email delivery: set up SMTP in the email tab first."}
+				checked={data.magicLinkSignIn}
+				disabled={!data.emailConfigured}
+			/>
+			<SettingSwitch
+				name="emailCodeSignIn"
+				label="Code by email"
+				description={data.emailConfigured
+					? "A 6-digit code to type in, handy when email opens on another device."
+					: "Needs email delivery: set up SMTP in the email tab first."}
+				checked={data.emailCodeSignIn}
+				disabled={!data.emailConfigured}
+			/>
 		</div>
 		<Button type="submit" class="h-11 self-start rounded-xl px-5">
 			<CheckIcon />

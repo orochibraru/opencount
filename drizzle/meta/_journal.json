@@ -57,6 +57,13 @@
       "when": 1793018790630,
       "tag": "0007_cool_hawkeye",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793020767461,
+      "tag": "0008_flippant_sphinx",
+      "breakpoints": true
     }
   ]
 }

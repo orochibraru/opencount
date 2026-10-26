@@ -1,32 +1,29 @@
 # TODO
 
-The only backlog. Delete an entry once it's done.
+The only backlog. Each entry is a `- [ ]` checkbox: put `**[WIP]**` after the
+box while it's being worked on, and delete the entry once it's done.
 
 ## Small
 
-- Group detail route under `(protected)/groups/[id]` with its member guard, and
-  the groups list linking to it.
-- Pull-to-refresh on the groups list in the installed PWA.
-- An offline page the service worker serves when a navigation fails.
-- Haptic feedback (`navigator.vibrate`) on primary actions where supported.
+- [ ] Pull-to-refresh on the groups list in the installed PWA.
+- [ ] An offline page the service worker serves when a navigation fails.
+- [ ] Haptic feedback (`navigator.vibrate`) on primary actions where supported.
+- [ ] Admin: reset someone's two-factor and passkeys when they're locked out.
 
 ## Medium
 
-- Group members: add by name, invite an account by link, rename, remove.
-- Expenses: amount in minor units, payer, split equally, by shares or exact
-  amounts, date, note; a list per group.
-- "Scan a receipt" when adding an expense: upload to `receipt_scan`, queue
-  `receipt.read`, prefill amount, date and merchant from the reading.
-- Password reset by email, through better-auth's reset flow and the mailer.
-- Balances and the minimal set of settle-up transfers per group.
-- Record a settlement as a reimbursement expense.
-- Account settings: change email and password; delete the account.
-- Admin: change a user's email, export and restore the SQLite file.
+- [ ] Password reset by email, through better-auth's reset flow and the mailer.
+- [ ] Account settings: change email and password; delete the account.
+- [ ] Admin: change a user's email, export and restore the SQLite file.
+- [ ] Invite an account to a group by link, so "That's me" works without an
+      admin adding them by email first.
 
 ## Large
 
-- Keep the receipt photo on the expense, with a thumbnail made by the worker.
-- CSV and PDF export of a group, built by the worker.
-- Multi-currency groups with conversion rates frozen per expense.
-- Offline expense capture queued in IndexedDB and synced on reconnect.
-- Recurring expenses scheduled by the worker.
+- [ ] Import from Tricount: upload a Tricount export (or paste its share link),
+      map its participants to the group's members, and create the expenses with
+      their splits, categories and dates in a worker job, with a preview before
+      anything is written.
+- [ ] CSV and PDF export of a group, built by the worker.
+- [ ] Multi-currency groups with conversion rates frozen per expense.
+- [ ] Offline expense capture queued in IndexedDB and synced on reconnect.

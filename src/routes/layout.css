@@ -27,7 +27,7 @@
 	--foreground: oklch(0.2 0.02 var(--hue));
 	--card: oklch(1 0 0 / 68%);
 	--card-foreground: var(--foreground);
-	--popover: oklch(0.995 0.003 var(--hue) / 94%);
+	--popover: oklch(0.995 0.003 var(--hue));
 	--popover-foreground: var(--foreground);
 	--primary: oklch(0.6 var(--primary-chroma) var(--hue));
 	--primary-foreground: oklch(0.99 0.01 var(--hue));
@@ -73,7 +73,7 @@
 	--background: oklch(0.145 0.018 var(--hue));
 	--foreground: oklch(0.96 0.008 var(--hue));
 	--card: oklch(0.26 0.025 var(--hue) / 46%);
-	--popover: oklch(0.22 0.022 var(--hue) / 94%);
+	--popover: oklch(0.22 0.022 var(--hue));
 	--primary: oklch(0.74 var(--primary-chroma) var(--hue));
 	--primary-foreground: oklch(0.17 0.03 var(--hue));
 	--secondary: oklch(1 0 0 / 7%);
@@ -102,7 +102,7 @@
 .dark[data-dark-variant="amoled"] {
 	--background: oklch(0 0 0);
 	--card: oklch(0.2 0.015 var(--hue) / 55%);
-	--popover: oklch(0.15 0.01 var(--hue) / 96%);
+	--popover: oklch(0.15 0.01 var(--hue));
 	--chrome: oklch(0.12 0.01 var(--hue) / 70%);
 	--aurora-1: oklch(0.35 calc(var(--primary-chroma) * 1.1) var(--hue) / 22%);
 	--aurora-2: oklch(

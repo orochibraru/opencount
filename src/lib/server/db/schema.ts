@@ -406,3 +406,24 @@ export const groupCategory = sqliteTable(
 	},
 	(table) => [index("group_category_group_id_idx").on(table.groupId)],
 );
+
+export const pushSubscription = sqliteTable(
+	"push_subscription",
+	{
+		id: text("id")
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		endpoint: text("endpoint").notNull(),
+		p256dh: text("p256dh").notNull(),
+		auth: text("auth").notNull(),
+		device: text("device").notNull(),
+		createdAt: createdAt(),
+	},
+	(table) => [
+		uniqueIndex("push_subscription_endpoint_idx").on(table.endpoint),
+		index("push_subscription_user_id_idx").on(table.userId),
+	],
+);

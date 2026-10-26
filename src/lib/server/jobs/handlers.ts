@@ -3,6 +3,7 @@ import { RecurringExpenseDTO } from "#lib/dto/recurring-expense.js";
 import type { JobPayloads, JobType } from "#lib/server/jobs/types.js";
 import { Logger } from "#lib/server/logger.js";
 import { deliverEmail } from "#lib/server/mailer.js";
+import { deliverPush } from "#lib/server/push.js";
 
 const logger = new Logger("Jobs");
 
@@ -13,6 +14,10 @@ export type JobHandlers = {
 };
 
 export const jobHandlers: JobHandlers = {
+	"push.send": async ({ userIds, ...notification }) => {
+		const delivered = await deliverPush(userIds, notification);
+		logger.debug("Push sent", { delivered });
+	},
 	"email.send": async (message) => {
 		await deliverEmail(message);
 		logger.info("Email sent", { subject: message.subject });

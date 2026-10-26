@@ -6,11 +6,16 @@
 	import FingerprintIcon from "@lucide/svelte/icons/fingerprint";
 	import KeySquareIcon from "@lucide/svelte/icons/key-square";
 	import LogInIcon from "@lucide/svelte/icons/log-in";
+	import MailIcon from "@lucide/svelte/icons/mail";
+	import MailCheckIcon from "@lucide/svelte/icons/mail-check";
+	import SendIcon from "@lucide/svelte/icons/send";
+	import { onMount } from "svelte";
 	import { toast } from "svelte-sonner";
 
 	import { authClient } from "#lib/auth-client.js";
 	import AuthShell from "#lib/components/auth-shell.svelte";
 	import AuthForm from "#lib/components/auth/auth-form.svelte";
+	import ResponsiveSheet from "#lib/components/responsive-sheet.svelte";
 	import { Button } from "#lib/components/ui/button/index.js";
 	import * as Field from "#lib/components/ui/field/index.js";
 	import { Input } from "#lib/components/ui/input/index.js";
@@ -48,9 +53,29 @@
 		});
 	}
 
+	let emailOpen = $state(false);
+	let emailStep = $state<"address" | "link" | "code">("address");
+	let emailAddress = $state("");
+	let emailErrors = $state<Record<string, string[]>>({});
+
+	const byEmail = $derived(data.methods.magicLink || data.methods.emailCode);
 	const alternatives = $derived(
-		data.methods.passkey || data.methods.sso.length > 0,
+		data.methods.passkey || data.methods.sso.length > 0 || byEmail,
 	);
+
+	function openEmail() {
+		emailStep = "address";
+		emailErrors = {};
+		emailOpen = true;
+	}
+
+	onMount(() => {
+		if (page.url.searchParams.get("link") === "expired") {
+			toast.error(
+				"That sign-in link expired or was already used. Ask for a new one.",
+			);
+		}
+	});
 </script>
 
 <AuthShell heading="Welcome back" subheading="Sign in to see who owes what.">
@@ -115,6 +140,19 @@
 				Sign in with a passkey
 			</Button>
 		{/if}
+		{#if byEmail}
+			<Button
+				variant={data.methods.password || data.methods.passkey
+					? "outline"
+					: "default"}
+				size="lg"
+				class="h-12 w-full rounded-xl text-base"
+				onclick={openEmail}
+			>
+				<MailIcon />
+				Sign in by email
+			</Button>
+		{/if}
 		{#each data.methods.sso as provider (provider.id)}
 			<form
 				method="POST"
@@ -137,6 +175,118 @@
 			</form>
 		{/each}
 	</div>
+
+	<ResponsiveSheet
+		bind:open={emailOpen}
+		title="Sign in by email"
+		description={emailStep === "address"
+			? "No password needed: we email you a way in."
+			: undefined}
+	>
+		{#if emailStep === "address"}
+			<form
+				method="POST"
+				class="flex flex-col gap-4 pb-4"
+				use:enhance={enhanceToast({
+					loading: "Sending",
+					success: "Sent. Check your inbox.",
+					onFailure: (result) =>
+						(emailErrors = (result?.errors as Record<string, string[]>) ?? {}),
+					onSuccess: (result) => {
+						emailErrors = {};
+						emailStep = result?.codeSent ? "code" : "link";
+					},
+				})}
+			>
+				<Field.Field>
+					<Field.Label for="email-sign-in">Email</Field.Label>
+					<Input
+						id="email-sign-in"
+						name="email"
+						type="email"
+						autocomplete="email"
+						inputmode="email"
+						required
+						bind:value={emailAddress}
+						class="h-11"
+					/>
+					<Field.Error
+						errors={emailErrors.email?.map((message) => ({ message }))}
+					/>
+				</Field.Field>
+				{#if data.methods.magicLink}
+					<Button
+						type="submit"
+						formaction="?/emailLink"
+						size="lg"
+						class="glow h-12 rounded-xl text-base"
+					>
+						<SendIcon />
+						Email me a link
+					</Button>
+				{/if}
+				{#if data.methods.emailCode}
+					<Button
+						type="submit"
+						formaction="?/emailCode"
+						variant={data.methods.magicLink ? "outline" : "default"}
+						size="lg"
+						class="h-12 rounded-xl text-base"
+					>
+						<MailIcon />
+						Email me a code
+					</Button>
+				{/if}
+			</form>
+		{:else if emailStep === "link"}
+			<div class="flex flex-col items-center gap-3 pb-6 text-center">
+				<span
+					class="bg-accent text-accent-foreground flex size-14 items-center justify-center rounded-2xl"
+				>
+					<MailCheckIcon class="size-7" />
+				</span>
+				<p class="font-medium">Check your inbox</p>
+				<p class="text-muted-foreground text-sm">
+					If {emailAddress} has an account, a sign-in link is on its way. It works
+					once, for 10 minutes.
+				</p>
+				<Button variant="ghost" onclick={() => (emailStep = "address")}
+					>Use another email</Button
+				>
+			</div>
+		{:else}
+			<AuthForm
+				action="?/verifyCode"
+				submitLabel="Sign in"
+				submitIcon={LogInIcon}
+				loading="Checking the code"
+				success="Signed in."
+				bind:errors={emailErrors}
+			>
+				<input type="hidden" name="email" value={emailAddress} />
+				<p class="text-muted-foreground text-sm">
+					If {emailAddress} has an account, a 6-digit code is on its way. It expires
+					in 10 minutes.
+				</p>
+				<Field.Field>
+					<Field.Label for="email-code">Code</Field.Label>
+					<Input
+						id="email-code"
+						name="code"
+						inputmode="numeric"
+						autocomplete="one-time-code"
+						maxlength={7}
+						placeholder="123 456"
+						required
+						class="h-12 text-center text-xl tracking-[0.3em] tabular"
+					/>
+					<Field.Error
+						errors={emailErrors.code?.map((message) => ({ message }))}
+					/>
+				</Field.Field>
+			</AuthForm>
+		{/if}
+	</ResponsiveSheet>
 
 	{#snippet footer()}
 		{#if data.signUpsOpen}

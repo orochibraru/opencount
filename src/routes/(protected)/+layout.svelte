@@ -4,6 +4,7 @@
 	import BottomTabBar from "#lib/components/app-shell/bottom-tab-bar.svelte";
 	import PageHeader from "#lib/components/app-shell/page-header.svelte";
 	import Sidebar from "#lib/components/app-shell/sidebar.svelte";
+	import InstallPrompt from "#lib/components/install-prompt.svelte";
 
 	const { children, data } = $props();
 </script>
@@ -22,3 +23,4 @@
 <AppBar />
 <Sidebar isAdmin={data.isAdmin} user={data.user} groups={data.groups} />
 <BottomTabBar isAdmin={data.isAdmin} />
+<InstallPrompt />

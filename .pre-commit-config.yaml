@@ -57,10 +57,10 @@ repos:
       - id: zizmor
         name: Audit GitHub Actions security (zizmor)
 
-  - repo: https://github.com/hadolint/hadolint
+  - repo: https://github.com/AleksaC/hadolint-py
     rev: v2.15.1
     hooks:
-      - id: hadolint-docker
+      - id: hadolint
         name: Lint Dockerfile
 
   - repo: local

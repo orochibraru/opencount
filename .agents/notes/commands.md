@@ -23,6 +23,14 @@
 - `bun run circular`: madge over `src/`, fails when an import cycle exists or a
   `#lib` import couldn't be resolved.
 - `bun run test`: unit tests under `tests/unit/`.
+- `bun run test:integration`: builds, then `tests/integration` with
+  `tests/integration/bunfig.toml` (no reruns, no coverage: the flows are
+  stateful) against `build/server` on a fresh database, booted by
+  `tests/support/app.ts`, which reads the setup code from the server's log.
+- `bun run test:e2e`: builds, then Playwright (`playwright.config.ts`): a
+  `setup` project creates the admin and saves the session to `tmp/e2e/`, then
+  `desktop` and `phone` projects run on it. CI runs both suites in the
+  `app-tests` job.
 - `bun run db:generate`: writes a migration to `drizzle/` from `schema.ts`.
   Migrations apply at boot, never by hand.
 

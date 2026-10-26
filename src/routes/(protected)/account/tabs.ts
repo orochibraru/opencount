@@ -1,4 +1,5 @@
 import { resolve } from "$app/paths";
+import BellIcon from "@lucide/svelte/icons/bell";
 import FingerprintIcon from "@lucide/svelte/icons/fingerprint";
 import PaletteIcon from "@lucide/svelte/icons/palette";
 import UserRoundIcon from "@lucide/svelte/icons/user-round";
@@ -25,6 +26,12 @@ export function accountTabs(): SectionTab[] {
 			label: "Security",
 			description: "Authenticator app, backup codes and passkeys.",
 			icon: FingerprintIcon,
+		},
+		{
+			href: resolve("/(protected)/account/notifications"),
+			label: "Notifications",
+			description: "Get told on this device when someone adds an expense.",
+			icon: BellIcon,
 		},
 	];
 }

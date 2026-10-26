@@ -70,3 +70,10 @@ export const backupCodeSchema = z.object({
 export const passwordConfirmSchema = z.object({
 	password: z.string().min(1, "Enter your password.").max(passwordMaxLength),
 });
+
+export const emailSignInSchema = z.object({ email: emailSchema });
+
+export const emailCodeSignInSchema = z.object({
+	email: emailSchema,
+	code: codeSchema.shape.code,
+});

@@ -41,13 +41,25 @@ Every colour in the app derives from the accent, so the whole interface shifts
 with it. AMOLED black turns dark backgrounds pure black, which saves battery on
 OLED phones.
 
+## Notifications
+
+**Account, Notifications** turns notifications on for the device you're on: the
+browser asks for permission, then OpenCount tells you when someone else adds an
+expense in one of your groups. Tapping one opens that group. Each phone or
+computer is turned on separately and listed under **Your devices**, where you
+can remove any of them; **Send a test** checks the one you're on. On iPhone and
+iPad, Apple only allows notifications in the installed app, so add it to the
+home screen first.
+
 ## On a phone
 
-Add OpenCount to the home screen (**Share, Add to Home Screen** in Safari,
-**Install app** in Chrome) and it opens standalone, like a native app. The
-bottom tab bar holds Groups and Account, plus Admin for admins. On a desktop, a
-sidebar lists Groups, Admin and your groups, with your account in the menu under
-your name at the bottom.
+After you sign in, OpenCount offers to install itself, once per device: Chrome,
+Edge and Android show their install dialog, and Safari on iPhone and iPad
+explains **Share, Add to Home Screen**. You can also do it yourself any time.
+Installed, it opens standalone, like a native app. The bottom tab bar holds
+Groups and Account, plus Admin for admins. On a desktop, a sidebar lists Groups,
+Admin and your groups, with your account in the menu under your name at the
+bottom.
 
 ## Not there yet
 

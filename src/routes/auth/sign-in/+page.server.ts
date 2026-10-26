@@ -7,7 +7,11 @@ import { getSetting } from "#lib/dto/setting.js";
 import { getAuth } from "#lib/server/auth.js";
 import { safeRedirectTarget } from "#lib/server/guards.js";
 import { enabledSignInMethods } from "#lib/server/sign-in-methods.js";
-import { signInSchema } from "#lib/server/validation/auth.js";
+import {
+	emailCodeSignInSchema,
+	emailSignInSchema,
+	signInSchema,
+} from "#lib/server/validation/auth.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
 const ssoSchema = z.object({ provider: z.string().min(1) });
@@ -44,6 +48,91 @@ export const actions = {
 		}
 		if ("twoFactorRedirect" in result && result.twoFactorRedirect) {
 			redirect(303, `${resolve("/auth/two-factor")}${url.search}`);
+		}
+		redirect(303, safeRedirectTarget(url));
+	},
+	emailLink: async ({ request, url }) => {
+		if (!enabledSignInMethods().magicLink) {
+			return fail(400, { error: "That sign-in method is turned off." });
+		}
+		const parsed = parseForm(emailSignInSchema, await request.formData());
+		if (!parsed.success) {
+			return fail(400, { errors: parsed.errors });
+		}
+		try {
+			await getAuth().api.signInMagicLink({
+				body: {
+					email: parsed.data.email,
+					callbackURL: safeRedirectTarget(url),
+					errorCallbackURL: `${resolve("/auth/sign-in")}?link=expired`,
+				},
+				headers: request.headers,
+			});
+		} catch (error) {
+			if (error instanceof APIError) {
+				return fail(400, {
+					error:
+						error.status === "FORBIDDEN"
+							? error.message
+							: "The link couldn't be sent. Try again in a minute.",
+				});
+			}
+			throw error;
+		}
+		return { linkSent: parsed.data.email };
+	},
+	emailCode: async ({ request }) => {
+		if (!enabledSignInMethods().emailCode) {
+			return fail(400, { error: "That sign-in method is turned off." });
+		}
+		const parsed = parseForm(emailSignInSchema, await request.formData());
+		if (!parsed.success) {
+			return fail(400, { errors: parsed.errors });
+		}
+		try {
+			await getAuth().api.sendVerificationOTP({
+				body: { email: parsed.data.email, type: "sign-in" },
+				headers: request.headers,
+			});
+		} catch (error) {
+			if (error instanceof APIError) {
+				return fail(400, {
+					error:
+						error.status === "FORBIDDEN"
+							? error.message
+							: "The code couldn't be sent. Try again in a minute.",
+				});
+			}
+			throw error;
+		}
+		return { codeSent: parsed.data.email };
+	},
+	verifyCode: async ({ request, url }) => {
+		if (!enabledSignInMethods().emailCode) {
+			return fail(400, { error: "That sign-in method is turned off." });
+		}
+		const parsed = parseForm(emailCodeSignInSchema, await request.formData());
+		if (!parsed.success) {
+			return fail(400, { errors: parsed.errors });
+		}
+		try {
+			await getAuth().api.signInEmailOTP({
+				body: { email: parsed.data.email, otp: parsed.data.code },
+				headers: request.headers,
+			});
+		} catch (error) {
+			if (error instanceof APIError) {
+				return fail(400, {
+					errors: {
+						code: [
+							error.status === "FORBIDDEN"
+								? error.message
+								: "That code isn't right, or it expired.",
+						],
+					},
+				});
+			}
+			throw error;
 		}
 		redirect(303, safeRedirectTarget(url));
 	},

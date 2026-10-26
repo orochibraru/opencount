@@ -71,6 +71,17 @@ export class UserDTO extends BaseDTO<UserRow> {
 			.get()?.id;
 	}
 
+	/** Whether account `userId` turned on an authenticator app. */
+	static twoFactorEnabled(userId: string): boolean {
+		return (
+			getDb()
+				.select({ enabled: user.twoFactorEnabled })
+				.from(user)
+				.where(eq(user.id, userId))
+				.get()?.enabled === true
+		);
+	}
+
 	/** Whether an account uses `email`. */
 	static emailExists(email: string): boolean {
 		return (
