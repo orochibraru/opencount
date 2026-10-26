@@ -20,7 +20,7 @@
 	{@render children()}
 </TabSection>
 
-{#if page.url.pathname !== resolve("/(protected)/admin/invites")}
+{#if page.route.id !== "/(protected)/admin/invites"}
 	<Fab
 		label="Invite someone"
 		icon={UserPlusIcon}

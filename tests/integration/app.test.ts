@@ -197,6 +197,22 @@ describe("setting up and using it", () => {
 		);
 	});
 
+	test("a required authenticator app sends people to Security without looping", async () => {
+		const writer = new Database(app.databasePath);
+		writer.run(
+			"insert into setting (key, value) values ('requireTwoFactor', 'true')",
+		);
+		writer.close();
+		const home = await client().get("/");
+		expect(home.status).toBe(303);
+		expect(home.headers.get("location")).toContain(
+			"/account/security?required=two-factor",
+		);
+		expect((await client().get("/account/security")).status).toBe(200);
+		const data = await client().get("/account/security/__data.json");
+		expect(await data.text()).not.toContain('"type":"redirect"');
+	});
+
 	test("signing out ends the session", async () => {
 		const result = await client().action("/account", "signOut", {});
 		expect(["redirect", "success"]).toContain(result.type);

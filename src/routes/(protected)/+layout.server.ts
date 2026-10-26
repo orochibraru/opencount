@@ -6,14 +6,16 @@ import { isAdmin } from "#lib/server/admin.js";
 import { redirectToSignIn } from "#lib/server/guards.js";
 import { missingFactors } from "#lib/server/security-policy.js";
 
-export const load = ({ locals, url }) => {
+export const load = ({ locals, route, url }) => {
 	if (!locals.user) {
 		redirectToSignIn(url);
 	}
 	const missing = missingFactors(locals.user);
-	const securityPath = resolve("/(protected)/account/security");
-	if (missing.length > 0 && url.pathname !== securityPath) {
-		redirect(303, `${securityPath}?required=${missing.join(",")}`);
+	if (missing.length > 0 && route.id !== "/(protected)/account/security") {
+		redirect(
+			303,
+			`${resolve("/(protected)/account/security")}?required=${missing.join(",")}`,
+		);
 	}
 	return {
 		user: {
