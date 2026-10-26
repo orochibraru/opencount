@@ -1,15 +1,28 @@
 <script lang="ts">
+	import { enhance } from "$app/forms";
+	import CheckIcon from "@lucide/svelte/icons/check";
 	import FingerprintIcon from "@lucide/svelte/icons/fingerprint";
 	import LogOutIcon from "@lucide/svelte/icons/log-out";
+	import MailIcon from "@lucide/svelte/icons/mail";
+	import RotateCcwKeyIcon from "@lucide/svelte/icons/rotate-ccw-key";
 	import ShieldCheckIcon from "@lucide/svelte/icons/shield-check";
 	import ShieldMinusIcon from "@lucide/svelte/icons/shield-minus";
 	import ShieldPlusIcon from "@lucide/svelte/icons/shield-plus";
 	import Trash2Icon from "@lucide/svelte/icons/trash-2";
 
 	import ItemMenu, { type MenuAction } from "#lib/components/item-menu.svelte";
+	import ResponsiveSheet from "#lib/components/responsive-sheet.svelte";
 	import { Badge } from "#lib/components/ui/badge/index.js";
+	import { Button } from "#lib/components/ui/button/index.js";
+	import * as Field from "#lib/components/ui/field/index.js";
+	import { Input } from "#lib/components/ui/input/index.js";
+	import { enhanceToast } from "#lib/toast.js";
 
 	const { data } = $props();
+
+	let editing = $state<{ id: string; name: string; email: string }>();
+	let emailOpen = $state(false);
+	let emailErrors = $state<Record<string, string[]>>({});
 
 	function actionsFor(user: (typeof data.users)[number]): MenuAction[] {
 		const self = user.id === data.user.id;
@@ -50,6 +63,33 @@
 							},
 						},
 			);
+		}
+		actions.push({
+			label: "Change email",
+			icon: MailIcon,
+			onSelect: () => {
+				editing = user;
+				emailErrors = {};
+				emailOpen = true;
+			},
+		});
+		if (!self && (user.twoFactorEnabled || user.passkeyCount > 0)) {
+			actions.push({
+				label: "Reset two-factor and passkeys",
+				icon: RotateCcwKeyIcon,
+				form: {
+					action: "?/resetFactors",
+					fields: { id: user.id },
+					loading: "Resetting their factors",
+					success: `${user.name} can sign in with their password again.`,
+					confirm: {
+						title: `Reset ${user.name}'s two-factor and passkeys?`,
+						description:
+							"Their authenticator app and every passkey are removed and they're signed out everywhere. If you require factors, they set them up again at their next sign-in.",
+						confirmLabel: "Reset",
+					},
+				},
+			});
 		}
 		actions.push({
 			label: "Sign out everywhere",
@@ -129,3 +169,46 @@
 		</li>
 	{/each}
 </ul>
+
+{#if editing}
+	<ResponsiveSheet bind:open={emailOpen} title="Change {editing.name}'s email">
+		<form
+			method="POST"
+			action="?/changeEmail"
+			class="flex flex-col gap-4 pb-4"
+			use:enhance={enhanceToast({
+				loading: "Changing the email",
+				success: "Email changed.",
+				onFailure: (result) =>
+					(emailErrors = (result?.errors as Record<string, string[]>) ?? {}),
+				onSuccess: () => {
+					emailOpen = false;
+				},
+			})}
+		>
+			<input type="hidden" name="id" value={editing.id} />
+			<Field.Field>
+				<Field.Label for="admin-user-email">Email</Field.Label>
+				<Input
+					id="admin-user-email"
+					name="email"
+					type="email"
+					inputmode="email"
+					value={editing.email}
+					required
+					class="h-11"
+				/>
+				<Field.Description
+					>They sign in with it from now on. No confirmation is sent.</Field.Description
+				>
+				<Field.Error
+					errors={emailErrors.email?.map((message) => ({ message }))}
+				/>
+			</Field.Field>
+			<Button type="submit" class="h-11 rounded-xl">
+				<CheckIcon />
+				Save email
+			</Button>
+		</form>
+	</ResponsiveSheet>
+{/if}

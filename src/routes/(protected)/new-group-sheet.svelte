@@ -10,6 +10,7 @@
 	import * as Field from "#lib/components/ui/field/index.js";
 	import { Input } from "#lib/components/ui/input/index.js";
 	import { currencies } from "#lib/currencies.js";
+	import { haptic } from "#lib/haptics.js";
 	import { enhanceToast } from "#lib/toast.js";
 
 	let { open = $bindable() }: { open: boolean } = $props();
@@ -36,6 +37,7 @@
 			onFailure: (data) =>
 				(errors = (data?.errors as Record<string, string[]>) ?? {}),
 			onSuccess: async (result) => {
+				haptic("success");
 				errors = {};
 				open = false;
 				const group = result?.group as { id: string } | undefined;

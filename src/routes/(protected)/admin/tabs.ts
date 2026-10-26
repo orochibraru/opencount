@@ -1,5 +1,6 @@
 import { resolve } from "$app/paths";
 import ActivityIcon from "@lucide/svelte/icons/activity";
+import DatabaseBackupIcon from "@lucide/svelte/icons/database-backup";
 import DoorOpenIcon from "@lucide/svelte/icons/door-open";
 import KeyRoundIcon from "@lucide/svelte/icons/key-round";
 import MailIcon from "@lucide/svelte/icons/mail";
@@ -21,7 +22,7 @@ export function adminTabs(): SectionTab[] {
 		{
 			href: resolve("/(protected)/admin/users"),
 			label: "Users",
-			description: "Every account: roles, sign-in factors, sessions.",
+			description: "Every account: roles, email, sign-in factors, sessions.",
 			icon: UsersIcon,
 		},
 		{
@@ -53,6 +54,12 @@ export function adminTabs(): SectionTab[] {
 			label: "Receipts",
 			description: "Read receipt photos on this server with Tesseract.",
 			icon: ScanTextIcon,
+		},
+		{
+			href: resolve("/(protected)/admin/backup"),
+			label: "Backup",
+			description: "Download the database, or restore a backup.",
+			icon: DatabaseBackupIcon,
 		},
 	];
 }

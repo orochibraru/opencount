@@ -59,8 +59,9 @@ authenticator app or a passkey from everyone, or turn passwords off.
 ## What it is not
 
 OpenCount does not move money. It keeps the count; people pay each other however
-they like, then record the payment. It does not convert currencies either: a
-group has one currency, fixed once the first expense is in.
+they like, then record the payment. A group has one currency, fixed once the
+first expense is in; an expense paid in another one is converted at a rate
+frozen on it.
 
 ## License
 

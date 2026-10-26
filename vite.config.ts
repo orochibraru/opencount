@@ -12,7 +12,10 @@ export default defineConfig({
 					filename.split(/[/\\]/).includes("node_modules") ? undefined : true,
 				experimental: { async: true },
 			},
-			adapter: adapter({ buildOptions: { compile: true } }),
+			adapter: adapter({
+				buildOptions: { compile: true },
+				serverOptions: { maxRequestBodySize: 256 * 1024 * 1024 },
+			}),
 			experimental: { remoteFunctions: true },
 			csrf: { trustedOrigins: ["*"] },
 			tracing: { server: true },

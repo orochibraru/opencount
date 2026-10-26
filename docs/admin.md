@@ -1,8 +1,9 @@
 # The admin area
 
-**Admin** is where an instance is run from: who gets in, how they sign in, email
-and receipt reading. It shows in the navigation for admins only; anyone else who
-opens its URL gets a **404, not a 403**, so it doesn't announce itself.
+**Admin** is where an instance is run from: who gets in, how they sign in,
+email, receipt reading and backups. It shows in the navigation for admins only;
+anyone else who opens its URL gets a **404, not a 403**, so it doesn't announce
+itself.
 
 ## Who is an admin
 
@@ -31,6 +32,11 @@ Every account, with its role, its sign-in factors and its sessions. For each
 one, an admin can:
 
 - **Make admin** or **Remove admin role**. They keep their account and groups.
+- **Change email**: give the account another address, for someone who lost
+  access to the old one. It must not belong to another account.
+- **Reset two-factor and passkeys**: removes their authenticator app and every
+  passkey and signs them out, for someone locked out of both. They sign in with
+  their password or another method and set them up again.
 - **Sign out everywhere**: every session on every device ends. They can sign in
   again.
 - **Delete account**: their sign-in, sessions and security keys are deleted.
@@ -48,6 +54,20 @@ name and a password: the email is the invited one, already verified.
 
 Pending invites can be revoked; the link stops working right away. An address
 that already has an account can't be invited.
+
+## Backup
+
+**Backup** downloads the whole database as one SQLite file. The worker builds
+it, so the file appears in the list when ready and stays for a day. It holds
+every account, group and setting, so keep it as safe as the database itself, and
+with `AUTH_SECRET`.
+
+**Restore** takes such a file and replaces everything with it. The file is
+checked first (it must be an OpenCount database, intact, from a version this
+server knows) and migrated to the current schema; the rows are then swapped in
+one transaction, so a bad file changes nothing. The job queue is kept. Everyone,
+you included, signs in again afterwards. It can't be undone: download a backup
+first.
 
 ## Access
 

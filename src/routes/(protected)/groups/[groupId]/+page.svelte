@@ -11,6 +11,7 @@
 	import RepeatIcon from "@lucide/svelte/icons/repeat";
 	import SettingsIcon from "@lucide/svelte/icons/settings";
 	import Trash2Icon from "@lucide/svelte/icons/trash-2";
+	import WifiOffIcon from "@lucide/svelte/icons/wifi-off";
 
 	import { categoryOf } from "#lib/categories.js";
 	import EmptyState from "#lib/components/empty-state.svelte";
@@ -18,6 +19,7 @@
 	import ItemMenu from "#lib/components/item-menu.svelte";
 	import { Button } from "#lib/components/ui/button/index.js";
 	import { formatMoney } from "#lib/money.js";
+	import { offlineQueue } from "#lib/offline-queue.svelte.js";
 	import { setPageTitle } from "#lib/page-title.svelte.js";
 	import { enhanceToast } from "#lib/toast.js";
 
@@ -51,6 +53,10 @@
 				}),
 			},
 		],
+	);
+
+	const waiting = $derived(
+		offlineQueue.pending.filter((entry) => entry.groupId === data.group.id),
 	);
 
 	let sheetOpen = $state(false);
@@ -153,6 +159,16 @@
 	</div>
 
 	<section aria-label="Expenses" class="min-w-0">
+		{#if waiting.length > 0}
+			<p
+				class="glass mb-4 flex items-center gap-3 rounded-2xl px-4 py-3 text-sm"
+			>
+				<WifiOffIcon class="text-muted-foreground size-4 shrink-0" />
+				{waiting.length === 1
+					? `"${waiting[0]?.description}" is saved on this device and is added once you're back online.`
+					: `${waiting.length} expenses are saved on this device and are added once you're back online.`}
+			</p>
+		{/if}
 		{#if data.expenses.length === 0}
 			<EmptyState
 				icon={ReceiptIcon}
@@ -245,7 +261,15 @@
 														data.group.currency,
 													)}</span
 												>
-												{#if entry.kind === "expense" && share > 0}
+												{#if entry.originalCurrency && entry.originalAmountMinor !== null}
+													<span
+														class="text-muted-foreground block text-xs tabular"
+														>{formatMoney(
+															entry.originalAmountMinor,
+															entry.originalCurrency,
+														)}</span
+													>
+												{:else if entry.kind === "expense" && share > 0}
 													<span
 														class="text-muted-foreground block text-xs tabular"
 														>Your share {formatMoney(

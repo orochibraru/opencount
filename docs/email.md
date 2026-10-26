@@ -1,11 +1,15 @@
 # Email
 
-OpenCount sends three kinds of email: invites, sign-up verification codes, and a
-test message. It sends them through an SMTP server you configure in **Admin,
-Email**; there is no built-in mail service and no third party.
+OpenCount sends these emails: invites, sign-up verification codes, password
+reset links, the code that confirms a new address and the notice to the old one,
+sign-in links and codes, and a test message. It sends them through an SMTP
+server you configure in **Admin, Email**; there is no built-in mail service and
+no third party.
 
 Email is optional. Without it, invites still work as links you send yourself,
 but sign-ups stay closed: they confirm each address with a code sent by email.
+Password reset and changing your own email need it too: without it, an admin
+changes an address, and someone who forgot their password asks an admin.
 
 ## Settings
 

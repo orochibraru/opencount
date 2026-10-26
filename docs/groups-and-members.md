@@ -11,7 +11,8 @@ SEK, NOK, DKK, PLN or CZK. You become its first member and its creator.
 
 The currency can change until the first expense is in. After that it is fixed:
 every amount in the group is stored in that currency's minor units, and
-converting them would rewrite history.
+converting them would rewrite history. Expenses paid in another currency are
+converted when they're added; see [Expenses](expenses#other-currencies).
 
 Any member can rename the group from **Settings, General**.
 
@@ -32,6 +33,15 @@ From **Settings, Members**, any member can:
   expense, as payer or in a split. Edit or delete those first, so no balance
   quietly changes.
 
+### Invite link
+
+**Settings, Members** shows the group's invite link. Anyone signed in to this
+server who opens it joins the group: they pick which unlinked member is them, or
+join as a new one under their own name. It doesn't create accounts, so people
+still need one. **New link** makes the old one stop working; **Turn off** stops
+it for good until a new one is made. Any member can do both, so share it only
+with people you'd add anyway.
+
 ### That's me
 
 Someone added by name gets an account later. A member adds that account to the
@@ -41,6 +51,19 @@ name. It takes over: everything their new member paid, its share of every
 expense and its repeating expenses move to the old name, merged where both
 appear in the same expense, and the new member is removed. It is one step, it
 can't be undone, so it asks first.
+
+## Importing and exporting
+
+**Settings, Import** brings a Tricount over: paste its share link, or pick a
+registry JSON file, and the preview lists what will come in. The Tricount's
+currency must match the group's. You map each person to a member of the group or
+to a new one, then a background job adds the expenses, with their splits,
+categories and dates, and you get a notification when it's done. Tricount no
+longer offers its own CSV export; the link is read from Tricount's servers.
+
+**Settings, Export** builds the group's expenses as a CSV spreadsheet or a PDF
+summary in the background. The file waits in the list for a day and only you can
+download it.
 
 ## Leaving and deleting
 

@@ -26,13 +26,13 @@ chart of how it moved over time.
 ![A group's members](images/settings-desktop.webp)
 
 A group's settings hold its name and currency, its members, its own categories
-and its repeating expenses. Members added by name show **No account linked**
-until someone claims them.
+its repeating expenses, and importing and exporting. Members added by name show
+**No account linked** until someone claims them.
 
 ![The admin area](images/admin-desktop.webp)
 
 The admin area holds the setup checklist, the users, invites, access rules,
-sign-in methods, email and receipt reading. Only admins see it.
+sign-in methods, email, receipt reading and backups. Only admins see it.
 
 ## On a phone
 

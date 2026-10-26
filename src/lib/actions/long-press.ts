@@ -1,5 +1,7 @@
 import type { Action } from "svelte/action";
 
+import { haptic } from "#lib/haptics.js";
+
 const holdMs = 450;
 const slopPx = 10;
 
@@ -23,7 +25,7 @@ export const longPress: Action<HTMLElement, () => void> = (
 		}
 		start = { x: event.clientX, y: event.clientY };
 		timer = setTimeout(() => {
-			navigator.vibrate?.(12);
+			haptic("tap");
 			callback();
 			cancel();
 		}, holdMs);

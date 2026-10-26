@@ -62,7 +62,8 @@ Plain `bun install` works without mise.
 - pre-commit: hygiene, gitleaks, typos, actionlint, zizmor, pinact, hadolint,
   oxlint, `bun fmt`, markdownlint, agnix, tailwint, and the convention hooks (no
   hand-typed route types, no raw Drizzle in routes, no `redirect(` in hooks, no
-  `href="/`).
+  `href="/`, no Markdown link to a file that doesn't exist, offline, with
+  extensionless links to docs pages allowed).
 - commit-msg: Conventional Commits.
 - pre-push: `check`, `circular`, `test-unit`.
 - post-checkout: `bun install`.

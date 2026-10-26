@@ -13,6 +13,7 @@
 	import EmptyState from "#lib/components/empty-state.svelte";
 	import Fab from "#lib/components/fab.svelte";
 	import ItemMenu, { type MenuAction } from "#lib/components/item-menu.svelte";
+	import PullToRefresh from "#lib/components/pull-to-refresh.svelte";
 	import { Button } from "#lib/components/ui/button/index.js";
 	import { hueOf } from "#lib/group-hue.js";
 	import { formatMoney } from "#lib/money.js";
@@ -22,7 +23,7 @@
 
 	const { data } = $props();
 
-	setPageTitle("Groups", undefined, [
+	setPageTitle("OpenCount", undefined, [
 		{
 			label: "Archived groups",
 			icon: RotateCcwClockIcon,
@@ -173,6 +174,8 @@
 		{/each}
 	</ul>
 {/if}
+
+<PullToRefresh />
 
 <Fab label="New group" icon={PlusIcon} onclick={() => (creating = true)} />
 

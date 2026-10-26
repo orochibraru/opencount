@@ -1,16 +1,29 @@
 # Your account
 
-**Account** holds three sections: profile, security and appearance. Signing out
-is at the bottom of it.
+**Account** holds four sections: profile, security, notifications and
+appearance. Signing out is at the bottom of it.
 
 ## Profile
 
 Your name, as other members see it when they link you to a group, up to 80
-characters. Your email is the one you sign in with; you can't change it
-yourself.
+characters.
+
+**Email** is the one you sign in with. To change it, type the new address: a
+6-digit code goes to it, valid 15 minutes, and the change happens once you enter
+it. The old address gets a notice that the account moved. It needs email
+delivery, and an address another account uses is refused. An admin can also
+change it from [the admin area](admin).
+
+**Delete account** removes your sign-in, sessions and security keys, and asks
+for your password when you have one. In your groups, your member stays as a
+plain name with its expenses, so nobody's balance changes. The last admin can't
+delete their account: make someone else admin first.
 
 ## Security
 
+- **Password**: change it by typing the current one and a new one twice. An
+  account with no password yet (it signs in with a passkey, a provider or an
+  email code) can set one here. Changing it signs your other devices out.
 - **Authenticator app**: confirm your password, scan the QR code with any app
   that makes 6-digit codes (or type the key), and enter a code to finish. Keep
   the backup codes it shows: each one signs you in once if you lose the device.
@@ -56,13 +69,10 @@ home screen first.
 After you sign in, OpenCount offers to install itself, once per device: Chrome,
 Edge and Android show their install dialog, and Safari on iPhone and iPad
 explains **Share, Add to Home Screen**. You can also do it yourself any time.
-Installed, it opens standalone, like a native app. The bottom tab bar holds
-Groups and Account, plus Admin for admins. On a desktop, a sidebar lists Groups,
-Admin and your groups, with your account in the menu under your name at the
-bottom.
-
-## Not there yet
-
-Changing your password or your email, resetting a forgotten password, and
-deleting your own account are not in the app yet. An admin can delete an account
-from [the admin area](admin).
+Installed, it opens standalone, like a native app, with pull to refresh on the
+groups list and a light tap of haptics on actions. An expense added with no
+connection is kept on the device and sent once you're back online; a page that
+can't load shows an offline screen instead of the browser's error. The bottom
+tab bar holds Groups and Account, plus Admin for admins. On a desktop, a sidebar
+lists Groups, Admin and your groups, with your account in the menu under your
+name at the bottom.

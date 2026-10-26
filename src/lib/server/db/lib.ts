@@ -103,3 +103,83 @@ export function closeDb(): void {
 	globalForDb.__opencountSqlite = undefined;
 	globalForDb.__opencountDb = undefined;
 }
+
+/** Writes a consistent copy of the live database to `path`, which must not exist yet. */
+export function backupDatabase(path: string): void {
+	getDb();
+	(globalForDb.__opencountSqlite as Database).query("VACUUM INTO ?").run(path);
+}
+
+export class RestoreError extends Error {}
+
+const keptOnRestore = new Set(["__drizzle_migrations", "job", "download"]);
+
+/**
+ * Replaces every row of the live database with the rows of the SQLite file at `path`, after checking it and migrating
+ * it to the current schema: all or nothing. The job queue and downloads stay as they are.
+ *
+ * @throws RestoreError when the file isn't an OpenCount database or its rows don't hold together.
+ */
+export function restoreDatabase(path: string): void {
+	const migrationsFolder = join(process.cwd(), "drizzle");
+	const backup = new Database(path, { strict: true });
+	try {
+		const tables = backup
+			.query<{ name: string }, []>(
+				"SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('user', '__drizzle_migrations')",
+			)
+			.all();
+		if (tables.length !== 2) {
+			throw new RestoreError("That file isn't an OpenCount backup.");
+		}
+		const integrity = backup
+			.query<{ integrity_check: string }, []>("PRAGMA integrity_check")
+			.get();
+		if (integrity?.integrity_check !== "ok") {
+			throw new RestoreError("That backup is damaged.");
+		}
+		try {
+			assertMigrationHistory(
+				backup,
+				readMigrationFiles({ migrationsFolder }),
+				path,
+			);
+		} catch {
+			throw new RestoreError(
+				"That backup comes from a version of OpenCount this server doesn't know.",
+			);
+		}
+		migrate(drizzle({ client: backup }), { migrationsFolder });
+	} finally {
+		backup.close();
+	}
+
+	getDb();
+	const sqlite = globalForDb.__opencountSqlite as Database;
+	const tables = sqlite
+		.query<{ name: string }, []>(
+			"SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
+		)
+		.all()
+		.map((row) => row.name)
+		.filter((name) => !keptOnRestore.has(name));
+	sqlite.exec("PRAGMA foreign_keys = OFF");
+	sqlite.query("ATTACH DATABASE ? AS backup").run(path);
+	try {
+		sqlite.transaction(() => {
+			for (const table of tables) {
+				sqlite.exec(`DELETE FROM main."${table}"`);
+				sqlite.exec(
+					`INSERT INTO main."${table}" SELECT * FROM backup."${table}"`,
+				);
+			}
+			sqlite.exec("DELETE FROM main.download");
+			if (sqlite.query("PRAGMA main.foreign_key_check").get()) {
+				throw new RestoreError("The rows in that backup don't hold together.");
+			}
+		})();
+	} finally {
+		sqlite.exec("DETACH DATABASE backup");
+		sqlite.exec("PRAGMA foreign_keys = ON");
+	}
+}

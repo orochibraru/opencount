@@ -38,11 +38,16 @@ claims up to `WORKER_CONCURRENCY` at once, and runs each in a `job <type>` span.
 A failure is retried with exponential backoff (5 seconds, doubling) up to five
 attempts, then marked failed and shown on the admin overview.
 
-| Job             | What it does                                                                    |
-| --------------- | ------------------------------------------------------------------------------- |
-| `email.send`    | Delivers one email through the configured SMTP server                           |
-| `recurring.run` | Adds due repeating expenses, then requeues itself for the next day at 00:05 UTC |
-| `jobs.prune`    | Deletes finished jobs older than 7 days, then requeues itself a day later       |
+| Job               | What it does                                                                                             |
+| ----------------- | -------------------------------------------------------------------------------------------------------- |
+| `email.send`      | Delivers one email through the configured SMTP server                                                    |
+| `recurring.run`   | Adds due repeating expenses, then requeues itself for the next day at 00:05 UTC                          |
+| `jobs.prune`      | Deletes finished jobs older than 7 days and downloads older than a day, then requeues itself a day later |
+| `download.build`  | Builds a database backup, or a group's CSV or PDF export, into a file waiting for its owner              |
+| `import.tricount` | Adds the expenses of a previewed Tricount to a group, then sends a push notification                     |
+
+Built files (exports and backups) live in a `downloads` folder next to the
+database, and are served only to the account that asked for them.
 
 Requests enqueue and return; they never await a job. Receipt reading is the one
 slow thing done in a request, on purpose: the person is waiting for the reading
@@ -96,7 +101,9 @@ first paint. Every colour is a token derived from one `--hue`, so an accent
 change is one attribute.
 
 A service worker precaches the built assets, so an installed app starts
-instantly; pages and data always come from the server.
+instantly; pages and data always come from the server, and a navigation that
+fails gets a static offline page. The one thing kept client-side is a new
+expense submitted offline, in IndexedDB, posted when the connection returns.
 
 ## Telemetry
 

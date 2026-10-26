@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { GroupMemberDTO } from "#lib/dto/group-member.js";
 import { UserDTO } from "#lib/dto/user.js";
+import { publicOrigin } from "#lib/server/auth.js";
 import { groupForMember } from "#lib/server/group-access.js";
 import { emailSchema } from "#lib/server/validation/auth.js";
 import { parseForm } from "#lib/server/validation/form.js";
@@ -25,7 +26,37 @@ const renameSchema = z.object({
 });
 const memberIdSchema = z.object({ id: z.string().min(1) });
 
+export const load = async ({ parent, url }) => {
+	const { group, user } = await parent();
+	const token = groupForMember(group.id, user.id).group.inviteToken();
+	return {
+		inviteUrl: token
+			? new URL(
+					resolve("/(protected)/join/[groupId]/[token]", {
+						groupId: group.id,
+						token,
+					}),
+					publicOrigin() ?? url.origin,
+				).href
+			: null,
+	};
+};
+
 export const actions = {
+	resetInvite: ({ locals, params }) => {
+		if (!locals.user) {
+			return fail(401, { error: "Sign in again to continue." });
+		}
+		groupForMember(params.groupId, locals.user.id).group.resetInvite();
+		return { inviteReset: true };
+	},
+	disableInvite: ({ locals, params }) => {
+		if (!locals.user) {
+			return fail(401, { error: "Sign in again to continue." });
+		}
+		groupForMember(params.groupId, locals.user.id).group.disableInvite();
+		return { inviteDisabled: true };
+	},
 	add: async ({ locals, params, request }) => {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });

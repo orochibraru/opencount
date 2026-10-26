@@ -7,6 +7,7 @@
 
 	import EmptyState from "#lib/components/empty-state.svelte";
 	import { Button } from "#lib/components/ui/button/index.js";
+	import { haptic } from "#lib/haptics.js";
 	import { formatMoney } from "#lib/money.js";
 	import { setPageTitle } from "#lib/page-title.svelte.js";
 	import { enhanceToast } from "#lib/toast.js";
@@ -48,8 +49,8 @@
 						></span>
 						<span
 							class="absolute top-1.5 bottom-1.5 rounded-full {balance >= 0
-								? 'bg-positive/80 left-1/2'
-								: 'bg-negative/80 right-1/2'}"
+								? 'bg-positive/20 left-1/2'
+								: 'bg-negative/20 right-1/2'}"
 							style="width: {(Math.abs(balance) / largest) * 50}%"
 							aria-hidden="true"
 						></span>
@@ -103,6 +104,7 @@
 							use:enhance={enhanceToast({
 								loading: "Recording payment",
 								success: "Payment recorded.",
+								onSuccess: () => haptic("success"),
 							})}
 						>
 							<input type="hidden" name="from" value={transfer.from} />

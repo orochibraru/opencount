@@ -48,3 +48,21 @@ export function parseMoney(
 		Number(fraction.padEnd(digits, "0") || "0")
 	);
 }
+
+/** Converts `minor` units of `from` into minor units of `to` at `rate` (units of `to` per unit of `from`), rounded. */
+export function convertMinor(
+	minor: number,
+	from: string,
+	to: string,
+	rate: number,
+): number {
+	return Math.round(
+		minor * rate * 10 ** (currencyDigits(to) - currencyDigits(from)),
+	);
+}
+
+/** Minor units as a plain decimal string with the currency's digits, like `1250` EUR as `12.50`, for inputs and files. */
+export function minorToDecimal(minor: number, currency: string): string {
+	const digits = currencyDigits(currency);
+	return (minor / 10 ** digits).toFixed(digits);
+}

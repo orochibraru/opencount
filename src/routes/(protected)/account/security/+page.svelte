@@ -4,6 +4,7 @@
 	import * as Alert from "#lib/components/ui/alert/index.js";
 
 	import PasskeysCard from "./passkeys-card.svelte";
+	import PasswordCard from "./password-card.svelte";
 	import TwoFactorCard from "./two-factor-card.svelte";
 
 	const { data } = $props();
@@ -25,6 +26,7 @@
 			</Alert.Description>
 		</Alert.Root>
 	{/if}
+	<PasswordCard email={data.user.email} hasPassword={data.hasPassword} />
 	<TwoFactorCard enabled={data.twoFactorEnabled} />
 	<PasskeysCard passkeys={data.passkeys} />
 </div>

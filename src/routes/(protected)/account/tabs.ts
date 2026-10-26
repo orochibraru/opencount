@@ -12,7 +12,8 @@ export function accountTabs(): SectionTab[] {
 		{
 			href: resolve("/(protected)/account/profile"),
 			label: "Profile",
-			description: "Your name and the email you sign in with.",
+			description:
+				"Your name, the email you sign in with, or delete the account.",
 			icon: UserRoundIcon,
 		},
 		{
@@ -24,7 +25,7 @@ export function accountTabs(): SectionTab[] {
 		{
 			href: resolve("/(protected)/account/security"),
 			label: "Security",
-			description: "Authenticator app, backup codes and passkeys.",
+			description: "Password, authenticator app, backup codes and passkeys.",
 			icon: FingerprintIcon,
 		},
 		{

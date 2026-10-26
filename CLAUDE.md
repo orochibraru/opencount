@@ -143,6 +143,8 @@ Each is a hard rule.
   else calls `getConfig()`. The worker never reads its environment: the server
   sends it the same `Config` over IPC. `process.env`, `Bun.env` and
   `import.meta.env` are a prek error.
+- A file built for a person (export, backup) is a worker `download`, served to
+  its owner only. Outbound HTTP: SMTP, OIDC, Frankfurter and Tricount only.
 - Errors the user doesn't cause go through `reportError` (Sentry when
   `SENTRY_DSN` is set); slow units of work get a `withSpan`.
 - CSS-only packages are devDependencies.
@@ -166,10 +168,11 @@ Each is a hard rule.
 Read only the note for the area you touch. A new area with its own decisions
 gets its own note and row.
 
-| Area                                                      | Note                           |
-| --------------------------------------------------------- | ------------------------------ |
-| Scripts, mise tasks, git hooks, tests, the worker in dev  | `.agents/notes/commands.md`    |
-| The PR gate, canaries, the release PR, images and secrets | `.agents/notes/ci-releases.md` |
+| Area                                                                      | Note                                     |
+| ------------------------------------------------------------------------- | ---------------------------------------- |
+| Scripts, mise tasks, git hooks, tests, the worker in dev                  | `.agents/notes/commands.md`              |
+| The PR gate, canaries, the release PR, images and secrets                 | `.agents/notes/ci-releases.md`           |
+| Downloads, backup and restore, imports, currencies, invite links, offline | `.agents/notes/downloads-and-offline.md` |
 
 ## AI-assisted development
 

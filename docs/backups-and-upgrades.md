@@ -15,6 +15,10 @@ Two things, and only two:
 
 ## Taking a backup
 
+The quickest is **Admin, Backup**: download the database as one SQLite file,
+with no stop. It doesn't include `AUTH_SECRET`, which you still keep apart. The
+rest of this section is for backing up the volume itself.
+
 The database runs in WAL mode: recent writes sit in the `-wal` file until they
 are folded into the main one. Copying only `opencount.sqlite` while the
 container runs can miss them, or catch the file mid-write.
@@ -44,6 +48,10 @@ The image has no `sqlite3`; run it from the host against the volume's directory
 the volume mounted.
 
 ## Restoring
+
+From the app, **Admin, Backup** restores a downloaded file: it is validated,
+migrated and swapped in as one step, and everyone signs in again; see
+[The admin area](admin#backup). From the volume:
 
 Stop the container, put the files back in the volume (the `.sqlite` file, and
 the `-wal` and `-shm` files if you saved them together), set the same

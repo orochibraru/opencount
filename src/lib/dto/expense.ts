@@ -7,6 +7,7 @@ import {
 	expense,
 	type expenseKinds,
 	expenseShare,
+	groupMember,
 	type splitModes,
 } from "#lib/server/db/schema.js";
 
@@ -22,6 +23,9 @@ export interface ExpenseRow {
 	description: string;
 	category: string;
 	amountMinor: number;
+	originalCurrency: string | null;
+	originalAmountMinor: number | null;
+	exchangeRate: number | null;
 	paidBy: string;
 	splitMode: (typeof splitModes)[number];
 	spentOn: string;
@@ -30,8 +34,16 @@ export interface ExpenseRow {
 	shares: ExpenseShareRow[];
 }
 
-export type ExpenseInput = Omit<ExpenseRow, "id" | "recurringId"> & {
-	recurringId?: string | null;
+type OptionalFields =
+	"recurringId" | "originalCurrency" | "originalAmountMinor" | "exchangeRate";
+
+export type ExpenseInput = Omit<ExpenseRow, "id" | OptionalFields> &
+	Partial<Pick<ExpenseRow, OptionalFields>>;
+
+const sameCurrency = {
+	originalCurrency: null,
+	originalAmountMinor: null,
+	exchangeRate: null,
 };
 
 function sharesFor(expenseIds: string[]): Map<string, ExpenseShareRow[]> {
@@ -62,6 +74,9 @@ const columns = {
 	description: expense.description,
 	category: expense.category,
 	amountMinor: expense.amountMinor,
+	originalCurrency: expense.originalCurrency,
+	originalAmountMinor: expense.originalAmountMinor,
+	exchangeRate: expense.exchangeRate,
 	paidBy: expense.paidBy,
 	splitMode: expense.splitMode,
 	spentOn: expense.spentOn,
@@ -123,6 +138,53 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 		});
 	}
 
+	/**
+	 * Records many expenses and transfers with their shares, all or none, as an import does. `newMembers` maps
+	 * placeholder member ids used in `inputs` to the names of members to add first.
+	 */
+	static createMany(
+		groupId: string,
+		inputs: ExpenseInput[],
+		createdBy: string,
+		newMembers: Record<string, string> = {},
+	): number {
+		getDb().transaction((transaction) => {
+			const ids = new Map<string, string>();
+			for (const [placeholder, displayName] of Object.entries(newMembers)) {
+				const member = transaction
+					.insert(groupMember)
+					.values({ groupId, displayName })
+					.returning({ id: groupMember.id })
+					.get();
+				ids.set(placeholder, member.id);
+			}
+			const memberId = (id: string) => ids.get(id) ?? id;
+			for (const { shares, ...fields } of inputs) {
+				const row = transaction
+					.insert(expense)
+					.values({
+						...fields,
+						paidBy: memberId(fields.paidBy),
+						groupId,
+						createdBy,
+					})
+					.returning({ id: expense.id })
+					.get();
+				transaction
+					.insert(expenseShare)
+					.values(
+						shares.map((share) => ({
+							...share,
+							memberId: memberId(share.memberId),
+							expenseId: row.id,
+						})),
+					)
+					.run();
+			}
+		});
+		return inputs.length;
+	}
+
 	/** The group's ledger, for balances. */
 	static ledger(groupId: string): LedgerEntry[] {
 		return ExpenseDTO.forGroup(groupId).map((entry) => entry.toLedgerEntry());
@@ -150,7 +212,7 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 			const { shares, ...fields } = input;
 			transaction
 				.update(expense)
-				.set(fields)
+				.set({ ...sameCurrency, ...fields })
 				.where(eq(expense.id, this.row.id))
 				.run();
 			transaction

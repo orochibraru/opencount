@@ -70,6 +70,9 @@
 	}
 
 	onMount(() => {
+		if (page.url.searchParams.get("reset") === "done") {
+			toast.success("Password changed. Sign in with the new one.");
+		}
 		if (page.url.searchParams.get("link") === "expired") {
 			toast.error(
 				"That sign-in link expired or was already used. Ask for a new one.",
@@ -114,6 +117,13 @@
 				<Field.Error
 					errors={errors.password?.map((message) => ({ message }))}
 				/>
+				{#if data.passwordReset}
+					<a
+						href={resolve("/auth/forgot-password")}
+						class="text-primary flex min-h-11 items-center self-end text-sm font-medium"
+						>Forgot your password?</a
+					>
+				{/if}
 			</Field.Field>
 		</AuthForm>
 		{#if alternatives}

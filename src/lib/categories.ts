@@ -25,6 +25,8 @@ import WrenchIcon from "@lucide/svelte/icons/wrench";
 import ZapIcon from "@lucide/svelte/icons/zap";
 import type { Component } from "svelte";
 
+import { categoryLabels } from "#lib/category-labels.js";
+
 export interface CategoryOption {
 	value: string;
 	label: string;
@@ -38,16 +40,24 @@ export interface CustomCategory {
 	icon: string;
 }
 
-const other = { value: "other", label: "Other", icon: ReceiptIcon } as const;
+const other = {
+	value: "other",
+	label: categoryLabels.other,
+	icon: ReceiptIcon,
+} as const;
 
 export const categories = [
-	{ value: "food", label: "Food & drinks", icon: UtensilsIcon },
-	{ value: "groceries", label: "Groceries", icon: ShoppingCartIcon },
-	{ value: "transport", label: "Transport", icon: CarIcon },
-	{ value: "lodging", label: "Lodging", icon: BedIcon },
-	{ value: "activities", label: "Activities", icon: TicketIcon },
-	{ value: "shopping", label: "Shopping", icon: ShoppingBagIcon },
-	{ value: "bills", label: "Bills", icon: ZapIcon },
+	{ value: "food", label: categoryLabels.food, icon: UtensilsIcon },
+	{
+		value: "groceries",
+		label: categoryLabels.groceries,
+		icon: ShoppingCartIcon,
+	},
+	{ value: "transport", label: categoryLabels.transport, icon: CarIcon },
+	{ value: "lodging", label: categoryLabels.lodging, icon: BedIcon },
+	{ value: "activities", label: categoryLabels.activities, icon: TicketIcon },
+	{ value: "shopping", label: categoryLabels.shopping, icon: ShoppingBagIcon },
+	{ value: "bills", label: categoryLabels.bills, icon: ZapIcon },
 	other,
 ] as const satisfies readonly CategoryOption[];
 

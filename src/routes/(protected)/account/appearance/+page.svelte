@@ -1,5 +1,16 @@
 <script lang="ts">
 	import { enhance } from "$app/forms";
+	import BookOpenIcon from "@lucide/svelte/icons/book-open";
+	import CircleDotIcon from "@lucide/svelte/icons/circle-dot";
+	import CodeIcon from "@lucide/svelte/icons/code";
+	import MonitorSmartphoneIcon from "@lucide/svelte/icons/monitor-smartphone";
+	import MoonIcon from "@lucide/svelte/icons/moon";
+	import MoonStarIcon from "@lucide/svelte/icons/moon-star";
+	import SmartphoneIcon from "@lucide/svelte/icons/smartphone";
+	import SquareIcon from "@lucide/svelte/icons/square";
+	import SquircleIcon from "@lucide/svelte/icons/squircle";
+	import SunIcon from "@lucide/svelte/icons/sun";
+	import TypeIcon from "@lucide/svelte/icons/type";
 	import { untrack } from "svelte";
 
 	import { applyAppearance } from "#lib/appearance.js";
@@ -22,26 +33,81 @@
 	] as const;
 
 	const themes = [
-		{ value: "system", label: "System" },
-		{ value: "light", label: "Light" },
-		{ value: "dark", label: "Dark" },
+		{
+			value: "system",
+			label: "System",
+			description: "Follows your device: light or dark as it switches.",
+			icon: MonitorSmartphoneIcon,
+		},
+		{
+			value: "light",
+			label: "Light",
+			description: "Always light, whatever the device says.",
+			icon: SunIcon,
+		},
+		{
+			value: "dark",
+			label: "Dark",
+			description: "Always dark, easier on the eyes at night.",
+			icon: MoonIcon,
+		},
 	] as const;
 
 	const darkVariants = [
-		{ value: "default", label: "Dim" },
-		{ value: "amoled", label: "AMOLED black" },
+		{
+			value: "default",
+			label: "Dim",
+			description: "A soft dark grey for dark mode.",
+			icon: MoonStarIcon,
+		},
+		{
+			value: "amoled",
+			label: "AMOLED black",
+			description: "Pure black: saves battery on OLED screens.",
+			icon: CircleDotIcon,
+		},
 	] as const;
 
 	const fonts = [
-		{ value: "default", label: "Geist and Sora" },
-		{ value: "system", label: "System" },
-		{ value: "serif", label: "Serif" },
-		{ value: "mono", label: "Mono" },
+		{
+			value: "default",
+			label: "Geist and Sora",
+			description: "OpenCount's own: Geist for text, Sora for titles.",
+			icon: TypeIcon,
+		},
+		{
+			value: "system",
+			label: "System",
+			description: "Your device's font, like San Francisco or Roboto.",
+			icon: SmartphoneIcon,
+		},
+		{
+			value: "serif",
+			label: "Serif",
+			description: "A classic book face for a calmer read.",
+			icon: BookOpenIcon,
+		},
+		{
+			value: "mono",
+			label: "Mono",
+			description: "Every character the same width, digits line up.",
+			icon: CodeIcon,
+		},
 	] as const;
 
 	const cornerStyles = [
-		{ value: "rounded", label: "Rounded" },
-		{ value: "square", label: "Square" },
+		{
+			value: "rounded",
+			label: "Rounded",
+			description: "Soft corners on cards, buttons and sheets.",
+			icon: SquircleIcon,
+		},
+		{
+			value: "square",
+			label: "Square",
+			description: "Sharp corners everywhere.",
+			icon: SquareIcon,
+		},
 	] as const;
 
 	let form: HTMLFormElement | undefined = $state();
@@ -76,7 +142,7 @@
 	>
 		{#snippet swatch(option)}
 			<span
-				class="size-4 rounded-full"
+				class="size-5 rounded-full"
 				style="background: {accents.find(
 					(accent) => accent.value === option.value,
 				)?.hue}"

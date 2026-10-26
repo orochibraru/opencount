@@ -21,6 +21,7 @@ import * as schema from "#lib/server/db/schema.js";
 import {
 	magicLinkEmail,
 	queueEmail,
+	resetPasswordEmail,
 	signInCodeEmail,
 } from "#lib/server/emails.js";
 import { Logger } from "#lib/server/logger.js";
@@ -49,6 +50,11 @@ export function forwardAuthLog(
 const passkeySignInPaths = new Set([
 	"/passkey/generate-authenticate-options",
 	"/passkey/verify-authentication",
+]);
+
+const passwordResetPaths = new Set([
+	"/request-password-reset",
+	"/reset-password",
 ]);
 
 /** Why a request uses a sign-in method an admin turned off, if it does. */
@@ -94,6 +100,14 @@ function refusal(context: {
 	}
 	if (emailCodePaths.has(context.path)) {
 		return emailRefusal("emailCodeSignIn", context.body);
+	}
+	if (
+		passwordResetPaths.has(context.path) &&
+		(!getSetting("passwordSignIn") || !isEmailConfigured())
+	) {
+		return new APIError("FORBIDDEN", {
+			message: "Password resets are turned off on this server.",
+		});
 	}
 	if (context.path === "/sign-in/email" && !getSetting("passwordSignIn")) {
 		return new APIError("FORBIDDEN", {
@@ -155,6 +169,12 @@ function createAuth(providers: SsoProvider[], signUpsEnabled: boolean) {
 			autoSignIn: true,
 			minPasswordLength: passwordMinLength,
 			maxPasswordLength: passwordMaxLength,
+			resetPasswordTokenExpiresIn: 3600,
+			revokeSessionsOnPasswordReset: true,
+			sendResetPassword: ({ user, url }) => {
+				queueEmail(resetPasswordEmail(user.email, url));
+				return Promise.resolve();
+			},
 		},
 		disabledPaths: [
 			"/sign-up/email",

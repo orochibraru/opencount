@@ -4,6 +4,9 @@
 		description: string;
 		category: string;
 		amountMinor: number;
+		originalCurrency: string | null;
+		originalAmountMinor: number | null;
+		exchangeRate: number | null;
 		paidBy: string;
 		splitMode: "equal" | "exact" | "shares";
 		spentOn: string;
@@ -13,12 +16,15 @@
 </script>
 
 <script lang="ts">
-	import { enhance } from "$app/forms";
+	import { enhance, type SubmitFunction } from "$app/forms";
+	import { page } from "$app/state";
 	import CheckIcon from "@lucide/svelte/icons/check";
 	import PlusIcon from "@lucide/svelte/icons/plus";
 	import ScanTextIcon from "@lucide/svelte/icons/scan-text";
 	import SparklesIcon from "@lucide/svelte/icons/sparkles";
 	import { untrack } from "svelte";
+	import { toast } from "svelte-sonner";
+	import { online } from "svelte/reactivity/window";
 
 	import { categoryOptions, type CustomCategory } from "#lib/categories.js";
 	import DateField from "#lib/components/date-field.svelte";
@@ -27,9 +33,18 @@
 	import { Button } from "#lib/components/ui/button/index.js";
 	import * as Field from "#lib/components/ui/field/index.js";
 	import { Input } from "#lib/components/ui/input/index.js";
-	import { currencyDigits, formatMoney, parseMoney } from "#lib/money.js";
+	import { currencies } from "#lib/currencies.js";
+	import { haptic } from "#lib/haptics.js";
+	import {
+		convertMinor,
+		formatMoney,
+		minorToDecimal,
+		parseMoney,
+	} from "#lib/money.js";
+	import { offlineQueue } from "#lib/offline-queue.svelte.js";
 	import { type ReceiptReading, receiptTypes } from "#lib/receipts.js";
 	import { frequencyLabels } from "#lib/recurrence.js";
+	import { getExchangeRate } from "#lib/remote/exchange-rate.remote.js";
 	import { guessCategory } from "#lib/smart-category.js";
 	import { splitByWeight } from "#lib/split.js";
 	import { enhanceToast } from "#lib/toast.js";
@@ -58,15 +73,37 @@
 	}: Props = $props();
 
 	const today = () => new Date().toISOString().slice(0, 10);
-	const asInput = (minor: number) =>
-		(minor / 10 ** currencyDigits(currency)).toFixed(currencyDigits(currency));
+
+	function initialCurrency() {
+		const expenseCurrency = expense?.originalCurrency ?? currency;
+		const rate = expense?.exchangeRate ?? 1;
+		return {
+			currency: expenseCurrency,
+			exchangeRate: expense?.exchangeRate ? String(expense.exchangeRate) : "",
+			rateEdited: Boolean(expense?.exchangeRate),
+			amount: expense
+				? minorToDecimal(
+						expense.originalAmountMinor ?? expense.amountMinor,
+						expenseCurrency,
+					)
+				: "",
+			asInput: (minor: number) =>
+				minorToDecimal(
+					expenseCurrency === currency
+						? minor
+						: convertMinor(minor, currency, expenseCurrency, 1 / rate),
+					expenseCurrency,
+				),
+		};
+	}
 
 	function initialState() {
 		const shares = new Map(
 			expense?.shares.map((share) => [share.memberId, share]) ?? [],
 		);
+		const { asInput, ...money } = initialCurrency();
 		return {
-			amount: expense ? asInput(expense.amountMinor) : "",
+			...money,
 			description: expense?.description ?? "",
 			merchant:
 				merchants.find((merchant) => merchant.id === expense?.merchantId)
@@ -112,13 +149,47 @@
 		}
 	});
 
-	const totalMinor = $derived(parseMoney(form.amount, currency) ?? 0);
+	const foreign = $derived(form.currency !== currency);
+	const rate = $derived(Number(form.exchangeRate.replace(",", ".")));
+	const totalMinor = $derived(parseMoney(form.amount, form.currency) ?? 0);
+	const convertedMinor = $derived(
+		foreign && rate > 0
+			? convertMinor(totalMinor, form.currency, currency, rate)
+			: undefined,
+	);
+	let rateLookup = $state<"loading" | "failed" | undefined>();
+
+	async function lookUpRate(from: string, date: string) {
+		rateLookup = "loading";
+		try {
+			const found = await getExchangeRate({
+				from: from as (typeof currencies)[number],
+				to: currency as (typeof currencies)[number],
+				date,
+			});
+			if (form.currency === from && !form.rateEdited) {
+				form.exchangeRate = found === null ? "" : String(found);
+			}
+			rateLookup = found === null ? "failed" : undefined;
+		} catch {
+			rateLookup = "failed";
+		}
+	}
+
+	$effect(() => {
+		const from = form.currency;
+		const date = form.spentOn;
+		if (open && from !== currency && !untrack(() => form.rateEdited)) {
+			untrack(() => void lookUpRate(from, date));
+		}
+	});
+
 	const preview = $derived.by(() => {
 		if (form.splitMode === "exact") {
 			return new Map(
 				form.participants.map((memberId) => [
 					memberId,
-					parseMoney(form.exact[memberId] ?? "", currency) ?? 0,
+					parseMoney(form.exact[memberId] ?? "", form.currency) ?? 0,
 				]),
 			);
 		}
@@ -171,7 +242,8 @@
 			return;
 		}
 		if (reading.totalMinor !== null && reading.totalMinor > 0) {
-			form.amount = asInput(reading.totalMinor);
+			form.currency = currency;
+			form.amount = minorToDecimal(reading.totalMinor, currency);
 		}
 		if (reading.date) {
 			form.spentOn = reading.date;
@@ -191,6 +263,46 @@
 		{ value: "exact", label: "Exact amounts" },
 	] as const;
 
+	async function saveOfflineCallback(formData: FormData) {
+		await offlineQueue.add(
+			page.params.groupId ?? "",
+			`${page.url.pathname}?/create`,
+			formData,
+		);
+		haptic("success");
+		open = false;
+	}
+
+	function handleSaveOffline(formData: FormData) {
+		toast.promise(saveOfflineCallback(formData), {
+			loading: "Saving on this device",
+			success: "Saved offline. It's added once you're back online.",
+			error: "Couldn't save it on this device.",
+		});
+	}
+
+	const saveExpense = $derived(
+		enhanceToast({
+			loading: expense ? "Saving expense" : "Adding expense",
+			success: expense ? "Expense saved." : "Expense added.",
+			onFailure: (result) =>
+				(errors = (result?.errors as Record<string, string[]>) ?? {}),
+			onSuccess: () => {
+				haptic("success");
+				open = false;
+			},
+		}),
+	);
+
+	const submitExpense: SubmitFunction = (input) => {
+		if (!expense && online.current === false) {
+			input.cancel();
+			handleSaveOffline(input.formData);
+			return;
+		}
+		return saveExpense(input);
+	};
+
 	function toggle(memberId: string) {
 		form.participants = form.participants.includes(memberId)
 			? form.participants.filter((id) => id !== memberId)
@@ -201,7 +313,7 @@
 </script>
 
 <ResponsiveSheet bind:open title={expense ? "Edit expense" : "New expense"}>
-	{#if receiptsEnabled && !expense}
+	{#if receiptsEnabled && !expense && online.current !== false}
 		<form
 			method="POST"
 			action="?/scan"
@@ -240,16 +352,8 @@
 	<form
 		method="POST"
 		action={expense ? "?/update" : "?/create"}
-		class="flex max-h-[75dvh] flex-col gap-5 overflow-y-auto pb-4 md:max-h-[70vh]"
-		use:enhance={enhanceToast({
-			loading: expense ? "Saving expense" : "Adding expense",
-			success: expense ? "Expense saved." : "Expense added.",
-			onFailure: (result) =>
-				(errors = (result?.errors as Record<string, string[]>) ?? {}),
-			onSuccess: () => {
-				open = false;
-			},
-		})}
+		class="flex flex-col gap-5 pb-4 md:max-h-[70vh] md:overflow-y-auto"
+		use:enhance={submitExpense}
 	>
 		{#if expense}
 			<input type="hidden" name="id" value={expense.id} />
@@ -269,12 +373,52 @@
 					bind:value={form.amount}
 					class="w-full max-w-56 bg-transparent text-center outline-none placeholder:text-muted-foreground/40"
 				/>
-				<span class="text-muted-foreground text-2xl">{currency}</span>
+				<select
+					name="currency"
+					aria-label="Currency"
+					bind:value={form.currency}
+					class="text-muted-foreground min-h-11 appearance-none bg-transparent text-2xl outline-none"
+				>
+					{#each currencies as code (code)}
+						<option value={code}>{code}</option>
+					{/each}
+				</select>
 			</div>
 			{#if errors.amount}
 				<span class="text-destructive text-sm">{errors.amount[0]}</span>
 			{/if}
 		</label>
+
+		{#if foreign}
+			<Field.Field>
+				<Field.Label for="expense-rate"
+					>1 {form.currency} in {currency}</Field.Label
+				>
+				<Input
+					id="expense-rate"
+					name="exchangeRate"
+					inputmode="decimal"
+					autocomplete="off"
+					required
+					bind:value={form.exchangeRate}
+					oninput={() => (form.rateEdited = true)}
+					class="h-11 tabular"
+				/>
+				<Field.Description>
+					{#if rateLookup === "loading"}
+						Fetching the rate for {form.spentOn}…
+					{:else if rateLookup === "failed"}
+						Couldn't fetch the rate. Type the one you paid.
+					{:else if convertedMinor !== undefined}
+						Counts as {formatMoney(convertedMinor, currency)}. The rate stays
+						frozen on this expense.
+					{/if}
+				</Field.Description>
+				<Field.Error
+					errors={errors.exchangeRate?.map((message) => ({ message }))}
+				/>
+			</Field.Field>
+		{/if}
 
 		<Field.Field>
 			<Field.Label for="expense-description">What for</Field.Label>
@@ -461,7 +605,7 @@
 						{#if included && form.splitMode !== "exact"}
 							<span
 								class="text-muted-foreground w-24 text-right text-sm tabular"
-								>{formatMoney(preview.get(member.id) ?? 0, currency)}</span
+								>{formatMoney(preview.get(member.id) ?? 0, form.currency)}</span
 							>
 						{/if}
 					</li>
@@ -470,8 +614,8 @@
 			{#if form.splitMode === "exact" && exactGap !== 0 && totalMinor > 0}
 				<p class="text-sm text-amber-600 dark:text-amber-400">
 					{exactGap > 0
-						? `${formatMoney(exactGap, currency)} left to assign`
-						: `${formatMoney(-exactGap, currency)} too much`}
+						? `${formatMoney(exactGap, form.currency)} left to assign`
+						: `${formatMoney(-exactGap, form.currency)} too much`}
 				</p>
 			{/if}
 			<Field.Error
@@ -479,9 +623,15 @@
 			/>
 		</fieldset>
 
-		<Button type="submit" size="lg" class="glow h-12 rounded-xl text-base">
-			{#if expense}<CheckIcon />{:else}<PlusIcon />{/if}
-			{expense ? "Save expense" : "Add expense"}
-		</Button>
+		<div class="bg-popover sticky bottom-0 z-10 -mb-4 pt-2 pb-4">
+			<Button
+				type="submit"
+				size="lg"
+				class="glow h-12 w-full rounded-xl text-base"
+			>
+				{#if expense}<CheckIcon />{:else}<PlusIcon />{/if}
+				{expense ? "Save expense" : "Add expense"}
+			</Button>
+		</div>
 	</form>
 </ResponsiveSheet>

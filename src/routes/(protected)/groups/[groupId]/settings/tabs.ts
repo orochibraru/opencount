@@ -1,4 +1,6 @@
 import { resolve } from "$app/paths";
+import FileDownIcon from "@lucide/svelte/icons/file-down";
+import ImportIcon from "@lucide/svelte/icons/import";
 import RepeatIcon from "@lucide/svelte/icons/repeat";
 import SlidersHorizontalIcon from "@lucide/svelte/icons/sliders-horizontal";
 import TagIcon from "@lucide/svelte/icons/tag";
@@ -42,6 +44,22 @@ export function groupSettingsTabs(groupId: string): SectionTab[] {
 			description:
 				"Rent, subscriptions and other expenses added on a schedule.",
 			icon: RepeatIcon,
+		},
+		{
+			href: resolve("/(protected)/groups/[groupId]/settings/import", {
+				groupId,
+			}),
+			label: "Import",
+			description: "Bring a Tricount over with its expenses and splits.",
+			icon: ImportIcon,
+		},
+		{
+			href: resolve("/(protected)/groups/[groupId]/settings/export", {
+				groupId,
+			}),
+			label: "Export",
+			description: "Every expense as a spreadsheet, or a PDF summary.",
+			icon: FileDownIcon,
 		},
 	];
 }

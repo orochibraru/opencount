@@ -1,12 +1,14 @@
-import { count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, gt } from "drizzle-orm";
 
 import { BaseDTO } from "#lib/dto/base-dto.js";
 import { getDb } from "#lib/server/db/lib.js";
 import {
 	passkey,
 	session,
+	twoFactor,
 	user,
 	type userRoles,
+	verification,
 } from "#lib/server/db/schema.js";
 
 export type UserRole = (typeof userRoles)[number];
@@ -91,6 +93,55 @@ export class UserDTO extends BaseDTO<UserRow> {
 				.where(eq(user.email, email))
 				.get() !== undefined
 		);
+	}
+
+	/** How many accounts hold the admin role. */
+	static adminCount(): number {
+		return (
+			getDb()
+				.select({ total: count() })
+				.from(user)
+				.where(eq(user.role, "admin"))
+				.get()?.total ?? 0
+		);
+	}
+
+	/** The address of the account a live password reset `token` was sent for. */
+	static emailForPasswordReset(token: string): string | undefined {
+		return getDb()
+			.select({ email: user.email })
+			.from(verification)
+			.innerJoin(user, eq(user.id, verification.value))
+			.where(
+				and(
+					eq(verification.identifier, `reset-password:${token}`),
+					gt(verification.expiresAt, new Date()),
+				),
+			)
+			.get()?.email;
+	}
+
+	/** Moves `userId` to `email`, which counts as verified: a code proved it, or an admin set it. */
+	static changeEmail(userId: string, email: string): void {
+		getDb()
+			.update(user)
+			.set({ email, emailVerified: true })
+			.where(eq(user.id, userId))
+			.run();
+	}
+
+	/** Removes `userId`'s authenticator app and passkeys and signs them out everywhere, for a locked-out account. */
+	static resetFactors(userId: string): void {
+		getDb().transaction((transaction) => {
+			transaction.delete(twoFactor).where(eq(twoFactor.userId, userId)).run();
+			transaction.delete(passkey).where(eq(passkey.userId, userId)).run();
+			transaction
+				.update(user)
+				.set({ twoFactorEnabled: false })
+				.where(eq(user.id, userId))
+				.run();
+			transaction.delete(session).where(eq(session.userId, userId)).run();
+		});
 	}
 
 	/** Gives `userId` the `role`. */

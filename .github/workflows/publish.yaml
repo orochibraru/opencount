@@ -270,6 +270,28 @@ jobs:
             --jq '[.[] | select(.isPrerelease)] | .[5:] | .[].tagName' \
             | xargs -r -n1 gh release delete --yes
 
+  dockerhub-description:
+    name: Update Docker Hub Description
+    needs: [release]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Read the short description from package.json
+        id: package
+        run: echo "description=$(jq -r .description package.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Push README.md to Docker Hub
+        uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5.0.0
+        with:
+          username: orochibraru
+          password: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
+          repository: orochibraru/opencount
+          short-description: ${{ steps.package.outputs.description }}
+          enable-url-completion: true
+
   cleanup:
     name: Delete PR Image
     needs: [tested, release]

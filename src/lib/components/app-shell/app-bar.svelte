@@ -1,6 +1,9 @@
 <script lang="ts">
+	import { resolve } from "$app/paths";
+	import { page } from "$app/state";
 	import ChevronLeftIcon from "@lucide/svelte/icons/chevron-left";
 
+	import BrandMark from "#lib/components/brand-mark.svelte";
 	import IconButton from "#lib/components/icon-button.svelte";
 	import { usePageTitle } from "#lib/page-title.svelte.js";
 
@@ -15,7 +18,11 @@
 <svelte:window onscroll={() => (scrolled = window.scrollY > 8)} />
 
 <svelte:head>
-	<title>{title.current ? `${title.current} | OpenCount` : "OpenCount"}</title>
+	<title
+		>{title.current && title.current !== "OpenCount"
+			? `${title.current} | OpenCount`
+			: "OpenCount"}</title
+	>
 </svelte:head>
 
 <header
@@ -34,6 +41,8 @@
 			<div class="absolute top-1/2 left-1.5 -translate-y-1/2">
 				<IconButton label="Back" icon={ChevronLeftIcon} href={title.backHref} />
 			</div>
+		{:else if page.url.pathname === resolve("/(protected)")}
+			<BrandMark class="absolute top-1/2 left-3.5 -translate-y-1/2" />
 		{/if}
 		<h1 class="truncate text-[1.0625rem] font-semibold">{title.current}</h1>
 		{#if mobileActions.length > 0}

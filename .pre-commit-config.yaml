@@ -114,6 +114,12 @@ repos:
         pass_filenames: false
         files: ^drizzle/
 
+      - id: markdown-links
+        name: Resolve Markdown links
+        entry: bun scripts/check-links.ts
+        language: system
+        types: [markdown]
+
       - id: check
         name: Type check
         entry: bun run check

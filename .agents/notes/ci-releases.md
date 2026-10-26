@@ -22,6 +22,10 @@
   changes), otherwise it's rebuilt. Tags: `X.Y.Z-canary.N` and `canary`.
 - releaser keeps a `chore(release): X.Y.Z` PR open. Merging it retags the last
   canary as `X.Y.Z` and `latest`. Nothing is rebuilt.
+- Every Publish that releases (canary or stable) pushes `README.md` to the
+  Docker Hub description, relative links turned into GitHub URLs, and
+  `package.json`'s description as the short one. The `markdown-links` hook keeps
+  those links alive.
 - Every image, PR, canary and release, lives on Docker Hub only
   (`docker.io/orochibraru/opencount`). Nothing is pushed to ghcr.io.
 

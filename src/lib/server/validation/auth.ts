@@ -23,6 +23,30 @@ export const codeSchema = z.object({
 		.transform((code) => code.replace(/[- ]/, "")),
 });
 
+function checkNewPassword(email: string) {
+	return (
+		value: { password: string; confirmPassword: string },
+		context: z.core.$RefinementCtx,
+	) => {
+		for (const rule of passwordRules(value.password, email)) {
+			if (!rule.passed) {
+				context.addIssue({
+					code: "custom",
+					path: ["password"],
+					message: `${rule.label}.`,
+				});
+			}
+		}
+		if (value.password !== value.confirmPassword) {
+			context.addIssue({
+				code: "custom",
+				path: ["confirmPassword"],
+				message: "The passwords don't match.",
+			});
+		}
+	};
+}
+
 /** Name, password and its confirmation for a new account whose address is `email`. */
 export function newAccountSchema(email: string) {
 	return z
@@ -35,25 +59,35 @@ export function newAccountSchema(email: string) {
 			password: z.string(),
 			confirmPassword: z.string(),
 		})
-		.superRefine((value, context) => {
-			for (const rule of passwordRules(value.password, email)) {
-				if (!rule.passed) {
-					context.addIssue({
-						code: "custom",
-						path: ["password"],
-						message: `${rule.label}.`,
-					});
-				}
-			}
-			if (value.password !== value.confirmPassword) {
-				context.addIssue({
-					code: "custom",
-					path: ["confirmPassword"],
-					message: "The passwords don't match.",
-				});
-			}
-		});
+		.superRefine(checkNewPassword(email));
 }
+
+/** A new password and its confirmation for the account whose address is `email`. */
+export function newPasswordSchema(email: string) {
+	return z
+		.object({ password: z.string(), confirmPassword: z.string() })
+		.superRefine(checkNewPassword(email));
+}
+
+/** The current password, when the account has one, then a new one typed twice. */
+export function changePasswordSchema(email: string) {
+	return z
+		.object({
+			currentPassword: z.string().max(passwordMaxLength).default(""),
+			password: z.string(),
+			confirmPassword: z.string(),
+		})
+		.superRefine(checkNewPassword(email));
+}
+
+export const emailChangeSchema = z.object({ email: emailSchema });
+
+export const emailChangeCodeSchema = z.object({
+	email: emailSchema,
+	code: codeSchema.shape.code,
+});
+
+export const passwordResetRequestSchema = z.object({ email: emailSchema });
 
 export const totpSchema = z.object({
 	code: z
@@ -69,6 +103,10 @@ export const backupCodeSchema = z.object({
 
 export const passwordConfirmSchema = z.object({
 	password: z.string().min(1, "Enter your password.").max(passwordMaxLength),
+});
+
+export const optionalPasswordSchema = z.object({
+	password: z.string().max(passwordMaxLength).default(""),
 });
 
 export const emailSignInSchema = z.object({ email: emailSchema });

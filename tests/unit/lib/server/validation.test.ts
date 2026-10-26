@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+	changePasswordSchema,
 	codeSchema,
 	newAccountSchema,
+	newPasswordSchema,
 	signInSchema,
 } from "#lib/server/validation/auth.js";
 import { parseForm } from "#lib/server/validation/form.js";
@@ -73,6 +75,48 @@ describe("parseForm", () => {
 		expect(parsed).toEqual({
 			success: false,
 			errors: { currency: ["Pick a currency."] },
+		});
+	});
+});
+
+describe("password change schemas", () => {
+	test("newPasswordSchema applies the rules and wants it twice", () => {
+		expect(
+			parseForm(
+				newPasswordSchema("ada@example.com"),
+				form({
+					password: "Correct-Horse-9",
+					confirmPassword: "Correct-Horse-9",
+				}),
+			).success,
+		).toBe(true);
+		const parsed = parseForm(
+			newPasswordSchema("ada@example.com"),
+			form({ password: "ada-Is-Great-99", confirmPassword: "other" }),
+		);
+		expect(parsed.success || Object.keys(parsed.errors).sort()).toEqual([
+			"confirmPassword",
+			"password",
+		]);
+	});
+
+	test("changePasswordSchema takes the current password when there is one", () => {
+		expect(
+			parseForm(
+				changePasswordSchema("ada@example.com"),
+				form({
+					currentPassword: "old",
+					password: "Correct-Horse-9",
+					confirmPassword: "Correct-Horse-9",
+				}),
+			),
+		).toEqual({
+			success: true,
+			data: {
+				currentPassword: "old",
+				password: "Correct-Horse-9",
+				confirmPassword: "Correct-Horse-9",
+			},
 		});
 	});
 });

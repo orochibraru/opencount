@@ -23,7 +23,7 @@ existing accounts: they never create one, so the instance stays invite-only. An
 account with an authenticator app can't use them, since they would skip its
 code: the sign-in sheet tells it to use the password instead. The codes are only
 ever for signing in: OpenCount refuses to send one to reset a password or change
-an email.
+an email, which have their own links and codes.
 
 An admin can turn any method off. Turned off means refused on the server, not
 only hidden: the sign-in endpoints answer 403 whatever calls them.
@@ -39,6 +39,14 @@ Two rules keep the instance reachable:
 With passwords off, anyone who has neither a passkey nor a linked provider is
 sent to **Account, Security** on their next page load to add a passkey while
 their session still lets them.
+
+## Forgotten password
+
+With password sign-in on and [email delivery](email) set up, the sign-in page
+offers **Forgot your password?**. It sends a link that works once for an hour
+and opens a page to choose a new password, which signs the account out
+everywhere. It answers the same whether or not the address has an account. With
+passwords off or no email, the page doesn't exist.
 
 ## Two-factor
 
@@ -90,8 +98,10 @@ refused, like turning the last method off.
 
 ## When someone is locked out
 
-There is no recovery flow yet: no password reset by email, and an admin can't
-reset someone else's authenticator app. The way back is an admin deleting the
-account from **Admin, Users** and inviting the person again. Their members in
-groups stay as plain names with their expenses: once someone adds the new
-account back to a group by email, they claim their old name with **That's me**.
+A forgotten password has the reset link above. Without email, or when the
+authenticator app or passkeys are lost, an admin resets two-factor and passkeys
+from **Admin, Users**, or changes the email when that's what was lost. The last
+resort is deleting the account from **Admin, Users** and inviting the person
+again. Their members in groups stay as plain names with their expenses: once
+someone adds the new account back to a group by email, they claim their old name
+with **That's me**.

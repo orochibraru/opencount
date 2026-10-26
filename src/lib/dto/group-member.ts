@@ -136,6 +136,15 @@ export class GroupMemberDTO extends BaseDTO<GroupMemberRow> {
 		getDb().delete(groupMember).where(eq(groupMember.id, this.row.id)).run();
 	}
 
+	/** Links this member, who has no account yet, to `userId`'s. */
+	linkTo(userId: string): void {
+		getDb()
+			.update(groupMember)
+			.set({ userId })
+			.where(eq(groupMember.id, this.row.id))
+			.run();
+	}
+
 	/** Unlinks the member from their account: their name and expenses stay, the account loses access to the group. */
 	unlink(): void {
 		getDb()

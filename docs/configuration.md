@@ -32,6 +32,7 @@ client secrets again, and everyone has to set up their authenticator app again.
 | `ADDRESS_HEADER`  | unset                | To see the client's IP, not the proxy's     |
 | `XFF_DEPTH`       | unset                | With `ADDRESS_HEADER: x-forwarded-for`      |
 | `PORT`            | `3000`               | To listen on another port                   |
+| `BODY_SIZE_LIMIT` | `256M`               | To accept bigger or smaller uploads         |
 
 Every form post is checked against the app's public origin, and a mismatch is
 refused with `403 Cross-site POST form submissions are forbidden`. OpenCount
@@ -45,8 +46,8 @@ included, like `http://192.168.1.10:3000`; the check then accepts it too.
 Setting `ORIGIN` behind a proxy does no harm, and it also fixes the base URL of
 invite links and single sign-on callbacks.
 
-`PROTOCOL_HEADER`, `HOST_HEADER`, `ADDRESS_HEADER`, `XFF_DEPTH` and `PORT`
-belong to the Bun adapter; its
+`PROTOCOL_HEADER`, `HOST_HEADER`, `ADDRESS_HEADER`, `XFF_DEPTH`, `PORT` and
+`BODY_SIZE_LIMIT` belong to the Bun adapter; its
 [documentation](https://svelte.dev/docs/kit/adapter-bun#Environment-variables)
 lists the rest. Only trust forwarded headers when every request reaches the
 server through a proxy you control.
@@ -69,8 +70,9 @@ worker starts; see [Backups and upgrades](backups-and-upgrades).
 | `WORKER_CONCURRENCY`      | `2`     | 1 to 32      | Background jobs run at once             |
 | `WORKER_POLL_INTERVAL_MS` | `1000`  | 100 to 60000 | How often the worker looks for due jobs |
 
-The worker sends emails, adds repeating expenses and prunes finished jobs. The
-defaults suit any instance; there is rarely a reason to touch them.
+The worker sends emails, adds repeating expenses, builds backups and exports,
+imports Tricounts and prunes finished jobs and old downloads. The defaults suit
+any instance; there is rarely a reason to touch them.
 
 ## Logging
 
@@ -99,8 +101,16 @@ lines for a terminal, and is the default outside the image.
 | `SENTRY_RELEASE`              | `APP_VERSION` | Release attached to reported errors                |
 | `SENTRY_ENVIRONMENT`          | `production`  | Environment attached to reported errors            |
 
-With none of them set, nothing leaves the server. See
+With none of them set, no telemetry leaves the server. See
 [Logs, traces and errors](observability).
+
+## Outbound calls
+
+Besides your SMTP and single sign-on servers, the server calls two services, and
+only when someone uses the feature: `api.frankfurter.dev` for the exchange rate
+of an expense in another currency, and `api.tricount.bunq.com` to import a
+Tricount from its share link. Block them and those two features fail, nothing
+else.
 
 ## Set in the app, not here
 

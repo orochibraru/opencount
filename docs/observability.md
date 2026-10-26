@@ -2,8 +2,8 @@
 
 OpenCount writes logs to the container's output, and can send traces to an
 OpenTelemetry collector and errors to a Sentry-compatible service. Traces and
-error reporting are off unless you configure them: with nothing set, nothing
-leaves the server.
+error reporting are off unless you configure them: with nothing set, no
+telemetry leaves the server.
 
 ## Logs
 

@@ -16,7 +16,9 @@
 	style="view-transition-name: tab-bar"
 	aria-label="Main"
 >
-	<ul class="glass mx-auto flex max-w-sm items-center gap-1 rounded-full p-1.5">
+	<ul
+		class="bg-popover border-border mx-auto flex max-w-sm items-center gap-1 rounded-full border p-1.5 shadow-lg"
+	>
 		{#each items as item (item.href)}
 			{@const active = isActive(page.url.pathname, item.href)}
 			<li class="flex-1">

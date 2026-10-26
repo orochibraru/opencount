@@ -2,6 +2,8 @@ import type { ActionResult, SubmitFunction } from "$app/forms";
 import type { ExternalToast } from "svelte-sonner";
 import { toast } from "svelte-sonner";
 
+import { haptic } from "#lib/haptics.js";
+
 export type ActionData = Record<string, unknown> | undefined;
 
 export interface ToastMessages {
@@ -95,6 +97,7 @@ export function enhanceToast(options: EnhanceToastOptions): SubmitFunction {
 				options.onFailure?.(
 					result.type === "failure" ? (result.data as ActionData) : undefined,
 				);
+				haptic("error");
 				fail(resultError(result, fallback));
 			} else {
 				const data =

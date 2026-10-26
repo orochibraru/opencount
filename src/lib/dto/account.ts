@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
 
 import { getDb } from "#lib/server/db/lib.js";
 import { account } from "#lib/server/db/schema.js";
@@ -19,6 +19,23 @@ export function hasLinkedProvider(
 				and(
 					eq(account.userId, userId),
 					inArray(account.providerId, providerIds),
+				),
+			)
+			.get() !== undefined
+	);
+}
+
+/** Whether `userId` can sign in with a password. */
+export function hasPassword(userId: string): boolean {
+	return (
+		getDb()
+			.select({ id: account.id })
+			.from(account)
+			.where(
+				and(
+					eq(account.userId, userId),
+					eq(account.providerId, "credential"),
+					isNotNull(account.password),
 				),
 			)
 			.get() !== undefined

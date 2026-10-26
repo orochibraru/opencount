@@ -3,9 +3,14 @@ import { z } from "zod";
 
 import { UserDTO } from "#lib/dto/user.js";
 import { adminFrom } from "#lib/server/admin.js";
+import { emailSchema } from "#lib/server/validation/auth.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
 const userIdSchema = z.object({ id: z.string().min(1) });
+const changeEmailSchema = z.object({
+	id: z.string().min(1),
+	email: emailSchema,
+});
 
 export const load = () => ({
 	users: UserDTO.list().map((entry) => entry.toJSON()),
@@ -52,6 +57,41 @@ export const actions = {
 		}
 		UserDTO.revokeSessions(parsed.data.id);
 		return { revoked: true };
+	},
+	changeEmail: async ({ locals, request }) => {
+		const admin = adminFrom(locals);
+		if (!("id" in admin)) {
+			return admin;
+		}
+		const parsed = parseForm(changeEmailSchema, await request.formData());
+		if (!parsed.success) {
+			return fail(400, { errors: parsed.errors });
+		}
+		const owner = UserDTO.idForEmail(parsed.data.email);
+		if (owner && owner !== parsed.data.id) {
+			return fail(400, {
+				errors: { email: ["Another account already uses that email."] },
+			});
+		}
+		UserDTO.changeEmail(parsed.data.id, parsed.data.email);
+		return { emailChanged: true };
+	},
+	resetFactors: async ({ locals, request }) => {
+		const admin = adminFrom(locals);
+		if (!("id" in admin)) {
+			return admin;
+		}
+		const parsed = parseForm(userIdSchema, await request.formData());
+		if (!parsed.success) {
+			return fail(400, { error: "Pick a user." });
+		}
+		if (parsed.data.id === admin.id) {
+			return fail(400, {
+				error: "Manage your own factors from your account's security page.",
+			});
+		}
+		UserDTO.resetFactors(parsed.data.id);
+		return { factorsReset: true };
 	},
 	delete: async ({ locals, request }) => {
 		const admin = adminFrom(locals);

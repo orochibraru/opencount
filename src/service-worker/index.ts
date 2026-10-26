@@ -35,8 +35,23 @@ worker.addEventListener("activate", (event) => {
 	);
 });
 
+const offlinePage = "/offline.html";
+
 worker.addEventListener("fetch", (event) => {
 	const url = new URL(event.request.url);
+	if (
+		event.request.mode === "navigate" &&
+		url.origin === worker.location.origin
+	) {
+		event.respondWith(
+			fetch(event.request).catch(
+				async () =>
+					(await caches.match(offlinePage)) ??
+					new Response("You're offline.", { status: 503 }),
+			),
+		);
+		return;
+	}
 	if (
 		event.request.method !== "GET" ||
 		url.origin !== worker.location.origin ||

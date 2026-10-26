@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
 	index,
 	integer,
+	real,
 	sqliteTable,
 	text,
 	uniqueIndex,
@@ -98,6 +99,7 @@ export const group = sqliteTable("group", {
 		.$defaultFn(() => crypto.randomUUID()),
 	name: text("name").notNull(),
 	currency: text("currency").notNull().default("EUR"),
+	inviteNonce: text("invite_nonce"),
 	createdBy: text("created_by").references(() => user.id, {
 		onDelete: "set null",
 	}),
@@ -291,6 +293,9 @@ export const expense = sqliteTable(
 		description: text("description").notNull(),
 		category: text("category").notNull().default("other"),
 		amountMinor: integer("amount_minor").notNull(),
+		originalCurrency: text("original_currency"),
+		originalAmountMinor: integer("original_amount_minor"),
+		exchangeRate: real("exchange_rate"),
 		paidBy: text("paid_by")
 			.notNull()
 			.references(() => groupMember.id, { onDelete: "restrict" }),
@@ -426,4 +431,30 @@ export const pushSubscription = sqliteTable(
 		uniqueIndex("push_subscription_endpoint_idx").on(table.endpoint),
 		index("push_subscription_user_id_idx").on(table.userId),
 	],
+);
+
+export const downloadKinds = ["database", "group-csv", "group-pdf"] as const;
+export const downloadStatuses = ["pending", "ready", "failed"] as const;
+
+export const download = sqliteTable(
+	"download",
+	{
+		id: text("id")
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		groupId: text("group_id").references(() => group.id, {
+			onDelete: "cascade",
+		}),
+		kind: text("kind", { enum: downloadKinds }).notNull(),
+		fileName: text("file_name").notNull(),
+		status: text("status", { enum: downloadStatuses })
+			.notNull()
+			.default("pending"),
+		error: text("error"),
+		createdAt: createdAt(),
+	},
+	(table) => [index("download_user_id_idx").on(table.userId)],
 );

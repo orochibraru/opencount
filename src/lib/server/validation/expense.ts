@@ -1,7 +1,8 @@
 import { z } from "zod";
 
+import { currencies } from "#lib/currencies.js";
 import type { ExpenseInput } from "#lib/dto/expense.js";
-import { parseMoney } from "#lib/money.js";
+import { convertMinor, parseMoney } from "#lib/money.js";
 import { recurrenceFrequencies, splitModes } from "#lib/server/db/schema.js";
 import type { FieldErrors, ParsedForm } from "#lib/server/validation/form.js";
 import { splitByWeight } from "#lib/split.js";
@@ -14,6 +15,8 @@ const baseSchema = z.object({
 		.max(120, "Keep it under 120 characters."),
 	category: z.string().default("other"),
 	amount: z.string(),
+	currency: z.enum(currencies).optional(),
+	exchangeRate: z.string().default(""),
 	paidBy: z.string().min(1, "Pick who paid."),
 	spentOn: z.iso.date("Pick a date."),
 	splitMode: z.enum(splitModes).default("equal"),
@@ -45,9 +48,60 @@ function fail(field: string, message: string): ParsedForm<ExpenseForm> {
 }
 
 /**
+ * Each participant's exact amount (`exact:<memberId>`), typed in `currency`, converted to the group's with `toGroup`;
+ * the rounding left over goes to the first one so they add up to `amountMinor`. A message when they don't add up.
+ */
+function exactShares(
+	formData: FormData,
+	participants: string[],
+	{
+		currency,
+		originalMinor,
+		amountMinor,
+		toGroup,
+	}: {
+		currency: string;
+		originalMinor: number;
+		amountMinor: number;
+		toGroup: (minor: number) => number;
+	},
+): ExpenseInput["shares"] | string {
+	const amounts = participants.map((memberId) => ({
+		memberId,
+		amountMinor: parseMoney(
+			String(formData.get(`exact:${memberId}`) ?? "0"),
+			currency,
+		),
+	}));
+	if (amounts.some((entry) => entry.amountMinor === undefined)) {
+		return "Each amount must be a number.";
+	}
+	const sum = amounts.reduce(
+		(total, entry) => total + (entry.amountMinor ?? 0),
+		0,
+	);
+	if (sum !== originalMinor) {
+		return "The amounts must add up to the total.";
+	}
+	const shares = amounts.map((entry) => ({
+		memberId: entry.memberId,
+		amountMinor: toGroup(entry.amountMinor ?? 0),
+		weight: 1,
+	}));
+	const [first] = shares;
+	if (first) {
+		first.amountMinor +=
+			amountMinor -
+			shares.reduce((total, share) => total + share.amountMinor, 0);
+	}
+	return shares;
+}
+
+/**
  * Validates the add or edit expense form against the group's currency and members, and computes each member's share:
  * equal parts, weights (`weight:<memberId>`) or exact amounts (`exact:<memberId>`) that must add up to the total.
- * `merchant` and `repeat` are optional.
+ * Amounts typed in another `currency` are converted at `exchangeRate` and the original kept. `merchant` and `repeat`
+ * are optional.
  */
 export function parseExpenseForm(
 	formData: FormData,
@@ -62,10 +116,29 @@ export function parseExpenseForm(
 		}
 		return { success: false, errors };
 	}
-	const { amount, merchant, repeat, ...fields } = base.data;
-	const amountMinor = parseMoney(amount, currency);
-	if (!amountMinor) {
+	const {
+		amount,
+		merchant,
+		repeat,
+		currency: entered,
+		exchangeRate,
+		...fields
+	} = base.data;
+	const expenseCurrency = entered ?? currency;
+	const foreign = expenseCurrency !== currency;
+	const rate = foreign ? Number(exchangeRate.trim().replace(",", ".")) : 1;
+	if (!Number.isFinite(rate) || rate <= 0) {
+		return fail("exchangeRate", "Enter the exchange rate.");
+	}
+	const toGroup = (minor: number) =>
+		foreign ? convertMinor(minor, expenseCurrency, currency, rate) : minor;
+	const originalMinor = parseMoney(amount, expenseCurrency);
+	if (!originalMinor) {
 		return fail("amount", "Enter an amount above zero.");
+	}
+	const amountMinor = toGroup(originalMinor);
+	if (amountMinor <= 0) {
+		return fail("amount", `That's less than the smallest ${currency} amount.`);
 	}
 	if (!categories.includes(fields.category)) {
 		return fail("category", "Pick a category.");
@@ -83,28 +156,16 @@ export function parseExpenseForm(
 
 	let shares: ExpenseInput["shares"];
 	if (fields.splitMode === "exact") {
-		const amounts = participants.map((memberId) => ({
-			memberId,
-			amountMinor: parseMoney(
-				String(formData.get(`exact:${memberId}`) ?? "0"),
-				currency,
-			),
-		}));
-		if (amounts.some((entry) => entry.amountMinor === undefined)) {
-			return fail("participants", "Each amount must be a number.");
+		const exact = exactShares(formData, participants, {
+			currency: expenseCurrency,
+			originalMinor,
+			amountMinor,
+			toGroup,
+		});
+		if (typeof exact === "string") {
+			return fail("participants", exact);
 		}
-		const sum = amounts.reduce(
-			(total, entry) => total + (entry.amountMinor ?? 0),
-			0,
-		);
-		if (sum !== amountMinor) {
-			return fail("participants", "The amounts must add up to the total.");
-		}
-		shares = amounts.map((entry) => ({
-			memberId: entry.memberId,
-			amountMinor: entry.amountMinor ?? 0,
-			weight: 1,
-		}));
+		shares = exact;
 	} else {
 		const weights = participants.map((memberId) => ({
 			memberId,
@@ -135,6 +196,11 @@ export function parseExpenseForm(
 			...fields,
 			kind: "expense",
 			amountMinor,
+			...(foreign && {
+				originalCurrency: expenseCurrency,
+				originalAmountMinor: originalMinor,
+				exchangeRate: rate,
+			}),
 			shares,
 			merchant: merchant || undefined,
 			repeat: repeat === "never" ? undefined : repeat,

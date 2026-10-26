@@ -3,6 +3,7 @@ import { and, count, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { BaseDTO } from "#lib/dto/base-dto.js";
 import { getDb } from "#lib/server/db/lib.js";
 import { expense, group, groupMember } from "#lib/server/db/schema.js";
+import { hashToken, randomToken } from "#lib/server/secrets.js";
 
 export interface GroupRow {
 	id: string;
@@ -18,6 +19,10 @@ export interface NewGroup {
 	name: string;
 	currency: string;
 	owner: { id: string; name: string };
+}
+
+function inviteToken(groupId: string, nonce: string): string {
+	return hashToken(`group-invite:${groupId}:${nonce}`);
 }
 
 function memberCounts() {
@@ -87,6 +92,27 @@ export class GroupDTO extends BaseDTO<GroupRow> {
 			.where(eq(group.id, groupId))
 			.get();
 		return row ? new GroupDTO(row) : undefined;
+	}
+
+	/** Group `groupId`'s name and currency when `token` is its live invite link token, for someone not in it yet. */
+	static findByInvite(
+		groupId: string,
+		token: string,
+	): { id: string; name: string; currency: string } | undefined {
+		const row = getDb()
+			.select({
+				id: group.id,
+				name: group.name,
+				currency: group.currency,
+				inviteNonce: group.inviteNonce,
+			})
+			.from(group)
+			.where(eq(group.id, groupId))
+			.get();
+		if (!row?.inviteNonce || inviteToken(row.id, row.inviteNonce) !== token) {
+			return undefined;
+		}
+		return { id: row.id, name: row.name, currency: row.currency };
 	}
 
 	/** Creates a group with its owner as the first member, in one transaction. */
@@ -165,6 +191,34 @@ export class GroupDTO extends BaseDTO<GroupRow> {
 		getDb()
 			.update(group)
 			.set({ currency })
+			.where(eq(group.id, this.row.id))
+			.run();
+	}
+
+	/** The token of the group's invite link, or `undefined` while it has none. */
+	inviteToken(): string | undefined {
+		const nonce = getDb()
+			.select({ nonce: group.inviteNonce })
+			.from(group)
+			.where(eq(group.id, this.row.id))
+			.get()?.nonce;
+		return nonce ? inviteToken(this.row.id, nonce) : undefined;
+	}
+
+	/** Makes a new invite link, which stops the previous one working. */
+	resetInvite(): void {
+		getDb()
+			.update(group)
+			.set({ inviteNonce: randomToken() })
+			.where(eq(group.id, this.row.id))
+			.run();
+	}
+
+	/** Turns the invite link off. */
+	disableInvite(): void {
+		getDb()
+			.update(group)
+			.set({ inviteNonce: null })
 			.where(eq(group.id, this.row.id))
 			.run();
 	}

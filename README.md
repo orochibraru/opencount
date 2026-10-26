@@ -17,7 +17,10 @@ open-source alternative to Tricount that installs on your phone like an app.
 
 - **Groups** for a trip, a flat or a dinner, in one of twelve currencies. Add
   people by name before they have an account; they claim their name with
-  **That's me** once they join.
+  **That's me**, or pick it when they open the group's invite link.
+- **Other currencies**: an expense paid in dollars counts in the group's
+  currency at the day's European Central Bank rate, or the one you type, frozen
+  on the expense.
 - **Expenses** split equally, by shares or by exact amounts, between everyone or
   only some. Amounts are whole cents, so a split always adds up.
 - **Balances and settle-up**: everyone's balance, and the fewest payments that
@@ -33,12 +36,18 @@ open-source alternative to Tricount that installs on your phone like an app.
 - **Insights** by period, category, merchant and payer, and over time.
 - **Archiving**: hide a finished group from your own list without touching
   anyone else's.
-- **Feels native**: an installable PWA with a bottom tab bar and sheets on
-  phones, a full layout with a sidebar on desktop. Per-account accent colour,
-  light, dark or AMOLED theme, font and corners.
+- **Import and export**: bring a Tricount over from its share link, with its
+  expenses, splits, categories and dates, after a preview. Export a group as a
+  CSV spreadsheet or a PDF summary.
+- **Feels native**: an installable PWA with a bottom tab bar, sheets, pull to
+  refresh and haptics on phones, a full layout with a sidebar on desktop.
+  Expenses added offline are kept on the device and sync once you're back.
+  Per-account accent colour, light, dark or AMOLED theme, font and corners.
 - **Invite-only by default**, administered from the app: invites, sign-ups once
   email works, required authenticator apps or passkeys, password and passkey
   sign-in on or off, and single sign-on through any OpenID Connect provider.
+  Password reset by email, accounts that change their own email and password or
+  delete themselves, and database backups and restores from the admin area.
 
 ## Documentation
 
@@ -138,7 +147,8 @@ docker compose -f compose.prod.yaml up -d
 ```
 
 Migrations run at boot. Your data is the `opencount` volume: back it up, with
-`AUTH_SECRET`. See [Backups and upgrades](docs/backups-and-upgrades.md).
+`AUTH_SECRET`, or download a backup from the admin area's Backup tab. See
+[Backups and upgrades](docs/backups-and-upgrades.md).
 
 ## Contributing
 

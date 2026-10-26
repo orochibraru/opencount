@@ -6,6 +6,7 @@ import { z } from "zod";
 import { getSetting } from "#lib/dto/setting.js";
 import { getAuth } from "#lib/server/auth.js";
 import { safeRedirectTarget } from "#lib/server/guards.js";
+import { isEmailConfigured } from "#lib/server/mailer.js";
 import { enabledSignInMethods } from "#lib/server/sign-in-methods.js";
 import {
 	emailCodeSignInSchema,
@@ -19,6 +20,7 @@ const ssoSchema = z.object({ provider: z.string().min(1) });
 export const load = () => ({
 	signUpsOpen: getSetting("signUpsEnabled"),
 	methods: enabledSignInMethods(),
+	passwordReset: getSetting("passwordSignIn") && isEmailConfigured(),
 });
 
 export const actions = {

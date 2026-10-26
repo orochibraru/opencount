@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, mock, test } from "bun:test";
 
 import { setSetting } from "#lib/dto/setting.js";
 import {
+	emailChangeCodeEmail,
+	emailChangedEmail,
 	inviteEmail,
+	resetPasswordEmail,
 	testEmail,
 	verificationCodeEmail,
 } from "#lib/server/emails.js";
@@ -30,6 +33,18 @@ describe("emails", () => {
 		expect(invite.html).toContain("&lt;Ada&gt;");
 		expect(invite.text).toContain("https://app.test/auth/invite/x");
 		expect(testEmail("a@b.c").to).toBe("a@b.c");
+	});
+
+	test("account emails carry the reset link, the code or the new address", () => {
+		expect(resetPasswordEmail("a@b.c", "https://app.test/r").text).toContain(
+			"https://app.test/r",
+		);
+		expect(emailChangeCodeEmail("new@b.c", "654321").subject).toContain(
+			"654 321",
+		);
+		const changed = emailChangedEmail("old@b.c", "<new@b.c>");
+		expect(changed.to).toBe("old@b.c");
+		expect(changed.html).toContain("&lt;new@b.c&gt;");
 	});
 });
 

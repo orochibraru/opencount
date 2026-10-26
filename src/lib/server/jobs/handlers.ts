@@ -1,5 +1,9 @@
+import { DownloadDTO } from "#lib/dto/download.js";
+import { ExpenseDTO } from "#lib/dto/expense.js";
+import { GroupDTO } from "#lib/dto/group.js";
 import { JobDTO } from "#lib/dto/job.js";
 import { RecurringExpenseDTO } from "#lib/dto/recurring-expense.js";
+import { buildDownload, pruneDownloads } from "#lib/server/downloads.js";
 import type { JobPayloads, JobType } from "#lib/server/jobs/types.js";
 import { Logger } from "#lib/server/logger.js";
 import { deliverEmail } from "#lib/server/mailer.js";
@@ -33,11 +37,43 @@ export const jobHandlers: JobHandlers = {
 		tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
 		JobDTO.enqueue("recurring.run", {}, { runAt: tomorrow });
 	},
+	"download.build": async ({ downloadId }) => {
+		const download = DownloadDTO.find(downloadId);
+		if (!download) {
+			logger.warn("Download gone before it was built", { downloadId });
+			return;
+		}
+		await buildDownload(download);
+		logger.info("Download built", { kind: download.kind });
+	},
+	"import.tricount": ({
+		groupId,
+		userId,
+		title,
+		url,
+		newMembers,
+		expenses,
+	}) => {
+		const group = GroupDTO.findForMember(groupId, userId);
+		if (!group) {
+			throw new Error("The group is gone, or its importer left it");
+		}
+		const added = ExpenseDTO.createMany(groupId, expenses, userId, newMembers);
+		logger.info("Imported a Tricount", { added });
+		JobDTO.enqueue("push.send", {
+			userIds: [userId],
+			title: group.toJSON().name,
+			body: `${title} is imported: ${added} ${added === 1 ? "entry" : "entries"}.`,
+			url,
+		});
+	},
 	"jobs.prune": ({ olderThanDays }) => {
 		const removed = JobDTO.pruneFinished(
 			new Date(Date.now() - olderThanDays * dayMs),
 		);
 		logger.info("Pruned finished jobs", { removed });
+		const downloads = pruneDownloads(new Date(Date.now() - dayMs));
+		logger.info("Pruned downloads", { removed: downloads });
 		JobDTO.enqueue(
 			"jobs.prune",
 			{ olderThanDays },
