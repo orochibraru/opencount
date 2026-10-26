@@ -6,7 +6,7 @@
 	import UnlinkIcon from "@lucide/svelte/icons/unlink";
 
 	import ItemMenu from "#lib/components/item-menu.svelte";
-	import Picker from "#lib/components/picker.svelte";
+	import Picker, { type PickerOption } from "#lib/components/picker.svelte";
 	import ResponsiveSheet from "#lib/components/responsive-sheet.svelte";
 	import { Button } from "#lib/components/ui/button/index.js";
 	import * as Field from "#lib/components/ui/field/index.js";
@@ -59,18 +59,28 @@
 	];
 	const countryNames = new Intl.DisplayNames(undefined, { type: "region" });
 	const countries = countryCodes
-		.map((code) => ({ value: code, label: countryNames.of(code) ?? code }))
+		.map((code) => ({
+			value: code,
+			label: countryNames.of(code) ?? code,
+			emoji: String.fromCodePoint(
+				...[...code].map((letter) => 0x1f1a5 + letter.charCodeAt(0)),
+			),
+		}))
 		.toSorted((left, right) => left.label.localeCompare(right.label));
 
 	let connectOpen = $state(false);
 	let country = $state("");
 	let bank = $state("");
-	let banks = $state<Promise<{ value: string; label: string }[]>>();
+	let banks = $state<Promise<PickerOption[]>>();
 
 	function pickCountry(code: string) {
 		bank = "";
 		banks = getBanks(code).then((list) =>
-			list.map((entry) => ({ value: entry.name, label: entry.name })),
+			list.map((entry) => ({
+				value: entry.name,
+				label: entry.name,
+				image: entry.logo ?? undefined,
+			})),
 		);
 	}
 

@@ -125,7 +125,7 @@ export async function listBanks(
 	return aspsps.map((aspsp) => ({
 		name: aspsp.name,
 		country: aspsp.country,
-		logo: aspsp.logo ?? null,
+		logo: aspsp.logo?.startsWith("https://") ? aspsp.logo : null,
 	}));
 }
 

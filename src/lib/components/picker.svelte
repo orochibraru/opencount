@@ -6,6 +6,8 @@
 		label: string;
 		icon?: Component<{ class?: string }>;
 		tint?: string;
+		image?: string;
+		emoji?: string;
 	}
 
 	export interface PickerSearch {
@@ -101,7 +103,19 @@
 </script>
 
 {#snippet optionIcon(option: PickerOption)}
-	{#if option.icon && option.tint}
+	{#if option.image}
+		<img
+			src={option.image}
+			alt=""
+			loading="lazy"
+			class="size-6 shrink-0 rounded-md bg-white object-contain p-0.5"
+		/>
+	{:else if option.emoji}
+		<span
+			class="w-6 shrink-0 text-center text-lg leading-none"
+			aria-hidden="true">{option.emoji}</span
+		>
+	{:else if option.icon && option.tint}
 		<span
 			class="category-tile flex size-6 shrink-0 items-center justify-center rounded-md"
 			style={option.tint}
@@ -122,7 +136,7 @@
 {/if}
 
 {#snippet summaryContent(chevron: boolean)}
-	{#if !multiple && selected[0]?.icon && selected[0].tint}
+	{#if !multiple && (selected[0]?.image || selected[0]?.emoji || (selected[0]?.icon && selected[0].tint))}
 		{@render optionIcon(selected[0])}
 	{:else if !multiple && selected[0]?.icon}
 		{@const Icon = selected[0].icon}

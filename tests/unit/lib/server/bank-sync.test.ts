@@ -105,7 +105,10 @@ describe("Enable Banking client", () => {
 		const fetched = spyOn(globalThis, "fetch")
 			.mockResolvedValueOnce(
 				Response.json({
-					aspsps: [{ name: "Revolut", country: "FR", logo: "https://x/l.png" }],
+					aspsps: [
+						{ name: "Revolut", country: "FR", logo: "https://x/l.png" },
+						{ name: "Boursorama", country: "FR", logo: "javascript:alert(1)" },
+					],
 				}),
 			)
 			.mockResolvedValueOnce(
@@ -125,6 +128,7 @@ describe("Enable Banking client", () => {
 			.mockResolvedValueOnce(Response.json({ message: "OK" }));
 		expect(await listBanks(credentials(), "FR")).toEqual([
 			{ name: "Revolut", country: "FR", logo: "https://x/l.png" },
+			{ name: "Boursorama", country: "FR", logo: null },
 		]);
 		expect(
 			await startBankLink(
