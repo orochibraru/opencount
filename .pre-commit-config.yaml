@@ -76,7 +76,7 @@ repos:
 
       - id: oxlint
         name: Lint (oxlint)
-        entry: node_modules/.bin/oxlint --type-aware --deny-warnings --fix
+        entry: node_modules/.bin/oxlint --type-aware --deny-warnings --fix --no-error-on-unmatched-pattern
         language: system
         require_serial: true
         files: \.(ts|js|mjs|cjs|svelte)$

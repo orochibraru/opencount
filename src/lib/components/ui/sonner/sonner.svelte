@@ -19,13 +19,18 @@
 <Sonner
 	theme={mode.current}
 	class="toaster group"
-	position={desktop.current ? "top-right" : "bottom-center"}
+	position={desktop.current ? "top-right" : "top-center"}
 	closeButton
 	closeButtonAriaLabel="Dismiss"
-	swipeDirections={desktop.current ? ["right"] : ["left", "right"]}
-	offset={{ top: "4.75rem", right: "1.5rem" }}
+	swipeDirections={desktop.current ? ["right"] : ["top", "left", "right"]}
+	offset={{
+		top: desktop.current
+			? "4.75rem"
+			: "calc(env(safe-area-inset-top) + 4.25rem)",
+		right: "1.5rem",
+	}}
 	mobileOffset={{
-		bottom: "calc(max(0.75rem, env(safe-area-inset-bottom)) + 4.75rem)",
+		top: "calc(env(safe-area-inset-top) + 4.25rem)",
 		left: "0.75rem",
 		right: "0.75rem",
 	}}
@@ -44,18 +49,18 @@
 	{...restProps}
 >
 	{#snippet loadingIcon()}
-		<Loader2Icon class="text-muted-foreground size-4 animate-spin" />
+		<Loader2Icon class="text-muted-foreground size-5 animate-spin md:size-4" />
 	{/snippet}
 	{#snippet successIcon()}
-		<CircleCheckIcon class="text-positive size-4" />
+		<CircleCheckIcon class="text-positive size-5 md:size-4" />
 	{/snippet}
 	{#snippet errorIcon()}
-		<OctagonXIcon class="text-destructive size-4" />
+		<OctagonXIcon class="text-destructive size-5 md:size-4" />
 	{/snippet}
 	{#snippet infoIcon()}
-		<InfoIcon class="text-primary size-4" />
+		<InfoIcon class="text-primary size-5 md:size-4" />
 	{/snippet}
 	{#snippet warningIcon()}
-		<TriangleAlertIcon class="size-4 text-amber-500" />
+		<TriangleAlertIcon class="size-5 text-amber-500 md:size-4" />
 	{/snippet}
 </Sonner>
