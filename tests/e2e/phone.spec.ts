@@ -36,3 +36,16 @@ test("adding an expense with the drawers on a phone", async ({ page }) => {
 	);
 	expect(overflow).toBeLessThanOrEqual(0);
 });
+
+test("the app links an installable manifest", async ({ page, request }) => {
+	await page.goto("/");
+	const href = await page.locator('link[rel="manifest"]').getAttribute("href");
+	expect(href).toBeTruthy();
+	const manifest = await request.get(new URL(href ?? "", page.url()).href);
+	expect(manifest.ok()).toBe(true);
+	const body = await manifest.json();
+	expect(body.display).toBe("standalone");
+	expect(
+		body.icons.some((icon: { sizes: string }) => icon.sizes === "512x512"),
+	).toBe(true);
+});
