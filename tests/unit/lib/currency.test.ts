@@ -136,3 +136,44 @@ describe("exchangeRate", () => {
 		expect(await exchangeRate("GBP", "EUR", "2026-03-02")).toBeUndefined();
 	});
 });
+
+describe("parsePersonalForm", () => {
+	test("takes the amount in the expense's own currency", async () => {
+		const { parsePersonalForm } =
+			await import("#lib/server/validation/personal.js");
+		expect(
+			parsePersonalForm(
+				form({
+					description: "Book",
+					amount: "1500",
+					currency: "JPY",
+					category: "shopping",
+					spentOn: "2026-10-01",
+				}),
+			),
+		).toEqual({
+			success: true,
+			data: {
+				description: "Book",
+				amountMinor: 1500,
+				currency: "JPY",
+				category: "shopping",
+				spentOn: "2026-10-01",
+			},
+		});
+		expect(
+			parsePersonalForm(
+				form({
+					description: "Book",
+					amount: "0",
+					currency: "EUR",
+					spentOn: "2026-10-01",
+				}),
+			),
+		).toEqual({
+			success: false,
+			errors: { amount: ["Enter an amount above zero."] },
+		});
+		expect(parsePersonalForm(form({ amount: "1" })).success).toBe(false);
+	});
+});

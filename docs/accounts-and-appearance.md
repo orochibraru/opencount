@@ -71,8 +71,9 @@ Edge and Android show their install dialog, and Safari on iPhone and iPad
 explains **Share, Add to Home Screen**. You can also do it yourself any time.
 Installed, it opens standalone, like a native app, with pull to refresh on the
 groups list and a light tap of haptics on actions. An expense added with no
-connection is kept on the device and sent once you're back online; a page that
-can't load shows an offline screen instead of the browser's error. The bottom
-tab bar holds Groups and Account, plus Admin for admins. On a desktop, a sidebar
-lists Groups, Admin and your groups, with your account in the menu under your
-name at the bottom.
+connection is kept on the device and sent once you're back online. Pages you
+already opened reopen with no connection; one you never opened shows an offline
+screen, and signing out clears what was kept. The bottom tab bar holds Groups,
+Personal and Account, plus Admin for admins. On a desktop, a sidebar lists
+Groups, Personal, Admin and your groups, with your account in the menu under
+your name at the bottom.

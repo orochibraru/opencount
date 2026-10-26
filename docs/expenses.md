@@ -56,7 +56,8 @@ first people in the list: 10.00 split three ways is 3.34, 3.33 and 3.33, never
 
 With no connection, **Add expense** still works: the expense is kept on the
 device and sent when you're back online, with a notice that it is waiting. Only
-new expenses are kept this way, not edits or deletions.
+new expenses are kept this way, not edits or deletions. Each carries an id, so a
+retry never adds it twice.
 
 ## Editing and deleting
 

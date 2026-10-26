@@ -24,7 +24,7 @@
 	}
 </script>
 
-<div class="bg-muted flex items-center gap-2 rounded-xl py-1 pr-1 pl-3">
+<div class="bg-muted flex min-w-0 items-center gap-2 rounded-xl py-1 pr-1 pl-3">
 	<span class="min-w-0 flex-1 truncate font-mono text-xs select-all"
 		>{value}</span
 	>

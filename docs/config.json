@@ -53,6 +53,11 @@
 					"icon": "scan-text"
 				},
 				{ "slug": "insights", "title": "Insights", "icon": "chart-pie" },
+				{
+					"slug": "personal-and-banks",
+					"title": "Personal expenses and bank sync",
+					"icon": "landmark"
+				},
 				{ "slug": "archiving", "title": "Archiving", "icon": "archive" },
 				{
 					"slug": "accounts-and-appearance",

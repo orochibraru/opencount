@@ -27,6 +27,7 @@ describe("settings", () => {
 			emailCodeSignIn: false,
 			ssoProviders: [],
 			vapid: null,
+			bankSync: null,
 		});
 		setSetting("signUpsEnabled", true);
 		setSetting("signUpsEnabled", false);

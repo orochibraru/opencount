@@ -84,6 +84,9 @@ describe("importCategory", () => {
 		expect(importCategory("UNCATEGORIZED", "Taxi to the airport")).toBe(
 			"transport",
 		);
+		expect(importCategory("UNCATEGORIZED", "Courses au supermarché")).toBe(
+			"groceries",
+		);
 		expect(importCategory(undefined, "Something")).toBe("other");
 	});
 });

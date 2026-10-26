@@ -2,9 +2,12 @@ import { fail } from "@sveltejs/kit";
 import { z } from "zod";
 
 import { categories, customCategoryIcons } from "#lib/categories.js";
+import { ExpenseDTO } from "#lib/dto/expense.js";
 import { GroupCategoryDTO } from "#lib/dto/group-category.js";
+import { MerchantDTO } from "#lib/dto/merchant.js";
 import { groupForMember } from "#lib/server/group-access.js";
 import { parseForm } from "#lib/server/validation/form.js";
+import { guessCategory } from "#lib/smart-category.js";
 
 const categorySchema = z.object({
 	id: z.string().optional(),
@@ -35,6 +38,31 @@ export const load = async ({ parent }) => {
 };
 
 export const actions = {
+	autoCategorize: ({ locals, params }) => {
+		if (!locals.user) {
+			return fail(401, { error: "Sign in again to continue." });
+		}
+		const { group } = groupForMember(params.groupId, locals.user.id);
+		const custom = GroupCategoryDTO.forGroup(group.id).map((entry) =>
+			entry.toJSON(),
+		);
+		const merchants = new Map(
+			MerchantDTO.forGroup(group.id).map((entry) => {
+				const { id, category } = entry.toJSON();
+				return [id, category];
+			}),
+		);
+		const moved = ExpenseDTO.categorizeUncategorized(
+			group.id,
+			(description, merchantId) => {
+				const remembered = merchantId ? merchants.get(merchantId) : undefined;
+				return remembered && remembered !== "other"
+					? remembered
+					: guessCategory(description, custom);
+			},
+		);
+		return { moved };
+	},
 	save: async ({ locals, params, request }) => {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });

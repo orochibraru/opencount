@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { enhance } from "$app/forms";
+	import { deserialize, enhance } from "$app/forms";
 	import { resolve } from "$app/paths";
 	import ArchiveIcon from "@lucide/svelte/icons/archive";
 	import ArchiveRestoreIcon from "@lucide/svelte/icons/archive-restore";
@@ -10,8 +10,10 @@
 	import ReceiptIcon from "@lucide/svelte/icons/receipt";
 	import RepeatIcon from "@lucide/svelte/icons/repeat";
 	import SettingsIcon from "@lucide/svelte/icons/settings";
+	import Share2Icon from "@lucide/svelte/icons/share-2";
 	import Trash2Icon from "@lucide/svelte/icons/trash-2";
 	import WifiOffIcon from "@lucide/svelte/icons/wifi-off";
+	import { toast } from "svelte-sonner";
 
 	import { categoryOf } from "#lib/categories.js";
 	import EmptyState from "#lib/components/empty-state.svelte";
@@ -21,7 +23,7 @@
 	import { formatMoney } from "#lib/money.js";
 	import { offlineQueue } from "#lib/offline-queue.svelte.js";
 	import { setPageTitle } from "#lib/page-title.svelte.js";
-	import { enhanceToast } from "#lib/toast.js";
+	import { enhanceToast, toastError } from "#lib/toast.js";
 
 	import BalanceHero from "./balance-hero.svelte";
 	import ExpenseSheet, { type EditableExpense } from "./expense-sheet.svelte";
@@ -52,8 +54,50 @@
 					groupId: data.group.id,
 				}),
 			},
+			{
+				label: "Invite people",
+				icon: Share2Icon,
+				onSelect: handleShare,
+			},
 		],
 	);
+
+	async function shareCallback(): Promise<string> {
+		const response = await fetch("?/inviteLink", {
+			method: "POST",
+			body: new FormData(),
+			headers: { "x-sveltekit-action": "true" },
+		});
+		const result = deserialize(await response.text());
+		if (result.type !== "success") {
+			throw new Error("Couldn't make an invite link.");
+		}
+		const url = String(result.data?.url);
+		if ("share" in navigator) {
+			try {
+				await navigator.share({
+					title: data.group.name,
+					text: `Join ${data.group.name} on OpenCount`,
+					url,
+				});
+				return "Invite link shared.";
+			} catch (error) {
+				if (error instanceof DOMException && error.name === "AbortError") {
+					return "Invite link ready.";
+				}
+			}
+		}
+		await navigator.clipboard.writeText(url);
+		return "Invite link copied.";
+	}
+
+	function handleShare() {
+		toast.promise(shareCallback(), {
+			loading: "Getting the invite link",
+			success: (message: string) => message,
+			error: (error: unknown) => toastError(error, "Couldn't share the link."),
+		});
+	}
 
 	const waiting = $derived(
 		offlineQueue.pending.filter((entry) => entry.groupId === data.group.id),

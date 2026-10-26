@@ -9,6 +9,7 @@ import { JobDTO } from "#lib/dto/job.js";
 import { MerchantDTO } from "#lib/dto/merchant.js";
 import { RecurringExpenseDTO } from "#lib/dto/recurring-expense.js";
 import { formatMoney } from "#lib/money.js";
+import { publicOrigin } from "#lib/server/auth.js";
 import { groupForMember } from "#lib/server/group-access.js";
 import { isOcrConfigured } from "#lib/server/ocr.js";
 import { readUploadedReceipt } from "#lib/server/receipt-upload.js";
@@ -28,6 +29,24 @@ export const load = async ({ parent }) => {
 };
 
 export const actions = {
+	inviteLink: ({ locals, params, url }) => {
+		if (!locals.user) {
+			return fail(401, { error: "Sign in again to continue." });
+		}
+		const { group } = groupForMember(params.groupId, locals.user.id);
+		if (!group.inviteToken()) {
+			group.resetInvite();
+		}
+		return {
+			url: new URL(
+				resolve("/(protected)/join/[groupId]/[token]", {
+					groupId: group.id,
+					token: group.inviteToken() ?? "",
+				}),
+				publicOrigin() ?? url.origin,
+			).href,
+		};
+	},
 	create: async ({ locals, params, request }) => {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
@@ -43,7 +62,10 @@ export const actions = {
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
 		}
-		const { merchant, repeat, ...input } = parsed.data;
+		const { merchant, repeat, clientId, ...input } = parsed.data;
+		if (clientId && ExpenseDTO.hasClientId(group.id, clientId)) {
+			return { created: true };
+		}
 		const merchantId = merchant
 			? MerchantDTO.remember(group.id, merchant, input.category)
 			: null;
@@ -59,6 +81,7 @@ export const actions = {
 			group.id,
 			{ ...input, merchantId, recurringId: rule?.id ?? null },
 			locals.user.id,
+			clientId,
 		);
 		rule?.materialize(today());
 		const recipients = members
@@ -97,7 +120,12 @@ export const actions = {
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
 		}
-		const { merchant, repeat: _repeat, ...input } = parsed.data;
+		const {
+			merchant,
+			repeat: _repeat,
+			clientId: _clientId,
+			...input
+		} = parsed.data;
 		existing.update({
 			...input,
 			merchantId: merchant

@@ -27,6 +27,10 @@
   `tests/integration/bunfig.toml` (no reruns, no coverage: the flows are
   stateful) against `build/server` on a fresh database, booted by
   `tests/support/app.ts`, which reads the setup code from the server's log.
+- `bun run test:live`: imports the real Tricount at `TRICOUNT_TEST_LINK` (read
+  from `.env`, a repository secret in CI) and checks its balances against
+  Tricount's own numbers; skipped when unset. The only test allowed to read the
+  environment directly. Not part of `bun run test`.
 - `bun run test:e2e`: builds, then Playwright (`playwright.config.ts`): a
   `setup` project creates the admin and saves the session to `tmp/e2e/`, then
   `desktop` and `phone` projects run on it. CI runs both suites in the

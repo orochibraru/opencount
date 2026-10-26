@@ -22,6 +22,9 @@ if (!JobDTO.isQueued("jobs.prune")) {
 if (!JobDTO.isQueued("recurring.run")) {
 	JobDTO.enqueue("recurring.run", {});
 }
+if (!JobDTO.isQueued("bank.syncAll")) {
+	JobDTO.enqueue("bank.syncAll", {});
+}
 
 const runner = new JobRunner({
 	concurrency: getConfig().worker.concurrency,

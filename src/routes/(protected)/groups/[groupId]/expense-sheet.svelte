@@ -104,6 +104,7 @@
 		const { asInput, ...money } = initialCurrency();
 		return {
 			...money,
+			clientId: crypto.randomUUID(),
 			description: expense?.description ?? "",
 			merchant:
 				merchants.find((merchant) => merchant.id === expense?.merchantId)
@@ -357,6 +358,8 @@
 	>
 		{#if expense}
 			<input type="hidden" name="id" value={expense.id} />
+		{:else}
+			<input type="hidden" name="clientId" value={form.clientId} />
 		{/if}
 
 		<label class="flex flex-col items-center gap-1 pt-1">

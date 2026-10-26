@@ -33,16 +33,25 @@ open-source alternative to Tricount that installs on your phone like an app.
 - **Receipt reading**, optional and local: a photo or a PDF fills in the amount,
   the date and the merchant. Read on your server with Tesseract, never stored,
   never sent anywhere.
+- **Personal ledger**: a private list of your own expenses that only your
+  account sees, each in any currency, with this month's totals by category.
+  **Split in a group** adds one to a group, paid by you and split equally,
+  converted at the day's rate when the currencies differ.
+- **Bank sync**, optional: link your bank through Enable Banking (most European
+  banks, Revolut included) and booked debits land in your personal ledger every
+  day, categorized. The admin sets it up under **Bank sync**.
 - **Insights** by period, category, merchant and payer, and over time.
 - **Archiving**: hide a finished group from your own list without touching
   anyone else's.
 - **Import and export**: bring a Tricount over from its share link, with its
   expenses, splits, categories and dates, after a preview. Export a group as a
-  CSV spreadsheet or a PDF summary.
+  CSV spreadsheet or a PDF summary (Latin, Greek and Cyrillic names print; CJK
+  and emoji print as `?`).
 - **Feels native**: an installable PWA with a bottom tab bar, sheets, pull to
-  refresh and haptics on phones, a full layout with a sidebar on desktop.
-  Expenses added offline are kept on the device and sync once you're back.
-  Per-account accent colour, light, dark or AMOLED theme, font and corners.
+  refresh and haptics on phones, a full layout with a sidebar on desktop. Pages
+  you already opened reopen offline, and expenses added offline are kept on the
+  device and sync once you're back, never twice. Per-account accent colour,
+  light, dark or AMOLED theme, font and corners.
 - **Invite-only by default**, administered from the app: invites, sign-ups once
   email works, required authenticator apps or passkeys, password and passkey
   sign-in on or off, and single sign-on through any OpenID Connect provider.

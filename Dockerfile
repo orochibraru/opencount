@@ -17,6 +17,7 @@ RUN apk add --no-cache ca-certificates libgcc libstdc++ poppler-utils tesseract-
 WORKDIR /app
 COPY --from=builder --chown=1000:1000 /app/build ./build
 COPY --from=builder --chown=1000:1000 /app/drizzle ./drizzle
+COPY --from=builder --chown=1000:1000 /app/fonts ./fonts
 USER 1000:1000
 VOLUME /data
 ARG APP_VERSION=""

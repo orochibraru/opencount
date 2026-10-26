@@ -40,7 +40,9 @@ server who opens it joins the group: they pick which unlinked member is them, or
 join as a new one under their own name. It doesn't create accounts, so people
 still need one. **New link** makes the old one stop working; **Turn off** stops
 it for good until a new one is made. Any member can do both, so share it only
-with people you'd add anyway.
+with people you'd add anyway. The **Invite people** button in the group's header
+shares the link, creating it first if needed, and copies it when your device has
+no share sheet.
 
 ### That's me
 
@@ -58,12 +60,14 @@ can't be undone, so it asks first.
 registry JSON file, and the preview lists what will come in. The Tricount's
 currency must match the group's. You map each person to a member of the group or
 to a new one, then a background job adds the expenses, with their splits,
-categories and dates, and you get a notification when it's done. Tricount no
-longer offers its own CSV export; the link is read from Tricount's servers.
+categories (guessed from the description and the group's own categories) and
+dates, and you get a notification when it's done. Tricount no longer offers its
+own CSV export; the link is read from Tricount's servers.
 
 **Settings, Export** builds the group's expenses as a CSV spreadsheet or a PDF
-summary in the background. The file waits in the list for a day and only you can
-download it.
+summary in the background. The PDF embeds Noto Sans, so Latin, Greek and
+Cyrillic names print; CJK and emoji print as `?`. The file waits in the list for
+a day and only you can download it.
 
 ## Leaving and deleting
 

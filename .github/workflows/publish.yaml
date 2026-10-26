@@ -121,6 +121,8 @@ jobs:
     needs: [tested]
     if: needs.tested.outputs.image == ''
     uses: ./.github/workflows/code_quality.yaml
+    secrets:
+      tricount_test_link: ${{ secrets.TRICOUNT_TEST_LINK }}
 
   build-app:
     name: Docker Build (App)

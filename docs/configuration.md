@@ -106,11 +106,11 @@ With none of them set, no telemetry leaves the server. See
 
 ## Outbound calls
 
-Besides your SMTP and single sign-on servers, the server calls two services, and
-only when someone uses the feature: `api.frankfurter.dev` for the exchange rate
-of an expense in another currency, and `api.tricount.bunq.com` to import a
-Tricount from its share link. Block them and those two features fail, nothing
-else.
+Besides your SMTP and single sign-on servers, the server calls three services,
+and only when someone uses the feature: `api.frankfurter.dev` for the exchange
+rate of an expense in another currency, `api.tricount.bunq.com` to import a
+Tricount from its share link, and `api.enablebanking.com` for bank sync. Block
+them and those features fail, nothing else.
 
 ## Set in the app, not here
 

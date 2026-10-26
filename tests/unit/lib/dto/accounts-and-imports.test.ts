@@ -236,3 +236,53 @@ describe("ExpenseDTO.createMany", () => {
 		);
 	});
 });
+
+describe("ExpenseDTO client ids and sorting", () => {
+	beforeEach(resetDatabase);
+
+	test("remembers a device's client id and files what's under Other", () => {
+		const ada = createUser("ada");
+		const group = GroupDTO.create({
+			name: "Trip",
+			currency: "EUR",
+			owner: ada,
+		});
+		const adaMember = GroupMemberDTO.forGroup(group.id)[0]?.id ?? "";
+		const input = (description: string, category = "other") => ({
+			kind: "expense" as const,
+			description,
+			category,
+			amountMinor: 1000,
+			paidBy: adaMember,
+			splitMode: "equal" as const,
+			spentOn: "2026-03-01",
+			merchantId: null,
+			shares: [{ memberId: adaMember, amountMinor: 1000, weight: 1 }],
+		});
+		const clientId = crypto.randomUUID();
+		ExpenseDTO.create(group.id, input("Taxi to the airport"), ada.id, clientId);
+		ExpenseDTO.create(group.id, input("Mystery"), ada.id);
+		ExpenseDTO.create(group.id, input("Hotel night", "food"), ada.id);
+		expect(ExpenseDTO.hasClientId(group.id, clientId)).toBe(true);
+		expect(ExpenseDTO.hasClientId(group.id, crypto.randomUUID())).toBe(false);
+		const moved = ExpenseDTO.categorizeUncategorized(group.id, (description) =>
+			description.startsWith("Taxi")
+				? "transport"
+				: description.startsWith("Hotel")
+					? "lodging"
+					: undefined,
+		);
+		expect(moved).toBe(1);
+		const categories = Object.fromEntries(
+			ExpenseDTO.forGroup(group.id).map((entry) => [
+				entry.toJSON().description,
+				entry.toJSON().category,
+			]),
+		);
+		expect(categories).toEqual({
+			"Taxi to the airport": "transport",
+			Mystery: "other",
+			"Hotel night": "food",
+		});
+	});
+});

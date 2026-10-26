@@ -18,6 +18,12 @@ whatever its case.
 Custom categories belong to their group; other groups don't see them. Deleting
 one files its expenses, repeating expenses and merchants under Other.
 
+## Sorting what's under Other
+
+**Settings, Categories** has **Sort what's under Other**. It files every expense
+still under Other using the description, the merchant's remembered category and
+the group's own categories. Expenses you filed by hand aren't touched.
+
 ## The category guess
 
 As you type what an expense was for, OpenCount suggests a category:

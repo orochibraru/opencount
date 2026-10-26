@@ -176,6 +176,7 @@ repos:
         language: pygrep
         entry: \b(process\.env|Bun\.env|import\.meta\.env)\b
         files: ^(src|tests|scripts)/.*\.(ts|svelte)$
+        exclude: ^tests/live/
 
       - id: internal-links-resolve
         name: Resolve internal links

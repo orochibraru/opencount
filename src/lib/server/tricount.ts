@@ -4,8 +4,9 @@ import { promisify } from "node:util";
 import { z } from "zod";
 
 import { currencyDigits } from "#lib/money.js";
-import type { expenseCategories } from "#lib/server/db/schema.js";
+import { expenseCategories } from "#lib/server/db/schema.js";
 import { withSpan } from "#lib/server/telemetry.js";
+import { guessCategory } from "#lib/smart-category.js";
 
 export type ImportCategory = (typeof expenseCategories)[number];
 
@@ -150,7 +151,10 @@ const categoryPatterns: [RegExp, ImportCategory][] = [
 	[/bill|utilit|insurance|health|subscription/i, "bills"],
 ];
 
-/** The built-in category closest to a Tricount category or custom category name, Other when nothing matches. */
+/**
+ * The built-in category closest to a Tricount category, custom category name or description: Tricount's own names
+ * first, then the keywords OpenCount guesses from; Other when nothing matches.
+ */
 export function importCategory(
 	...names: (string | null | undefined)[]
 ): ImportCategory {
@@ -162,7 +166,10 @@ export function importCategory(
 			return match[1];
 		}
 	}
-	return "other";
+	const guessed = names
+		.map((name) => guessCategory(name ?? ""))
+		.find((category) => category !== undefined);
+	return expenseCategories.find((category) => category === guessed) ?? "other";
 }
 
 function memberName(wrapper: z.infer<typeof membershipSchema>): string {

@@ -41,13 +41,17 @@ group, along with the category you last filed them under. With receipt reading
 on, a photo or a PDF of a receipt fills in the amount, the date and the
 merchant.
 
+**Personal expenses.** A private ledger of your own spending in any currency,
+with optional daily bank sync through Enable Banking, and a one-tap split into a
+group.
+
 **Insights.** What the group spent by period, category, merchant and payer, and
 how it moved over time.
 
 **It feels like an app.** Install it from the browser on a phone and it opens
-standalone, with a bottom tab bar, sheets that slide up from the bottom and 44px
-touch targets. On a desktop it is a full app with a sidebar and real
-multi-column layouts.
+standalone, with a bottom tab bar, pages you already opened available offline,
+sheets that slide up from the bottom and 44px touch targets. On a desktop it is
+a full app with a sidebar and real multi-column layouts.
 
 **Yours to adjust.** Each account picks its accent colour, light or dark theme,
 an AMOLED black variant, a font and the corner style.

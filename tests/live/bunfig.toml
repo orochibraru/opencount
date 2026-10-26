@@ -1,0 +1,3 @@
+[test]
+preload = ["./tests/unit/app/svelte-loader.ts"]
+coverage = false

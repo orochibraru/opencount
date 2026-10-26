@@ -168,11 +168,11 @@ Each is a hard rule.
 Read only the note for the area you touch. A new area with its own decisions
 gets its own note and row.
 
-| Area                                                                      | Note                                     |
-| ------------------------------------------------------------------------- | ---------------------------------------- |
-| Scripts, mise tasks, git hooks, tests, the worker in dev                  | `.agents/notes/commands.md`              |
-| The PR gate, canaries, the release PR, images and secrets                 | `.agents/notes/ci-releases.md`           |
-| Downloads, backup and restore, imports, currencies, invite links, offline | `.agents/notes/downloads-and-offline.md` |
+| Area                                                                                                  | Note                                     |
+| ----------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| Scripts, mise tasks, git hooks, tests, the worker in dev                                              | `.agents/notes/commands.md`              |
+| The PR gate, canaries, the release PR, images and secrets                                             | `.agents/notes/ci-releases.md`           |
+| Downloads, backup and restore, imports, currencies, invite links, offline, personal ledger, bank sync | `.agents/notes/downloads-and-offline.md` |
 
 ## AI-assisted development
 

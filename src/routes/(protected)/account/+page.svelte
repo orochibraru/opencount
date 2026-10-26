@@ -4,6 +4,7 @@
 
 	import NavCards from "#lib/components/nav-cards.svelte";
 	import { Button } from "#lib/components/ui/button/index.js";
+	import { clearCachedPages } from "#lib/offline-cache.js";
 
 	import { accountTabs } from "./tabs.js";
 
@@ -31,7 +32,7 @@
 
 	<NavCards tabs={accountTabs()} />
 
-	<form method="POST" action="?/signOut" use:enhance>
+	<form method="POST" action="?/signOut" use:enhance={clearCachedPages}>
 		<Button
 			type="submit"
 			variant="destructive"

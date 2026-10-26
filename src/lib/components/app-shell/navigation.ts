@@ -2,6 +2,7 @@ import { resolve } from "$app/paths";
 import ShieldIcon from "@lucide/svelte/icons/shield";
 import UserRoundIcon from "@lucide/svelte/icons/user-round";
 import UsersIcon from "@lucide/svelte/icons/users";
+import WalletIcon from "@lucide/svelte/icons/wallet";
 import type { Component } from "svelte";
 
 export interface NavigationItem {
@@ -14,6 +15,11 @@ export interface NavigationItem {
 export function navigationItems(isAdmin: boolean): NavigationItem[] {
 	const items = [
 		{ href: resolve("/(protected)"), label: "Groups", icon: UsersIcon },
+		{
+			href: resolve("/(protected)/personal"),
+			label: "Personal",
+			icon: WalletIcon,
+		},
 		{
 			href: resolve("/(protected)/account"),
 			label: "Account",

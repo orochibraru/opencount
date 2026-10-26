@@ -99,6 +99,19 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 		);
 	}
 
+	/** Whether `groupId` already recorded the expense a device submitted as `clientId`, so a retry can be ignored. */
+	static hasClientId(groupId: string, clientId: string): boolean {
+		return (
+			getDb()
+				.select({ id: expense.id })
+				.from(expense)
+				.where(
+					and(eq(expense.groupId, groupId), eq(expense.clientId, clientId)),
+				)
+				.get() !== undefined
+		);
+	}
+
 	/** Expense `expenseId`, only when it belongs to `groupId`. */
 	static findInGroup(
 		groupId: string,
@@ -122,12 +135,13 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 		groupId: string,
 		input: ExpenseInput,
 		createdBy: string,
+		clientId?: string,
 	): ExpenseDTO {
 		return getDb().transaction((transaction) => {
 			const { shares, ...fields } = input;
 			const row = transaction
 				.insert(expense)
-				.values({ ...fields, groupId, createdBy })
+				.values({ ...fields, groupId, createdBy, clientId })
 				.returning(columns)
 				.get();
 			transaction
@@ -183,6 +197,49 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 			}
 		});
 		return inputs.length;
+	}
+
+	/**
+	 * Files the group's expenses still under Other into the category `guess` finds for their description and merchant;
+	 * returns how many moved.
+	 */
+	static categorizeUncategorized(
+		groupId: string,
+		guess: (
+			description: string,
+			merchantId: string | null,
+		) => string | undefined,
+	): number {
+		const database = getDb();
+		let moved = 0;
+		database.transaction((transaction) => {
+			for (const row of transaction
+				.select({
+					id: expense.id,
+					description: expense.description,
+					merchantId: expense.merchantId,
+				})
+				.from(expense)
+				.where(
+					and(
+						eq(expense.groupId, groupId),
+						eq(expense.kind, "expense"),
+						eq(expense.category, "other"),
+					),
+				)
+				.all()) {
+				const category = guess(row.description, row.merchantId);
+				if (category && category !== "other") {
+					transaction
+						.update(expense)
+						.set({ category })
+						.where(eq(expense.id, row.id))
+						.run();
+					moved += 1;
+				}
+			}
+		});
+		return moved;
 	}
 
 	/** The group's ledger, for balances. */

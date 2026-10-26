@@ -116,6 +116,26 @@ describe("downloads", () => {
 		expect(DownloadDTO.findForUser(csv.id, ada.id)?.ready).toBe(true);
 	});
 
+	test("the PDF prints Greek and Cyrillic names", async () => {
+		const ada = createUser("ada", "Ада");
+		const group = GroupDTO.create({
+			name: "Αθήνα",
+			currency: "EUR",
+			owner: ada,
+		});
+		const pdf = DownloadDTO.request(
+			ada.id,
+			"group-pdf",
+			"athens.pdf",
+			group.id,
+		);
+		await buildDownload(pdf);
+		expect(DownloadDTO.find(pdf.id)?.ready).toBe(true);
+		expect(
+			(await Bun.file(downloadPath(pdf.id)).bytes()).byteLength,
+		).toBeGreaterThan(1000);
+	});
+
 	test("a build for a group the user left fails and says why", async () => {
 		const { ada, group } = setUp();
 		const download = DownloadDTO.request(

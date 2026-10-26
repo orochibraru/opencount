@@ -44,6 +44,8 @@ attempts, then marked failed and shown on the admin overview.
 | `recurring.run`   | Adds due repeating expenses, then requeues itself for the next day at 00:05 UTC                          |
 | `jobs.prune`      | Deletes finished jobs older than 7 days and downloads older than a day, then requeues itself a day later |
 | `download.build`  | Builds a database backup, or a group's CSV or PDF export, into a file waiting for its owner              |
+| `bank.syncAll`    | Queues a `bank.sync` for every linked bank, then requeues itself a day later                             |
+| `bank.sync`       | Fetches one link's new booked debits into the personal ledger, then sends a push notification            |
 | `import.tricount` | Adds the expenses of a previewed Tricount to a group, then sends a push notification                     |
 
 Built files (exports and backups) live in a `downloads` folder next to the
@@ -101,9 +103,12 @@ first paint. Every colour is a token derived from one `--hue`, so an accent
 change is one attribute.
 
 A service worker precaches the built assets, so an installed app starts
-instantly; pages and data always come from the server, and a navigation that
-fails gets a static offline page. The one thing kept client-side is a new
-expense submitted offline, in IndexedDB, posted when the connection returns.
+instantly. Pages and their data are fetched from the server first and each
+answer is kept per app version (never `/api/`, `/auth/` or `/downloads/`), so a
+page already visited reopens with no connection; an unvisited one gets a static
+offline page. Signing out wipes that cache. A new expense submitted offline is
+kept in IndexedDB with a client id and posted when the connection returns, so a
+retry never adds it twice.
 
 ## Telemetry
 

@@ -1,6 +1,9 @@
 name: Code Quality
 on:
   workflow_call:
+    secrets:
+      tricount_test_link:
+        required: false
 
 permissions:
   contents: read
@@ -61,6 +64,11 @@ jobs:
         with:
           prek-version: ${{ steps.prek.outputs.version }}
           extra-args: --all-files --no-fail-fast --hook-stage pre-push check circular test-unit
+
+      - name: Import a real Tricount
+        env:
+          TRICOUNT_TEST_LINK: ${{ secrets.tricount_test_link }}
+        run: bun run test:live
 
   app-tests:
     name: Integration and end-to-end tests

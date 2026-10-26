@@ -1,8 +1,10 @@
+import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
 import { DownloadDTO } from "#lib/dto/download.js";
 import { ExpenseDTO } from "#lib/dto/expense.js";
 import { GroupDTO } from "#lib/dto/group.js";
 import { JobDTO } from "#lib/dto/job.js";
 import { RecurringExpenseDTO } from "#lib/dto/recurring-expense.js";
+import { syncBank } from "#lib/server/bank-sync.js";
 import { buildDownload, pruneDownloads } from "#lib/server/downloads.js";
 import type { JobPayloads, JobType } from "#lib/server/jobs/types.js";
 import { Logger } from "#lib/server/logger.js";
@@ -12,6 +14,7 @@ import { deliverPush } from "#lib/server/push.js";
 const logger = new Logger("Jobs");
 
 const dayMs = 24 * 60 * 60 * 1000;
+const personalPath = "/personal";
 
 export type JobHandlers = {
 	[Type in JobType]: (payload: JobPayloads[Type]) => void | Promise<void>;
@@ -36,6 +39,31 @@ export const jobHandlers: JobHandlers = {
 		const tomorrow = new Date(`${today}T00:05:00Z`);
 		tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
 		JobDTO.enqueue("recurring.run", {}, { runAt: tomorrow });
+	},
+	"bank.sync": async ({ connectionId }) => {
+		const connection = BankConnectionDTO.find(connectionId);
+		if (!connection) {
+			logger.warn("Bank link gone before it was synced", { connectionId });
+			return;
+		}
+		const added = await syncBank(connection);
+		logger.info("Bank synced", { added });
+		if (added > 0) {
+			JobDTO.enqueue("push.send", {
+				userIds: [connection.userId],
+				title: connection.bankName,
+				body: `${added} new ${added === 1 ? "expense" : "expenses"} from your bank.`,
+				url: personalPath,
+			});
+		}
+	},
+	"bank.syncAll": () => {
+		const ids = BankConnectionDTO.activeIds();
+		for (const connectionId of ids) {
+			JobDTO.enqueue("bank.sync", { connectionId }, { maxAttempts: 1 });
+		}
+		logger.info("Queued bank syncs", { links: ids.length });
+		JobDTO.enqueue("bank.syncAll", {}, { runAt: new Date(Date.now() + dayMs) });
 	},
 	"download.build": async ({ downloadId }) => {
 		const download = DownloadDTO.find(downloadId);

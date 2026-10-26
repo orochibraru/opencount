@@ -1,10 +1,7 @@
-import {
-	PDFDocument,
-	type PDFFont,
-	type PDFPage,
-	rgb,
-	StandardFonts,
-} from "pdf-lib";
+import { join } from "node:path";
+
+import fontkit from "@pdf-lib/fontkit";
+import { PDFDocument, type PDFPage, rgb } from "pdf-lib";
 
 import { computeBalances, settleUp } from "#lib/balances.js";
 import { categoryLabels } from "#lib/category-labels.js";
@@ -97,19 +94,43 @@ const pageSize: [number, number] = [595.28, 841.89];
 const margin = 48;
 const muted = rgb(0.38, 0.42, 0.4);
 
-function printable(text: string): string {
-	return text.replaceAll(/\s/g, " ").replaceAll(/[^ -~¡-ÿ€‘’“”…]/g, "?");
+async function embedFont(document: PDFDocument, file: string) {
+	const font = await document.embedFont(
+		await Bun.file(join(process.cwd(), "fonts", file)).arrayBuffer(),
+		{ subset: true },
+	);
+	return { font, characters: new Set(font.getCharacterSet()) };
+}
+
+type EmbeddedFont = Awaited<ReturnType<typeof embedFont>>;
+
+const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+
+function printable(text: string, { characters }: EmbeddedFont): string {
+	return Array.from(graphemes.segment(text.replaceAll(/\s/g, " ")))
+		.map(({ segment }) =>
+			Array.from(segment).every((character) =>
+				characters.has(character.codePointAt(0) ?? 0),
+			)
+				? segment
+				: "?",
+		)
+		.join("");
 }
 
 class PdfWriter {
 	readonly #document: PDFDocument;
-	readonly #regular: PDFFont;
-	readonly #bold: PDFFont;
+	readonly #regular: EmbeddedFont;
+	readonly #bold: EmbeddedFont;
 	#page: PDFPage;
 	#y = 0;
 
 	/** Starts a document on its first page. */
-	constructor(document: PDFDocument, regular: PDFFont, bold: PDFFont) {
+	constructor(
+		document: PDFDocument,
+		regular: EmbeddedFont,
+		bold: EmbeddedFont,
+	) {
 		this.#document = document;
 		this.#regular = regular;
 		this.#bold = bold;
@@ -138,8 +159,9 @@ class PdfWriter {
 			alignRight = false,
 		} = {},
 	): void {
-		const font = bold ? this.#bold : this.#regular;
-		let value = printable(text);
+		const embedded = bold ? this.#bold : this.#regular;
+		const { font } = embedded;
+		let value = printable(text, embedded);
 		while (value.length > 1 && font.widthOfTextAtSize(value, size) > width) {
 			value = `${value.slice(0, -2)}…`;
 		}
@@ -181,12 +203,13 @@ export async function groupPdf(
 	generatedOn: string,
 ): Promise<Uint8Array> {
 	const document = await PDFDocument.create();
+	document.registerFontkit(fontkit);
 	document.setTitle(source.name);
 	document.setCreator("OpenCount");
 	const writer = new PdfWriter(
 		document,
-		await document.embedFont(StandardFonts.Helvetica),
-		await document.embedFont(StandardFonts.HelveticaBold),
+		await embedFont(document, "NotoSans-Regular.ttf"),
+		await embedFont(document, "NotoSans-Bold.ttf"),
 	);
 	const names = new Map(
 		source.members.map((member) => [member.id, member.displayName]),

@@ -309,13 +309,17 @@ export const expense = sqliteTable(
 		recurringId: text("recurring_id").references(() => recurringExpense.id, {
 			onDelete: "set null",
 		}),
+		clientId: text("client_id"),
 		createdBy: text("created_by").references(() => user.id, {
 			onDelete: "set null",
 		}),
 		createdAt: createdAt(),
 		updatedAt: updatedAt(),
 	},
-	(table) => [index("expense_group_id_idx").on(table.groupId, table.spentOn)],
+	(table) => [
+		index("expense_group_id_idx").on(table.groupId, table.spentOn),
+		uniqueIndex("expense_client_id_idx").on(table.groupId, table.clientId),
+	],
 );
 
 export const expenseShare = sqliteTable(
@@ -457,4 +461,62 @@ export const download = sqliteTable(
 		createdAt: createdAt(),
 	},
 	(table) => [index("download_user_id_idx").on(table.userId)],
+);
+
+export const bankConnection = sqliteTable(
+	"bank_connection",
+	{
+		id: text("id")
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		sessionId: text("session_id").notNull(),
+		bankName: text("bank_name").notNull(),
+		bankCountry: text("bank_country").notNull(),
+		accounts: text("accounts", { mode: "json" })
+			.$type<{ uid: string; name: string; currency: string }[]>()
+			.notNull(),
+		validUntil: integer("valid_until", { mode: "timestamp_ms" }).notNull(),
+		syncedAt: integer("synced_at", { mode: "timestamp_ms" }),
+		lastError: text("last_error"),
+		createdAt: createdAt(),
+	},
+	(table) => [index("bank_connection_user_id_idx").on(table.userId)],
+);
+
+export const personalExpense = sqliteTable(
+	"personal_expense",
+	{
+		id: text("id")
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		description: text("description").notNull(),
+		category: text("category").notNull().default("other"),
+		amountMinor: integer("amount_minor").notNull(),
+		currency: text("currency").notNull(),
+		spentOn: text("spent_on").notNull(),
+		bankRef: text("bank_ref"),
+		bankConnectionId: text("bank_connection_id").references(
+			() => bankConnection.id,
+			{ onDelete: "set null" },
+		),
+		sharedExpenseId: text("shared_expense_id").references(() => expense.id, {
+			onDelete: "set null",
+		}),
+		hiddenAt: integer("hidden_at", { mode: "timestamp_ms" }),
+		createdAt: createdAt(),
+		updatedAt: updatedAt(),
+	},
+	(table) => [
+		index("personal_expense_user_id_idx").on(table.userId, table.spentOn),
+		uniqueIndex("personal_expense_bank_ref_idx").on(
+			table.userId,
+			table.bankRef,
+		),
+	],
 );

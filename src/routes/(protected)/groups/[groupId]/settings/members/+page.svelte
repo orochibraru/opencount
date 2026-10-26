@@ -178,7 +178,7 @@
 		{/each}
 	</ul>
 
-	<div class="flex flex-col gap-6">
+	<div class="flex min-w-0 flex-col gap-6">
 		<section class="glass flex flex-col gap-4 rounded-2xl p-4 md:p-6">
 			<div>
 				<h2 class="text-lg font-semibold">Invite link</h2>

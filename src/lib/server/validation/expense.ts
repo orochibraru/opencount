@@ -26,12 +26,14 @@ const baseSchema = z.object({
 		.max(80, "Keep the merchant under 80 characters.")
 		.default(""),
 	repeat: z.enum(["never", ...recurrenceFrequencies]).default("never"),
+	clientId: z.union([z.literal(""), z.uuid()]).default(""),
 });
 
 /** The expense form once valid: the expense, the merchant typed or picked, and how often it repeats. */
 export type ExpenseForm = Omit<ExpenseInput, "merchantId"> & {
 	merchant: string | undefined;
 	repeat: (typeof recurrenceFrequencies)[number] | undefined;
+	clientId: string | undefined;
 };
 
 interface ExpenseContext {
@@ -120,6 +122,7 @@ export function parseExpenseForm(
 		amount,
 		merchant,
 		repeat,
+		clientId,
 		currency: entered,
 		exchangeRate,
 		...fields
@@ -203,6 +206,7 @@ export function parseExpenseForm(
 			}),
 			shares,
 			merchant: merchant || undefined,
+			clientId: clientId || undefined,
 			repeat: repeat === "never" ? undefined : repeat,
 		},
 	};

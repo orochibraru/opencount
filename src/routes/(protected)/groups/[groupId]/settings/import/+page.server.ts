@@ -2,6 +2,7 @@ import { resolve } from "$app/paths";
 import { fail } from "@sveltejs/kit";
 import { z } from "zod";
 
+import { GroupCategoryDTO } from "#lib/dto/group-category.js";
 import { JobDTO } from "#lib/dto/job.js";
 import { groupForMember } from "#lib/server/group-access.js";
 import { Logger } from "#lib/server/logger.js";
@@ -13,6 +14,7 @@ import {
 } from "#lib/server/tricount.js";
 import { parseForm } from "#lib/server/validation/form.js";
 import { parseTricountForm } from "#lib/server/validation/tricount.js";
+import { guessCategory } from "#lib/smart-category.js";
 
 const logger = new Logger("Import");
 
@@ -81,6 +83,9 @@ export const actions = {
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
 		}
+		const custom = GroupCategoryDTO.forGroup(group.id).map((entry) =>
+			entry.toJSON(),
+		);
 		JobDTO.enqueue(
 			"import.tricount",
 			{
@@ -88,6 +93,17 @@ export const actions = {
 				userId: locals.user.id,
 				url: resolve("/(protected)/groups/[groupId]", { groupId: group.id }),
 				...parsed.data,
+				expenses: parsed.data.expenses.map((entry) => {
+					const guessed =
+						entry.kind === "expense"
+							? guessCategory(entry.description, custom)
+							: undefined;
+					return guessed &&
+						(entry.category === "other" ||
+							custom.some((category) => category.id === guessed))
+						? { ...entry, category: guessed }
+						: entry;
+				}),
 			},
 			{ maxAttempts: 1 },
 		);

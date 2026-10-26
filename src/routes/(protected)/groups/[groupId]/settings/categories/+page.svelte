@@ -3,6 +3,7 @@
 	import CheckIcon from "@lucide/svelte/icons/check";
 	import PencilIcon from "@lucide/svelte/icons/pencil";
 	import PlusIcon from "@lucide/svelte/icons/plus";
+	import SparklesIcon from "@lucide/svelte/icons/sparkles";
 	import TagIcon from "@lucide/svelte/icons/tag";
 	import Trash2Icon from "@lucide/svelte/icons/trash-2";
 
@@ -114,6 +115,43 @@
 	</section>
 
 	<section class="flex flex-col gap-3" aria-labelledby="built-in-heading">
+		<form
+			method="POST"
+			action="?/autoCategorize"
+			class="glass flex flex-col gap-3 rounded-2xl p-4 md:p-6"
+			use:enhance={enhanceToast({
+				loading: "Sorting the expenses",
+				success: (result) =>
+					Number(result?.moved) > 0
+						? `${Number(result?.moved)} ${Number(result?.moved) === 1 ? "expense" : "expenses"} filed.`
+						: "Nothing to file: no match for what's left under Other.",
+			})}
+		>
+			<div class="flex items-start gap-3">
+				<span
+					class="bg-accent text-accent-foreground flex size-10 shrink-0 items-center justify-center rounded-xl"
+				>
+					<SparklesIcon class="size-5" />
+				</span>
+				<div>
+					<h2 class="font-semibold">Sort what's under Other</h2>
+					<p class="text-muted-foreground mt-1 text-sm">
+						Files every expense still under Other by its description, its
+						merchant and this group's own categories. Ones you filed yourself
+						stay where they are.
+					</p>
+				</div>
+			</div>
+			<Button
+				type="submit"
+				variant="secondary"
+				class="h-11 self-start rounded-xl"
+				disabled={(data.usage.other ?? 0) === 0}
+			>
+				<SparklesIcon />
+				Sort them
+			</Button>
+		</form>
 		<div class="px-1">
 			<h2 id="built-in-heading" class="text-lg font-semibold">Built in</h2>
 			<p class="text-muted-foreground text-sm">

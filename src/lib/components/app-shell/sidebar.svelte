@@ -16,6 +16,7 @@
 	import IconButton from "#lib/components/icon-button.svelte";
 	import * as DropdownMenu from "#lib/components/ui/dropdown-menu/index.js";
 	import { hueOf } from "#lib/group-hue.js";
+	import { clearCachedPages } from "#lib/offline-cache.js";
 
 	interface Props {
 		isAdmin: boolean;
@@ -158,7 +159,7 @@
 			bind:this={signOutForm}
 			method="POST"
 			action="{accountHref}?/signOut"
-			use:enhance
+			use:enhance={clearCachedPages}
 			hidden
 		></form>
 	</div>

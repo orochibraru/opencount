@@ -3,6 +3,9 @@ import { assets, immutable, prerendered } from "$app/manifest";
 import { self as worker } from "$app/service-worker";
 
 const cacheName = `opencount-${version}`;
+const pagesCacheName = `opencount-pages-${version}`;
+const offlinePage = "/offline.html";
+const neverCached = ["/api/", "/auth/", "/downloads/"];
 const precached = new Set(
 	[...immutable, ...assets, ...prerendered]
 		.map((entry) => `/${entry.path}`.replace(/^\/+/, "/"))
@@ -27,7 +30,7 @@ worker.addEventListener("activate", (event) => {
 			.then((keys) =>
 				Promise.all(
 					keys
-						.filter((key) => key !== cacheName)
+						.filter((key) => key !== cacheName && key !== pagesCacheName)
 						.map((key) => caches.delete(key)),
 				),
 			)
@@ -35,38 +38,50 @@ worker.addEventListener("activate", (event) => {
 	);
 });
 
-const offlinePage = "/offline.html";
+async function networkFirst(request: Request, url: URL): Promise<Response> {
+	const cache = await caches.open(pagesCacheName);
+	try {
+		const response = await fetch(request);
+		if (response.ok && response.type === "basic") {
+			await cache.put(request, response.clone());
+		}
+		return response;
+	} catch (error) {
+		const cached = await cache.match(request, {
+			ignoreSearch: url.pathname.endsWith("/__data.json"),
+		});
+		if (cached) {
+			return cached;
+		}
+		if (request.mode === "navigate") {
+			return (
+				(await caches.match(offlinePage)) ??
+				new Response("You're offline.", { status: 503 })
+			);
+		}
+		throw error;
+	}
+}
 
 worker.addEventListener("fetch", (event) => {
 	const url = new URL(event.request.url);
-	if (
-		event.request.mode === "navigate" &&
-		url.origin === worker.location.origin
-	) {
+	if (event.request.method !== "GET" || url.origin !== worker.location.origin) {
+		return;
+	}
+	if (precached.has(url.pathname)) {
 		event.respondWith(
-			fetch(event.request).catch(
-				async () =>
-					(await caches.match(offlinePage)) ??
-					new Response("You're offline.", { status: 503 }),
-			),
+			caches
+				.open(cacheName)
+				.then(
+					async (cache) =>
+						(await cache.match(url.pathname)) ?? fetch(event.request),
+				),
 		);
 		return;
 	}
-	if (
-		event.request.method !== "GET" ||
-		url.origin !== worker.location.origin ||
-		!precached.has(url.pathname)
-	) {
-		return;
+	if (!neverCached.some((prefix) => url.pathname.startsWith(prefix))) {
+		event.respondWith(networkFirst(event.request, url));
 	}
-	event.respondWith(
-		caches
-			.open(cacheName)
-			.then(
-				async (cache) =>
-					(await cache.match(url.pathname)) ?? fetch(event.request),
-			),
-	);
 });
 
 worker.addEventListener("push", (event) => {

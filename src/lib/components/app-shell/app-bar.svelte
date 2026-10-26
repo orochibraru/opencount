@@ -33,9 +33,11 @@
 >
 	<div
 		class="relative flex h-14 items-center justify-center {mobileActions.length >
-		1
-			? 'px-26'
-			: 'px-14'}"
+		2
+			? 'px-37'
+			: mobileActions.length > 1
+				? 'px-26'
+				: 'px-14'}"
 	>
 		{#if title.backHref}
 			<div class="absolute top-1/2 left-1.5 -translate-y-1/2">
