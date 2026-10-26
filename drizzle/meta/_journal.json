@@ -1,0 +1,55 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1793014790098,
+      "tag": "0000_lying_jack_power",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1793015738754,
+      "tag": "0001_dear_hawkeye",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793016117409,
+      "tag": "0002_mixed_fixer",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793016432390,
+      "tag": "0003_awesome_shard",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793017308182,
+      "tag": "0004_massive_red_ghost",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1793017923569,
+      "tag": "0005_sparkling_lila_cheney",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793017994469,
+      "tag": "0006_ordinary_jasper_sitwell",
+      "breakpoints": true
+    }
+  ]
+}

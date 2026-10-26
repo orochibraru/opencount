@@ -1,0 +1,177 @@
+import { fail } from "@sveltejs/kit";
+import { z } from "zod";
+
+import { getSetting, setSetting, type SsoProvider } from "#lib/dto/setting.js";
+import { adminFrom } from "#lib/server/admin.js";
+import { publicOrigin } from "#lib/server/auth.js";
+import { encryptSecret } from "#lib/server/secrets.js";
+import { providerSlug, usableMethods } from "#lib/server/sign-in-methods.js";
+import { parseForm } from "#lib/server/validation/form.js";
+
+const methodsSchema = z.object({
+	passwordSignIn: z.stringbool().default(false),
+	passkeySignIn: z.stringbool().default(false),
+});
+
+const providerSchema = z.object({
+	id: z.string().optional(),
+	name: z
+		.string()
+		.trim()
+		.min(1, "Name the provider, like Authentik or Google.")
+		.max(40),
+	discoveryUrl: z.url({
+		protocol: /^https?$/,
+		error: "Enter the provider's discovery URL.",
+	}),
+	clientId: z.string().trim().min(1, "Enter the client ID.").max(300),
+	clientSecret: z.string().max(500),
+	enabled: z.stringbool().default(false),
+});
+
+const providerIdSchema = z.object({ id: z.string().min(1) });
+
+/** Fetches an OpenID discovery document, checking it's one. */
+async function checkDiscovery(url: string): Promise<string | undefined> {
+	try {
+		const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
+		const document = (await response.json()) as {
+			authorization_endpoint?: unknown;
+		};
+		return typeof document.authorization_endpoint === "string"
+			? undefined
+			: "That URL isn't an OpenID discovery document.";
+	} catch {
+		return "The discovery URL didn't answer. It usually ends in /.well-known/openid-configuration.";
+	}
+}
+
+export const load = ({ url }) => ({
+	passwordSignIn: getSetting("passwordSignIn"),
+	passkeySignIn: getSetting("passkeySignIn"),
+	providers: getSetting("ssoProviders").map(
+		({ encryptedClientSecret: _secret, ...provider }) => provider,
+	),
+	callbackBase: `${publicOrigin() ?? url.origin}/api/auth/callback/`,
+});
+
+export const actions = {
+	methods: async ({ locals, request }) => {
+		const admin = adminFrom(locals);
+		if (!("id" in admin)) {
+			return admin;
+		}
+		const parsed = parseForm(methodsSchema, await request.formData());
+		if (!parsed.success) {
+			return fail(400, { errors: parsed.errors });
+		}
+		const sso = getSetting("ssoProviders")
+			.filter((provider) => provider.enabled)
+			.map(({ id, name }) => ({ id, name }));
+		const next = {
+			password: parsed.data.passwordSignIn,
+			passkey: parsed.data.passkeySignIn,
+			sso,
+		};
+		if (!next.password && !next.passkey && sso.length === 0) {
+			return fail(400, { error: "Keep at least one way to sign in." });
+		}
+		if (usableMethods(admin.id, next).length === 0) {
+			return fail(400, {
+				error:
+					"You'd lock yourself out: add a passkey or sign in once with SSO before turning that off.",
+			});
+		}
+		setSetting("passwordSignIn", next.password);
+		setSetting("passkeySignIn", next.passkey);
+		return { saved: true };
+	},
+	saveProvider: async ({ locals, request }) => {
+		const admin = adminFrom(locals);
+		if (!("id" in admin)) {
+			return admin;
+		}
+		const parsed = parseForm(providerSchema, await request.formData());
+		if (!parsed.success) {
+			return fail(400, { errors: parsed.errors });
+		}
+		const providers = getSetting("ssoProviders");
+		const existing = providers.find(
+			(provider) => provider.id === parsed.data.id,
+		);
+		if (!existing && !parsed.data.clientSecret) {
+			return fail(400, {
+				errors: { clientSecret: ["Enter the client secret."] },
+			});
+		}
+		const discoveryProblem = await checkDiscovery(parsed.data.discoveryUrl);
+		if (discoveryProblem) {
+			return fail(400, { errors: { discoveryUrl: [discoveryProblem] } });
+		}
+		let id = existing?.id ?? providerSlug(parsed.data.name);
+		while (!existing && providers.some((provider) => provider.id === id)) {
+			id = `${id}-2`;
+		}
+		const saved: SsoProvider = {
+			id,
+			name: parsed.data.name,
+			discoveryUrl: parsed.data.discoveryUrl,
+			clientId: parsed.data.clientId,
+			encryptedClientSecret: parsed.data.clientSecret
+				? encryptSecret(parsed.data.clientSecret)
+				: (existing?.encryptedClientSecret ?? ""),
+			enabled: parsed.data.enabled,
+		};
+		setSetting(
+			"ssoProviders",
+			existing
+				? providers.map((provider) => (provider.id === id ? saved : provider))
+				: [...providers, saved],
+		);
+		return { saved: true };
+	},
+	toggleProvider: async ({ locals, request }) => {
+		const admin = adminFrom(locals);
+		if (!("id" in admin)) {
+			return admin;
+		}
+		const parsed = parseForm(providerIdSchema, await request.formData());
+		if (!parsed.success) {
+			return fail(400, { error: "Pick a provider." });
+		}
+		setSetting(
+			"ssoProviders",
+			getSetting("ssoProviders").map((provider) =>
+				provider.id === parsed.data.id
+					? { ...provider, enabled: !provider.enabled }
+					: provider,
+			),
+		);
+		return { toggled: true };
+	},
+	deleteProvider: async ({ locals, request }) => {
+		const admin = adminFrom(locals);
+		if (!("id" in admin)) {
+			return admin;
+		}
+		const parsed = parseForm(providerIdSchema, await request.formData());
+		if (!parsed.success) {
+			return fail(400, { error: "Pick a provider." });
+		}
+		const remaining = getSetting("ssoProviders").filter(
+			(provider) => provider.id !== parsed.data.id,
+		);
+		if (
+			!getSetting("passwordSignIn") &&
+			!getSetting("passkeySignIn") &&
+			!remaining.some((provider) => provider.enabled)
+		) {
+			return fail(400, {
+				error:
+					"It's the last way to sign in. Turn passwords or passkeys back on first.",
+			});
+		}
+		setSetting("ssoProviders", remaining);
+		return { deleted: true };
+	},
+};

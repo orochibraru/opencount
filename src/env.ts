@@ -1,0 +1,89 @@
+import { defineEnvVars } from "@sveltejs/kit/env";
+import { z } from "zod";
+
+const optionalText = z
+	.string()
+	.optional()
+	.transform((value) => value?.trim() || undefined);
+
+function integer(fallback: number, minimum: number, maximum: number) {
+	return z
+		.string()
+		.optional()
+		.transform((value) => (value?.trim() ? Number(value) : fallback))
+		.pipe(z.number().int().min(minimum).max(maximum));
+}
+
+const optionalUrl = optionalText.pipe(
+	z.url({ protocol: /^https?$/ }).optional(),
+);
+
+export const variables = defineEnvVars({
+	AUTH_SECRET: {
+		schema: z
+			.string()
+			.min(
+				32,
+				"AUTH_SECRET must be at least 32 characters: generate one with `openssl rand -base64 32`",
+			),
+		description:
+			"Signs sessions and encrypts stored secrets. Changing it signs everyone out and loses stored secrets.",
+	},
+	ORIGIN: {
+		schema: optionalUrl,
+		description:
+			"Public URL, only for an instance with no HTTPS proxy setting X-Forwarded-Proto and X-Forwarded-Host.",
+	},
+	DATABASE_PATH: {
+		schema: z.string().trim().min(1).default("./data/opencount.sqlite"),
+		description: "The SQLite file.",
+	},
+	LOG_LEVEL: {
+		schema: z.enum(["trace", "debug", "info", "warn", "error"]).default("info"),
+		description: "Lowest level written to the log.",
+	},
+	LOG_FORMAT: {
+		schema: z.enum(["console", "json"]).default("console"),
+		description: "Coloured lines for a terminal, or one JSON object per line.",
+	},
+	WORKER_CONCURRENCY: {
+		schema: integer(2, 1, 32),
+		description: "Background jobs run at once.",
+	},
+	WORKER_POLL_INTERVAL_MS: {
+		schema: integer(1000, 100, 60_000),
+		description: "How often the worker looks for due jobs.",
+	},
+	APP_VERSION: {
+		schema: optionalText,
+		description:
+			"Version shown in the footer and sent with traces and errors; package.json's when unset.",
+	},
+	OTEL_EXPORTER_OTLP_ENDPOINT: {
+		schema: optionalUrl,
+		description:
+			"OTLP/HTTP collector base URL; traces are off when unset. Homerun sets it.",
+	},
+	OTEL_SERVICE_NAME: {
+		schema: z.string().trim().min(1).default("opencount"),
+		description: "service.name on every span.",
+	},
+	OTEL_RESOURCE_ATTRIBUTES: {
+		schema: optionalText,
+		description:
+			"Extra span resource attributes as key=value pairs separated by commas. Homerun sets homerun.service.id.",
+	},
+	SENTRY_DSN: {
+		schema: optionalUrl,
+		description:
+			"Sentry-protocol DSN errors are reported to; off when unset. Homerun sets it.",
+	},
+	SENTRY_RELEASE: {
+		schema: optionalText,
+		description: "Release attached to reported errors; APP_VERSION when unset.",
+	},
+	SENTRY_ENVIRONMENT: {
+		schema: z.string().trim().min(1).default("production"),
+		description: "Environment attached to reported errors.",
+	},
+});

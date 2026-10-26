@@ -1,0 +1,1 @@
+ALTER TABLE `recurring_expense` ADD `anchor_day` integer DEFAULT 1 NOT NULL;

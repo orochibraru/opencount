@@ -1,0 +1,50 @@
+name: PR Cleanup
+
+on:
+  pull_request:
+    types: [closed]
+  workflow_call:
+    inputs:
+      pr_number:
+        required: true
+        type: string
+
+concurrency:
+  group: pr-cleanup-${{ inputs.pr_number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  TZ: Europe/Paris
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  CI: true
+
+jobs:
+  delete-image:
+    name: Delete pr-${{ inputs.pr_number || github.event.pull_request.number }} image
+    if: inputs.pr_number || (github.event.pull_request.head.repo.full_name ==
+      github.repository && !github.event.pull_request.merged)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete the tag from ghcr.io
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OWNER: ${{ github.repository_owner }}
+          OWNER_KIND: ${{ github.event.repository.owner.type == 'Organization' && 'orgs' || 'users' }}
+          PACKAGE: opencount
+          TAG: pr-${{ inputs.pr_number || github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          versions="$OWNER_KIND/$OWNER/packages/container/$PACKAGE/versions"
+          version_ids="$(gh api --paginate "$versions" \
+            --jq ".[] | select(.metadata.container.tags | index(\"$TAG\")) | .id")"
+          version_id="${version_ids%%$'\n'*}"
+          if [ -z "$version_id" ]; then
+            echo "No $PACKAGE:$TAG to delete"
+            exit 0
+          fi
+          gh api -X DELETE "$versions/$version_id"
+          echo "Deleted $PACKAGE:$TAG"

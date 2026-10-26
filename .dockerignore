@@ -1,0 +1,17 @@
+**/node_modules
+**/.svelte-kit
+**/build
+**/coverage
+.git
+.github
+.claude
+.agents
+.vscode
+.env
+.env.*
+tests
+*.md
+Dockerfile
+docker-bake.hcl
+compose*.yaml
+data

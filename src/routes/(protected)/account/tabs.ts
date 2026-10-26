@@ -1,0 +1,30 @@
+import { resolve } from "$app/paths";
+import FingerprintIcon from "@lucide/svelte/icons/fingerprint";
+import PaletteIcon from "@lucide/svelte/icons/palette";
+import UserRoundIcon from "@lucide/svelte/icons/user-round";
+
+import type { SectionTab } from "#lib/components/nav-cards.svelte";
+
+/** The account section's pages, shared by its landing cards and its tabs. */
+export function accountTabs(): SectionTab[] {
+	return [
+		{
+			href: resolve("/(protected)/account/profile"),
+			label: "Profile",
+			description: "Your name and the email you sign in with.",
+			icon: UserRoundIcon,
+		},
+		{
+			href: resolve("/(protected)/account/appearance"),
+			label: "Appearance",
+			description: "Accent colour, light or dark, AMOLED, font and corners.",
+			icon: PaletteIcon,
+		},
+		{
+			href: resolve("/(protected)/account/security"),
+			label: "Security",
+			description: "Authenticator app, backup codes and passkeys.",
+			icon: FingerprintIcon,
+		},
+	];
+}
