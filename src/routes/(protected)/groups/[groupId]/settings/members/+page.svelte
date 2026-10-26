@@ -57,9 +57,18 @@
 
 	function actionsFor(member: Member): MenuAction[] {
 		if (member.id === data.myMemberId) {
+			const renameMe: MenuAction = {
+				label: "Change my name",
+				icon: PencilIcon,
+				onSelect: () => {
+					renaming = member;
+					renameOpen = true;
+				},
+			};
 			return data.isOwner
-				? []
+				? [renameMe]
 				: [
+						renameMe,
 						{
 							label: "Leave group",
 							icon: LogOutIcon,
@@ -305,7 +314,15 @@
 </div>
 
 {#if renaming}
-	<ResponsiveSheet bind:open={renameOpen} title="Rename {renaming.displayName}">
+	<ResponsiveSheet
+		bind:open={renameOpen}
+		title={renaming.id === data.myMemberId
+			? `Your name in ${data.group.name}`
+			: `Rename ${renaming.displayName}`}
+		description={renaming.id === data.myMemberId
+			? "Only this group sees it. Your account name stays the same."
+			: undefined}
+	>
 		<form
 			method="POST"
 			action="?/rename"

@@ -28,7 +28,8 @@ From **Settings, Members**, any member can:
   that account straight away, and the group shows up in their list. The email
   must belong to an existing account on this server; if it doesn't, leave it
   empty and have an admin invite them.
-- **Rename** a member.
+- **Rename** a member, or yourself with **Change my name** on your own row: the
+  name only shows in this group, your account name stays the same.
 - **Remove** a member, only while they are not part of any expense or repeating
   expense, as payer or in a split. Edit or delete those first, so no balance
   quietly changes.

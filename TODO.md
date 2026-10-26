@@ -16,3 +16,9 @@ box while it's being worked on, and delete the entry once it's done.
 - [ ] Bank sync asks each person to create an Enable Banking application and
       link their own accounts in its control panel: walk them through it with
       screenshots, or add a second provider.
+
+## Large
+
+- [ ] Translate the app: every string through a message catalog, French first
+      next to English, the language picked per account (Appearance) and falling
+      back to the browser's, emails and push notifications included.
