@@ -28,11 +28,6 @@ export interface SsoProvider {
 	enabled: boolean;
 }
 
-export interface BankSyncSettings {
-	applicationId: string;
-	encryptedPrivateKey: string;
-}
-
 export interface VapidKeys {
 	publicKey: string;
 	encryptedPrivateKey: string;
@@ -50,7 +45,6 @@ export interface SettingValues {
 	emailCodeSignIn: boolean;
 	ssoProviders: SsoProvider[];
 	vapid: VapidKeys | null;
-	bankSync: BankSyncSettings | null;
 }
 
 const defaults: SettingValues = {
@@ -65,7 +59,6 @@ const defaults: SettingValues = {
 	emailCodeSignIn: false,
 	ssoProviders: [],
 	vapid: null,
-	bankSync: null,
 };
 
 /** The stored value of `key`, or its default. */
@@ -94,7 +87,6 @@ export function allSettings(): SettingValues {
 		emailCodeSignIn: getSetting("emailCodeSignIn"),
 		ssoProviders: getSetting("ssoProviders"),
 		vapid: getSetting("vapid"),
-		bankSync: getSetting("bankSync"),
 	};
 }
 

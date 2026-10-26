@@ -5,6 +5,7 @@
 		value: string;
 		label: string;
 		icon?: Component<{ class?: string }>;
+		tint?: string;
 	}
 
 	export interface PickerSearch {
@@ -99,6 +100,19 @@
 	}
 </script>
 
+{#snippet optionIcon(option: PickerOption)}
+	{#if option.icon && option.tint}
+		<span
+			class="category-tile flex size-6 shrink-0 items-center justify-center rounded-md"
+			style={option.tint}
+		>
+			<option.icon class="size-3.5" />
+		</span>
+	{:else if option.icon}
+		<option.icon />
+	{/if}
+{/snippet}
+
 {#if multiple}
 	{#each values as entry (entry)}
 		<input type="hidden" {name} value={entry} />
@@ -108,7 +122,9 @@
 {/if}
 
 {#snippet summaryContent(chevron: boolean)}
-	{#if !multiple && selected[0]?.icon}
+	{#if !multiple && selected[0]?.icon && selected[0].tint}
+		{@render optionIcon(selected[0])}
+	{:else if !multiple && selected[0]?.icon}
 		{@const Icon = selected[0].icon}
 		<Icon class="text-muted-foreground size-4 shrink-0" />
 	{/if}
@@ -158,7 +174,7 @@
 				onSelect={() => pick(option.value)}
 				class={itemClass}
 			>
-				{#if option.icon}<option.icon />{/if}
+				{@render optionIcon(option)}
 				{option.label}
 			</Command.Item>
 		{/each}
@@ -226,7 +242,7 @@
 		<Select.Content>
 			{#each options as option (option.value)}
 				<Select.Item value={option.value} label={option.label}>
-					{#if option.icon}<option.icon />{/if}
+					{@render optionIcon(option)}
 					{option.label}
 				</Select.Item>
 			{/each}

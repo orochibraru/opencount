@@ -3,17 +3,19 @@ import { fail, redirect } from "@sveltejs/kit";
 import { z } from "zod";
 
 import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
+import { bankCredentialsFor } from "#lib/dto/bank-credential.js";
 import { ExpenseDTO } from "#lib/dto/expense.js";
 import { GroupDTO } from "#lib/dto/group.js";
 import { JobDTO } from "#lib/dto/job.js";
 import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
+import { PersonalFolderDTO } from "#lib/dto/personal-folder.js";
 import { convertMinor, formatMoney } from "#lib/money.js";
 import { publicOrigin } from "#lib/server/auth.js";
+import { expenseCategories } from "#lib/server/db/schema.js";
 import {
 	BankError,
 	bankLinkPurpose,
 	closeBankSession,
-	isBankSyncConfigured,
 	startBankLink,
 } from "#lib/server/enable-banking.js";
 import { exchangeRate } from "#lib/server/exchange-rates.js";
@@ -23,7 +25,27 @@ import { parseForm } from "#lib/server/validation/form.js";
 import { parsePersonalForm } from "#lib/server/validation/personal.js";
 import { splitByWeight } from "#lib/split.js";
 
+import { personalPage } from "./page.js";
+
 const idSchema = z.object({ id: z.string().min(1) });
+const folderSchema = z.object({
+	id: z.string().default(""),
+	name: z
+		.string()
+		.trim()
+		.min(1, "Give the folder a name.")
+		.max(60, "Keep it under 60 characters."),
+});
+const applyCategorySchema = z.object({
+	category: z.enum(expenseCategories),
+	ids: z.array(z.string().min(1)).min(1).max(500),
+});
+
+function ownsFolder(userId: string, folderId: string | null | undefined) {
+	return (
+		!folderId || PersonalFolderDTO.findForUser(folderId, userId) !== undefined
+	);
+}
 const shareSchema = z.object({
 	id: z.string().min(1),
 	groupId: z.string().min(1, "Pick a group."),
@@ -33,22 +55,18 @@ const bankSchema = z.object({
 	country: z.string().regex(/^[A-Z]{2}$/, "Pick a country."),
 });
 
-export const load = async ({ parent }) => {
+export const load = async ({ parent, url }) => {
 	const { user } = await parent();
-	const expenses = PersonalExpenseDTO.forUser(user.id).map((entry) =>
-		entry.toJSON(),
-	);
 	return {
-		expenses,
+		...personalPage(user.id, url),
 		connections: BankConnectionDTO.forUser(user.id).map((entry) =>
 			entry.toJSON(),
 		),
-		bankSyncAvailable: isBankSyncConfigured(),
+		bankSyncAvailable: bankCredentialsFor(user.id) !== undefined,
 		shareGroups: GroupDTO.forMember(user.id).map((entry) => {
 			const { id, name, currency } = entry.toJSON();
 			return { id, name, currency };
 		}),
-		defaultCurrency: expenses[0]?.currency ?? "EUR",
 	};
 };
 
@@ -60,6 +78,9 @@ export const actions = {
 		const parsed = parsePersonalForm(await request.formData());
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
+		}
+		if (!ownsFolder(locals.user.id, parsed.data.folderId)) {
+			return fail(404, { error: "That folder no longer exists." });
 		}
 		PersonalExpenseDTO.create(locals.user.id, parsed.data);
 		return { created: true };
@@ -80,8 +101,26 @@ export const actions = {
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
 		}
+		if (!ownsFolder(locals.user.id, parsed.data.folderId)) {
+			return fail(404, { error: "That folder no longer exists." });
+		}
 		existing.update(parsed.data);
-		return { updated: true };
+		const recategorized = existing.toJSON().category !== parsed.data.category;
+		return {
+			updated: true,
+			category: parsed.data.category,
+			similar: recategorized
+				? PersonalExpenseDTO.similarTo(
+						locals.user.id,
+						{ id: existing.id, description: parsed.data.description },
+						parsed.data.category,
+					).map((entry) => {
+						const { id, description, spentOn, amountMinor, currency } =
+							entry.toJSON();
+						return { id, description, spentOn, amountMinor, currency };
+					})
+				: [],
+		};
 	},
 	delete: async ({ locals, request }) => {
 		if (!locals.user) {
@@ -96,6 +135,63 @@ export const actions = {
 		}
 		existing.delete();
 		return { deleted: true };
+	},
+	applyCategory: async ({ locals, request }) => {
+		if (!locals.user) {
+			return fail(401, { error: "Sign in again to continue." });
+		}
+		const formData = await request.formData();
+		const parsed = applyCategorySchema.safeParse({
+			category: formData.get("category"),
+			ids: formData.getAll("ids"),
+		});
+		if (!parsed.success) {
+			return fail(400, { error: "Pick the expenses to move." });
+		}
+		return {
+			moved: PersonalExpenseDTO.recategorize(
+				locals.user.id,
+				parsed.data.ids,
+				parsed.data.category,
+			),
+		};
+	},
+	saveFolder: async ({ locals, request }) => {
+		if (!locals.user) {
+			return fail(401, { error: "Sign in again to continue." });
+		}
+		const parsed = parseForm(folderSchema, await request.formData());
+		if (!parsed.success) {
+			return fail(400, { errors: parsed.errors });
+		}
+		if (!parsed.data.id) {
+			return {
+				folderId: PersonalFolderDTO.create(locals.user.id, parsed.data.name),
+			};
+		}
+		const folder = PersonalFolderDTO.findForUser(
+			parsed.data.id,
+			locals.user.id,
+		);
+		if (!folder) {
+			return fail(404, { error: "That folder no longer exists." });
+		}
+		folder.rename(parsed.data.name);
+		return { folderId: folder.id };
+	},
+	deleteFolder: async ({ locals, request }) => {
+		if (!locals.user) {
+			return fail(401, { error: "Sign in again to continue." });
+		}
+		const parsed = parseForm(idSchema, await request.formData());
+		const folder = parsed.success
+			? PersonalFolderDTO.findForUser(parsed.data.id, locals.user.id)
+			: undefined;
+		if (!folder) {
+			return fail(404, { error: "That folder no longer exists." });
+		}
+		folder.delete();
+		redirect(303, resolve("/(protected)/personal"));
 	},
 	share: async ({ locals, request }) => {
 		if (!locals.user) {
@@ -185,8 +281,9 @@ export const actions = {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
 		}
-		if (!isBankSyncConfigured()) {
-			return fail(400, { error: "Bank sync isn't set up on this server." });
+		const credentials = bankCredentialsFor(locals.user.id);
+		if (!credentials) {
+			return fail(400, { error: "Set up bank sync in your account first." });
 		}
 		const parsed = parseForm(bankSchema, await request.formData());
 		if (!parsed.success) {
@@ -195,6 +292,7 @@ export const actions = {
 		let target: string;
 		try {
 			target = await startBankLink(
+				credentials,
 				parsed.data,
 				new URL(
 					resolve("/(protected)/personal/bank"),
@@ -243,8 +341,9 @@ export const actions = {
 		if (!connection) {
 			return fail(404, { error: "That bank isn't linked anymore." });
 		}
-		if (isBankSyncConfigured()) {
-			await closeBankSession(connection.sessionId);
+		const credentials = bankCredentialsFor(locals.user.id);
+		if (credentials) {
+			await closeBankSession(credentials, connection.sessionId);
 		}
 		connection.delete();
 		return { disconnected: true };

@@ -10,6 +10,7 @@
 		currency: string;
 		memberCount: number;
 		balancesHref: string;
+		scope?: string;
 	}
 
 	const {
@@ -18,6 +19,7 @@
 		currency,
 		memberCount,
 		balancesHref,
+		scope,
 	}: Props = $props();
 
 	const tone = $derived(
@@ -36,6 +38,13 @@
 			: 'bg-primary/40'}"
 		aria-hidden="true"
 	></div>
+	{#if scope}
+		<p
+			class="bg-muted text-muted-foreground relative mb-2 inline-flex rounded-full px-2.5 py-1 text-xs font-medium"
+		>
+			{scope}
+		</p>
+	{/if}
 	<p class="text-muted-foreground relative text-sm">
 		{tone === "owed"
 			? "You're owed"
@@ -60,7 +69,7 @@
 			<span class="text-foreground block font-medium tabular"
 				>{formatMoney(totalSpentMinor, currency)}</span
 			>
-			spent together
+			{scope ? "spent in these" : "spent together"}
 		</p>
 		<p>
 			<span class="text-foreground block font-medium tabular"

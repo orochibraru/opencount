@@ -139,6 +139,13 @@ const registrySchema = z.looseObject({
 });
 
 const categoryPatterns: [RegExp, ImportCategory][] = [
+	[/pet|animal/i, "pets"],
+	[/health|medical|pharma|doctor/i, "health"],
+	[/diy|furniture|garden|home|house(?!hold)/i, "home"],
+	[/subscription|streaming/i, "subscriptions"],
+	[/beauty|hair|personal care/i, "care"],
+	[/book|music|concert|theat|culture/i, "culture"],
+	[/education|school/i, "education"],
 	[/grocer|supermarket/i, "groceries"],
 	[/food|restaurant|drink|bar|meal|dinner|lunch|breakfast/i, "food"],
 	[/transport|travel|car|fuel|gas|taxi|train|flight|parking/i, "transport"],
@@ -148,7 +155,7 @@ const categoryPatterns: [RegExp, ImportCategory][] = [
 		"activities",
 	],
 	[/shopping|gift|cloth/i, "shopping"],
-	[/bill|utilit|insurance|health|subscription/i, "bills"],
+	[/bill|utilit|insurance/i, "bills"],
 ];
 
 /**
@@ -184,6 +191,9 @@ function toMinor(value: string, currency: string): number {
 }
 
 type RegistryEntry = z.infer<typeof entrySchema>;
+
+const reimbursement =
+	/^(re?imbursement|remboursement|rembourse|virement|transfer|repayment|payback|reembolso|rimborso|erstattung|terugbetaling)\b/i;
 
 function sharesOf(
 	entry: RegistryEntry,
@@ -245,7 +255,9 @@ function entriesOf(entry: RegistryEntry, currency: string): TricountEntry[] {
 				shares: [{ participant: paidBy, amountMinor: share.amountMinor }],
 			}));
 	}
-	const transfer = entry.type_transaction === "BALANCE";
+	const transfer =
+		entry.type_transaction === "BALANCE" ||
+		reimbursement.test(entry.description?.trim() ?? "");
 	return [
 		{
 			kind: transfer ? "transfer" : "expense",
@@ -265,8 +277,9 @@ function entriesOf(entry: RegistryEntry, currency: string): TricountEntry[] {
 
 /**
  * Reads a Tricount registry, as its API returns it, into expenses and transfers in its currency: shares adjusted to
- * add up to each total, incomes turned into a transfer from each person they were for to whoever received them, and
- * amounts entered in another currency kept as the original.
+ * add up to each total, incomes turned into a transfer from each person they were for to whoever received them,
+ * entries described as a reimbursement turned into a payment, and amounts entered in another currency kept as the
+ * original.
  *
  * @throws TricountError when `raw` isn't a Tricount registry or holds nothing to import.
  */

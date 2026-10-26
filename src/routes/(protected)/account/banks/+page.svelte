@@ -41,23 +41,20 @@
 				>
 			</div>
 			<p class="text-muted-foreground mt-1 text-sm">
-				Lets people link their bank, Revolut included, so their card payments
-				land in their personal expenses, ready to split in a group. It goes
-				through Enable Banking, a licensed open-banking provider covering most
-				banks in Europe.
+				Brings your card payments, Revolut included, into your personal expenses
+				every day. It goes through your own Enable Banking application, free for
+				personal use, so only you and your bank see the data.
 			</p>
 		</div>
 		<ol
 			class="text-muted-foreground flex list-decimal flex-col gap-1.5 pl-5 text-sm"
 		>
 			<li>
-				Create an application in the Enable Banking control panel, production
-				environment, with the redirect URL below. Keep the private key it
-				generates.
+				Sign up at enablebanking.com, create an application in production with
+				the redirect URL below, and keep the private key it generates.
 			</li>
 			<li>
-				Free for personal use: link each person's own accounts to the
-				application in the control panel first. A contract lifts that limit.
+				In its control panel, link your own bank accounts to the application.
 			</li>
 			<li>Paste the application ID and the private key here.</li>
 		</ol>
@@ -113,7 +110,7 @@
 		>
 			<h2 class="font-semibold">Turn it off</h2>
 			<p class="text-muted-foreground text-sm">
-				Forgets the keys. Linked banks stop syncing; the expenses they brought
+				Forgets your keys. Linked banks stop syncing; the expenses they brought
 				stay.
 			</p>
 			<Button

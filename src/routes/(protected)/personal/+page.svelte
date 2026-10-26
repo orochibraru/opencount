@@ -1,141 +1,44 @@
 <script lang="ts">
+	import { enhance } from "$app/forms";
+	import { resolve } from "$app/paths";
 	import { page } from "$app/state";
-	import LandmarkIcon from "@lucide/svelte/icons/landmark";
-	import PencilIcon from "@lucide/svelte/icons/pencil";
+	import BanknoteIcon from "@lucide/svelte/icons/banknote";
+	import CheckIcon from "@lucide/svelte/icons/check";
+	import FolderIcon from "@lucide/svelte/icons/folder";
+	import FolderPlusIcon from "@lucide/svelte/icons/folder-plus";
 	import PlusIcon from "@lucide/svelte/icons/plus";
-	import Trash2Icon from "@lucide/svelte/icons/trash-2";
-	import UsersIcon from "@lucide/svelte/icons/users";
-	import WalletIcon from "@lucide/svelte/icons/wallet";
 	import { onMount } from "svelte";
 	import { toast } from "svelte-sonner";
 
-	import { categoryOf } from "#lib/categories.js";
-	import EmptyState from "#lib/components/empty-state.svelte";
-	import Fab from "#lib/components/fab.svelte";
-	import ItemMenu, { type MenuAction } from "#lib/components/item-menu.svelte";
+	import ResponsiveSheet from "#lib/components/responsive-sheet.svelte";
 	import { Button } from "#lib/components/ui/button/index.js";
-	import { formatMoney } from "#lib/money.js";
+	import * as Field from "#lib/components/ui/field/index.js";
+	import { Input } from "#lib/components/ui/input/index.js";
 	import { setPageTitle } from "#lib/page-title.svelte.js";
+	import { enhanceToast } from "#lib/toast.js";
 
 	import BanksCard from "./banks-card.svelte";
-	import PersonalSheet, {
-		type EditablePersonalExpense,
-	} from "./personal-sheet.svelte";
-	import ShareSheet from "./share-sheet.svelte";
+	import PersonalView from "./personal-view.svelte";
 
 	const { data } = $props();
 
-	type Entry = (typeof data.expenses)[number];
+	let adding = $state(false);
+	let folderOpen = $state(false);
+	let folderErrors = $state<Record<string, string[]>>({});
 
 	setPageTitle("Personal", undefined, [
-		{ label: "Add expense", icon: PlusIcon, onSelect: openNew, primary: true },
+		{
+			label: "New folder",
+			icon: FolderPlusIcon,
+			onSelect: () => (folderOpen = true),
+		},
+		{
+			label: "Add expense",
+			icon: PlusIcon,
+			onSelect: () => (adding = true),
+			primary: true,
+		},
 	]);
-
-	let sheetOpen = $state(false);
-	let editing = $state<EditablePersonalExpense>();
-	let shareOpen = $state(false);
-	let sharing = $state<Entry>();
-
-	const months = $derived.by(() => {
-		const grouped = new Map<string, Entry[]>();
-		for (const entry of data.expenses) {
-			const month = entry.spentOn.slice(0, 7);
-			grouped.set(month, [...(grouped.get(month) ?? []), entry]);
-		}
-		return [...grouped];
-	});
-
-	const thisMonth = $derived.by(() => {
-		const month = new Date().toISOString().slice(0, 7);
-		const entries = data.expenses.filter((entry) =>
-			entry.spentOn.startsWith(month),
-		);
-		const byCategory = new Map<string, number>();
-		for (const entry of entries.filter(
-			(item) => item.currency === data.defaultCurrency,
-		)) {
-			byCategory.set(
-				entry.category,
-				(byCategory.get(entry.category) ?? 0) + entry.amountMinor,
-			);
-		}
-		return {
-			totals: totalsByCurrency(entries),
-			categories: [...byCategory]
-				.toSorted((left, right) => right[1] - left[1])
-				.slice(0, 4),
-		};
-	});
-
-	function totalsByCurrency(entries: Entry[]): string {
-		const totals = new Map<string, number>();
-		for (const entry of entries) {
-			totals.set(
-				entry.currency,
-				(totals.get(entry.currency) ?? 0) + entry.amountMinor,
-			);
-		}
-		return totals.size === 0
-			? formatMoney(0, data.defaultCurrency)
-			: [...totals]
-					.map(([currency, minor]) => formatMoney(minor, currency))
-					.join(" + ");
-	}
-
-	function monthLabel(month: string): string {
-		return new Date(`${month}-01T12:00:00`).toLocaleDateString(undefined, {
-			month: "long",
-			year: "numeric",
-		});
-	}
-
-	function openNew() {
-		editing = undefined;
-		sheetOpen = true;
-	}
-
-	function actionsFor(entry: Entry): MenuAction[] {
-		return [
-			{
-				label: "Edit",
-				icon: PencilIcon,
-				onSelect: () => {
-					editing = entry;
-					sheetOpen = true;
-				},
-			},
-			...(data.shareGroups.length > 0 && !entry.sharedGroupId
-				? [
-						{
-							label: "Split in a group",
-							icon: UsersIcon,
-							onSelect: () => {
-								sharing = entry;
-								shareOpen = true;
-							},
-						},
-					]
-				: []),
-			{
-				label: "Delete",
-				icon: Trash2Icon,
-				destructive: true,
-				form: {
-					action: "?/delete",
-					fields: { id: entry.id },
-					loading: "Deleting expense",
-					success: "Expense deleted.",
-					confirm: {
-						title: `Delete "${entry.description}"?`,
-						description: entry.sharedGroupName
-							? `The copy in ${entry.sharedGroupName} stays.`
-							: "Only you could see it.",
-						confirmLabel: "Delete",
-					},
-				},
-			},
-		];
-	}
 
 	onMount(() => {
 		const outcome = page.url.searchParams.get("bank");
@@ -149,124 +52,107 @@
 	});
 </script>
 
-<div
-	class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(20rem,26rem)_minmax(0,1fr)] xl:items-start"
+<PersonalView
+	expenses={data.expenses}
+	hasMore={data.hasMore}
+	matching={data.matching}
+	pageSize={data.pageSize}
+	stats={data.stats}
+	folders={data.folders}
+	shareGroups={data.shareGroups}
+	defaultCurrency={data.defaultCurrency}
+	empty="Track what you spend on your own, apart from your groups, in folders for each project if you like."
+	bind:adding
 >
-	<div class="flex min-w-0 flex-col gap-4 xl:sticky xl:top-24">
-		<section class="glass rounded-2xl p-4 md:p-6" aria-label="This month">
-			<p class="text-muted-foreground text-sm">Spent this month</p>
-			<p class="font-display mt-1 text-3xl font-semibold tabular">
-				{thisMonth.totals}
-			</p>
-			{#if thisMonth.categories.length > 0}
-				<ul class="mt-4 flex flex-col gap-2 text-sm">
-					{#each thisMonth.categories as [value, minor] (value)}
-						{@const category = categoryOf(value)}
-						<li class="flex items-center gap-2">
-							<category.icon class="text-muted-foreground size-4" />
-							<span class="flex-1">{category.label}</span>
-							<span class="tabular"
-								>{formatMoney(minor, data.defaultCurrency)}</span
+	{#snippet aside()}
+		<section class="glass flex flex-col gap-3 rounded-2xl p-4 md:p-6">
+			<div class="flex items-center justify-between gap-2">
+				<h2 class="font-semibold">Folders</h2>
+				<Button
+					variant="ghost"
+					size="sm"
+					class="h-9 rounded-lg"
+					onclick={() => (folderOpen = true)}
+				>
+					<FolderPlusIcon />
+					New
+				</Button>
+			</div>
+			{#if data.folders.length === 0}
+				<p class="text-muted-foreground text-sm">
+					One per project, like a renovation or a trip, with its own totals.
+				</p>
+			{:else}
+				<ul class="-mx-1 flex flex-col">
+					{#each data.folders as folder (folder.id)}
+						<li>
+							<a
+								href={resolve("/(protected)/personal/folders/[folderId]", {
+									folderId: folder.id,
+								})}
+								class="hover:bg-muted flex min-h-11 items-center gap-3 rounded-xl px-2"
 							>
+								<FolderIcon class="text-muted-foreground size-4" />
+								<span class="min-w-0 flex-1 truncate">{folder.name}</span>
+								<span class="text-muted-foreground text-sm tabular"
+									>{folder.expenseCount}</span
+								>
+							</a>
 						</li>
 					{/each}
 				</ul>
 			{/if}
-			<p class="text-muted-foreground mt-4 text-xs">
-				Only you see these. Split one in a group to share it.
-			</p>
 		</section>
 		{#if data.bankSyncAvailable}
 			<BanksCard connections={data.connections} />
-		{/if}
-	</div>
-
-	<section aria-label="Personal expenses" class="min-w-0">
-		{#if data.expenses.length === 0}
-			<EmptyState
-				icon={WalletIcon}
-				title="Your own expenses"
-				subtitle="Track what you spend on your own, apart from your groups.{data.bankSyncAvailable
-					? ' Or link your bank to bring card payments in.'
-					: ''}"
-			>
-				<Button size="lg" class="glow h-11 rounded-xl px-6" onclick={openNew}>
-					<PlusIcon />
-					Add expense
-				</Button>
-			</EmptyState>
 		{:else}
-			<div class="flex flex-col gap-6">
-				{#each months as [month, entries] (month)}
-					<div>
-						<h2
-							class="text-muted-foreground mb-2 flex items-baseline justify-between px-1 text-sm font-medium"
-						>
-							<span>{monthLabel(month)}</span>
-							<span class="tabular">{totalsByCurrency(entries)}</span>
-						</h2>
-						<ul
-							class="glass divide-border divide-y overflow-hidden rounded-2xl"
-						>
-							{#each entries as entry (entry.id)}
-								{@const category = categoryOf(entry.category)}
-								<li>
-									<ItemMenu
-										title={entry.description}
-										class="min-h-16 px-3 py-2 md:px-4"
-										actions={actionsFor(entry)}
-									>
-										<span
-											class="bg-accent text-accent-foreground flex size-11 shrink-0 items-center justify-center rounded-xl"
-										>
-											<category.icon class="size-5" />
-										</span>
-										<span class="min-w-0 flex-1">
-											<span class="block truncate font-medium"
-												>{entry.description}</span
-											>
-											<span
-												class="text-muted-foreground flex items-center gap-1 truncate text-sm"
-											>
-												{#if entry.fromBank}<LandmarkIcon
-														class="size-3.5 shrink-0"
-													/>{/if}
-												{entry.sharedGroupName
-													? `Split in ${entry.sharedGroupName}`
-													: new Date(
-															`${entry.spentOn}T12:00:00`,
-														).toLocaleDateString(undefined, {
-															day: "numeric",
-															month: "short",
-														})}
-											</span>
-										</span>
-										<span class="font-display font-semibold tabular"
-											>{formatMoney(entry.amountMinor, entry.currency)}</span
-										>
-									</ItemMenu>
-								</li>
-							{/each}
-						</ul>
-					</div>
-				{/each}
-			</div>
+			<a
+				href={resolve("/(protected)/account/banks")}
+				class="glass hover:bg-muted/50 flex min-h-14 items-center gap-3 rounded-2xl p-4 text-sm"
+			>
+				<BanknoteIcon class="text-muted-foreground size-5 shrink-0" />
+				<span class="flex-1"
+					>Bring your card payments in: set up bank sync in your account.</span
+				>
+			</a>
 		{/if}
-	</section>
-</div>
+	{/snippet}
+</PersonalView>
 
-<Fab label="Add expense" icon={PlusIcon} onclick={openNew} />
-
-<PersonalSheet
-	bind:open={sheetOpen}
-	defaultCurrency={data.defaultCurrency}
-	expense={editing}
-/>
-
-{#if sharing}
-	<ShareSheet
-		bind:open={shareOpen}
-		expense={sharing}
-		groups={data.shareGroups}
-	/>
-{/if}
+<ResponsiveSheet bind:open={folderOpen} title="New folder">
+	<form
+		method="POST"
+		action="?/saveFolder"
+		class="flex flex-col gap-4 pb-4"
+		use:enhance={enhanceToast({
+			loading: "Making the folder",
+			success: "Folder ready.",
+			reset: true,
+			onFailure: (result) =>
+				(folderErrors = (result?.errors as Record<string, string[]>) ?? {}),
+			onSuccess: () => {
+				folderErrors = {};
+				folderOpen = false;
+			},
+		})}
+	>
+		<Field.Field>
+			<Field.Label for="folder-name">Name</Field.Label>
+			<Input
+				id="folder-name"
+				name="name"
+				required
+				maxlength={60}
+				placeholder="Kitchen renovation"
+				class="h-11"
+			/>
+			<Field.Error
+				errors={folderErrors.name?.map((message) => ({ message }))}
+			/>
+		</Field.Field>
+		<Button type="submit" class="h-11 rounded-xl">
+			<CheckIcon />
+			Make the folder
+		</Button>
+	</form>
+</ResponsiveSheet>

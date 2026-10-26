@@ -1,6 +1,5 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, count, desc, eq, inArray, ne, or, sql, sum } from "drizzle-orm";
 
-import type { LedgerEntry } from "#lib/balances.js";
 import { BaseDTO } from "#lib/dto/base-dto.js";
 import { getDb } from "#lib/server/db/lib.js";
 import {
@@ -8,8 +7,10 @@ import {
 	type expenseKinds,
 	expenseShare,
 	groupMember,
+	merchant,
 	type splitModes,
 } from "#lib/server/db/schema.js";
+import { similarKey } from "#lib/similar-key.js";
 
 export interface ExpenseShareRow {
 	memberId: string;
@@ -84,6 +85,40 @@ const columns = {
 	recurringId: expense.recurringId,
 };
 
+export interface ExpenseFilter {
+	category?: string;
+	search?: string;
+}
+
+function matching(groupId: string, { category, search }: ExpenseFilter) {
+	const pattern = search
+		? `%${search.toLowerCase().replaceAll(/[\\%_]/g, (character) => `\\${character}`)}%`
+		: undefined;
+	return and(
+		eq(expense.groupId, groupId),
+		category
+			? and(eq(expense.category, category), eq(expense.kind, "expense"))
+			: undefined,
+		pattern
+			? or(
+					sql`lower(${expense.description}) like ${pattern} escape '\\'`,
+					inArray(
+						expense.merchantId,
+						getDb()
+							.select({ id: merchant.id })
+							.from(merchant)
+							.where(
+								and(
+									eq(merchant.groupId, groupId),
+									sql`lower(${merchant.name}) like ${pattern} escape '\\'`,
+								),
+							),
+					),
+				)
+			: undefined,
+	);
+}
+
 export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 	/** Every expense and transfer of `groupId`, newest first, with its shares. */
 	static forGroup(groupId: string): ExpenseDTO[] {
@@ -110,6 +145,202 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 				)
 				.get() !== undefined
 		);
+	}
+
+	/**
+	 * The latest `limit` expenses and transfers of `groupId`, newest first, only those filed under `category` and whose
+	 * description or merchant contains `search` (whatever the case) when given, with how many match in all.
+	 */
+	static page(
+		groupId: string,
+		{ limit, ...filter }: { limit: number } & ExpenseFilter,
+	): { entries: ExpenseDTO[]; total: number } {
+		const scope = matching(groupId, filter);
+		const database = getDb();
+		const rows = database
+			.select(columns)
+			.from(expense)
+			.where(scope)
+			.orderBy(desc(expense.spentOn), desc(expense.createdAt))
+			.limit(limit)
+			.all();
+		const shares = sharesFor(rows.map((row) => row.id));
+		return {
+			entries: rows.map(
+				(row) => new ExpenseDTO({ ...row, shares: shares.get(row.id) ?? [] }),
+			),
+			total:
+				database.select({ total: count() }).from(expense).where(scope).get()
+					?.total ?? 0,
+		};
+	}
+
+	/**
+	 * Up to 50 other expenses of `groupId` that look like `source`, a description that spells the same (see
+	 * `similarKey`) or the same merchant, filed under another category than `category`; newest first.
+	 */
+	static similarTo(
+		groupId: string,
+		source: { id: string; description: string; merchantId: string | null },
+		category: string,
+	): ExpenseDTO[] {
+		const key = similarKey(source.description);
+		return getDb()
+			.select(columns)
+			.from(expense)
+			.where(
+				and(
+					eq(expense.groupId, groupId),
+					eq(expense.kind, "expense"),
+					ne(expense.id, source.id),
+					ne(expense.category, category),
+				),
+			)
+			.orderBy(desc(expense.spentOn))
+			.all()
+			.filter(
+				(row) =>
+					(key !== "" && similarKey(row.description) === key) ||
+					(source.merchantId !== null && row.merchantId === source.merchantId),
+			)
+			.slice(0, 50)
+			.map((row) => new ExpenseDTO({ ...row, shares: [] }));
+	}
+
+	/** The category each description of `groupId` is filed under most often, by `similarKey`, Other left out. */
+	static categoryHistory(groupId: string): Map<string, string> {
+		const counts = new Map<string, Map<string, number>>();
+		for (const row of getDb()
+			.select({ description: expense.description, category: expense.category })
+			.from(expense)
+			.where(
+				and(
+					eq(expense.groupId, groupId),
+					eq(expense.kind, "expense"),
+					ne(expense.category, "other"),
+				),
+			)
+			.all()) {
+			const key = similarKey(row.description);
+			const perCategory = counts.get(key) ?? new Map<string, number>();
+			perCategory.set(row.category, (perCategory.get(row.category) ?? 0) + 1);
+			counts.set(key, perCategory);
+		}
+		return new Map(
+			[...counts].map(([key, perCategory]) => [
+				key,
+				[...perCategory].toSorted(
+					(left, right) => right[1] - left[1],
+				)[0]?.[0] ?? "other",
+			]),
+		);
+	}
+
+	/** Files the expenses `ids` of `groupId` under `category`; returns how many moved. */
+	static recategorize(
+		groupId: string,
+		ids: string[],
+		category: string,
+	): number {
+		if (ids.length === 0) {
+			return 0;
+		}
+		return getDb()
+			.update(expense)
+			.set({ category })
+			.where(
+				and(
+					eq(expense.groupId, groupId),
+					eq(expense.kind, "expense"),
+					inArray(expense.id, ids),
+				),
+			)
+			.returning({ id: expense.id })
+			.all().length;
+	}
+
+	/**
+	 * What the expenses of `groupId` matching `filter` add up to: spent in all (transfers left out) and member
+	 * `memberId`'s net among them, what they paid minus their shares.
+	 */
+	static summary(
+		groupId: string,
+		filter: ExpenseFilter,
+		memberId: string | null,
+	): { spentMinor: number; balanceMinor: number } {
+		const database = getDb();
+		const scope = matching(groupId, filter);
+		const total = (value: unknown) => Number(value ?? 0);
+		const spentMinor = total(
+			database
+				.select({ total: sum(expense.amountMinor) })
+				.from(expense)
+				.where(and(scope, eq(expense.kind, "expense")))
+				.get()?.total,
+		);
+		if (!memberId) {
+			return { spentMinor, balanceMinor: 0 };
+		}
+		const paid = total(
+			database
+				.select({ total: sum(expense.amountMinor) })
+				.from(expense)
+				.where(and(scope, eq(expense.paidBy, memberId)))
+				.get()?.total,
+		);
+		const owed = total(
+			database
+				.select({ total: sum(expenseShare.amountMinor) })
+				.from(expenseShare)
+				.innerJoin(expense, eq(expense.id, expenseShare.expenseId))
+				.where(and(scope, eq(expenseShare.memberId, memberId)))
+				.get()?.total,
+		);
+		return { spentMinor, balanceMinor: paid - owed };
+	}
+
+	/** What `groupId` spent in all, transfers left out. */
+	static spentTotal(groupId: string): number {
+		return Number(
+			getDb()
+				.select({ total: sum(expense.amountMinor) })
+				.from(expense)
+				.where(and(eq(expense.groupId, groupId), eq(expense.kind, "expense")))
+				.get()?.total ?? 0,
+		);
+	}
+
+	/**
+	 * Each of `memberIds`' balance in `groupId`, in minor units: what they paid minus their shares, summed by the
+	 * database instead of loading every expense.
+	 */
+	static balances(groupId: string, memberIds: string[]): Map<string, number> {
+		const database = getDb();
+		const balances = new Map(memberIds.map((memberId) => [memberId, 0]));
+		for (const row of database
+			.select({
+				memberId: expense.paidBy,
+				total: sql<number>`sum(${expense.amountMinor})`.mapWith(Number),
+			})
+			.from(expense)
+			.where(eq(expense.groupId, groupId))
+			.groupBy(expense.paidBy)
+			.all()) {
+			balances.set(row.memberId, (balances.get(row.memberId) ?? 0) + row.total);
+		}
+		for (const row of database
+			.select({
+				memberId: expenseShare.memberId,
+				total: sql<number>`sum(${expenseShare.amountMinor})`.mapWith(Number),
+			})
+			.from(expenseShare)
+			.innerJoin(expense, eq(expense.id, expenseShare.expenseId))
+			.where(eq(expense.groupId, groupId))
+			.groupBy(expenseShare.memberId)
+			.all()) {
+			balances.set(row.memberId, (balances.get(row.memberId) ?? 0) - row.total);
+		}
+		return balances;
 	}
 
 	/** Expense `expenseId`, only when it belongs to `groupId`. */
@@ -242,25 +473,8 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 		return moved;
 	}
 
-	/** The group's ledger, for balances. */
-	static ledger(groupId: string): LedgerEntry[] {
-		return ExpenseDTO.forGroup(groupId).map((entry) => entry.toLedgerEntry());
-	}
-
 	get id(): string {
 		return this.row.id;
-	}
-
-	/** The expense as a ledger entry. */
-	toLedgerEntry(): LedgerEntry {
-		return {
-			paidBy: this.row.paidBy,
-			amountMinor: this.row.amountMinor,
-			shares: this.row.shares.map((share) => ({
-				memberId: share.memberId,
-				amountMinor: share.amountMinor,
-			})),
-		};
 	}
 
 	/** Replaces the expense's fields and shares, in one transaction. */

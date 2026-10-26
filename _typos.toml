@@ -1,2 +1,7 @@
 [files]
-extend-exclude = ["CHANGELOG.md", "bun.lock", "drizzle/"]
+extend-exclude = [
+	"CHANGELOG.md",
+	"bun.lock",
+	"drizzle/",
+	"src/lib/category-keywords.json",
+]

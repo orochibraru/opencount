@@ -9,6 +9,20 @@ import { RecurringExpenseDTO } from "#lib/dto/recurring-expense.js";
 
 import { createUser, resetDatabase } from "../../database.js";
 
+function ledger(groupId: string) {
+	return ExpenseDTO.forGroup(groupId).map((entry) => {
+		const row = entry.toJSON();
+		return {
+			paidBy: row.paidBy,
+			amountMinor: row.amountMinor,
+			shares: row.shares.map(({ memberId, amountMinor }) => ({
+				memberId,
+				amountMinor,
+			})),
+		};
+	});
+}
+
 function setUp() {
 	const ada = createUser("ada", "Ada");
 	const grace = createUser("grace", "Grace");
@@ -86,13 +100,23 @@ describe("ExpenseDTO", () => {
 				{ memberId: sam.id, amountMinor: 700, weight: 1 },
 			]),
 		);
-		expect(ExpenseDTO.ledger(group.id)).toEqual([
+		expect(ledger(group.id)).toEqual([
 			{
 				paidBy: adaMember.id,
 				amountMinor: 700,
 				shares: [{ memberId: sam.id, amountMinor: 700 }],
 			},
 		]);
+		expect(
+			Object.fromEntries(
+				ExpenseDTO.balances(group.id, [adaMember.id, sam.id, "nobody"]),
+			),
+		).toEqual({ [adaMember.id]: 700, [sam.id]: -700, nobody: 0 });
+		expect(ExpenseDTO.spentTotal(group.id)).toBe(700);
+		expect(ExpenseDTO.page(group.id, { limit: 50 }).total).toBe(1);
+		expect(
+			ExpenseDTO.page(group.id, { limit: 50, category: "food" }).entries,
+		).toEqual([]);
 		found?.delete();
 		expect(ExpenseDTO.forGroup(group.id)).toEqual([]);
 	});
@@ -281,7 +305,7 @@ describe("claiming a member", () => {
 		expect(members.find((member) => member.displayName === "G")?.userId).toBe(
 			grace.id,
 		);
-		expect(ExpenseDTO.ledger(group.id)).toEqual(
+		expect(ledger(group.id)).toEqual(
 			expect.arrayContaining([
 				{
 					paidBy: placeholder.id,

@@ -1,7 +1,16 @@
 # Expenses
 
 An expense says who paid how much, when, for what, and who it was for. A group
-opens on its expenses, newest first.
+opens on its expenses, newest first, 50 at a time: **Load more** shows the next
+ones. The balances and totals at the top always count every expense, not just
+the ones loaded.
+
+## Searching and filtering
+
+The search box looks in descriptions and merchant names, ignoring case, as you
+type. **Filter** opens a sheet of categories; the active one shows next to the
+button with a clear button. Both are kept in the page's URL, so a link keeps
+them.
 
 ## Adding one
 
@@ -64,6 +73,10 @@ retry never adds it twice.
 Open an expense to edit any field, or delete it from its menu (a long press on a
 phone). Every member can edit or delete any expense in the group, and everyone's
 balance updates right away.
+
+Change an expense's category and a sheet lists the group's other expenses with
+the same description, or the same merchant, filed under another category. Tick
+the ones to move and they are re-filed in one go.
 
 Editing an expense created by a repeating rule changes only that copy, not the
 rule. Its **Repeat** choice is only offered when adding.

@@ -4,14 +4,17 @@ import { resolve } from "$app/paths";
 import { fail } from "@sveltejs/kit";
 import { z } from "zod";
 
-import { getSetting, setSetting } from "#lib/dto/setting.js";
-import { adminFrom } from "#lib/server/admin.js";
+import {
+	bankCredentialsFor,
+	removeBankCredentials,
+	saveBankCredentials,
+} from "#lib/dto/bank-credential.js";
 import { publicOrigin } from "#lib/server/auth.js";
 import { bankApplicationName, BankError } from "#lib/server/enable-banking.js";
 import { encryptSecret } from "#lib/server/secrets.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
-const bankSyncSchema = z.object({
+const credentialsSchema = z.object({
 	applicationId: z.string().trim().min(1, "Paste the application ID."),
 	privateKey: z
 		.string()
@@ -26,10 +29,10 @@ const bankSyncSchema = z.object({
 		}, "Paste the private key, from -----BEGIN to the END line."),
 });
 
-export const load = ({ url }) => {
-	const settings = getSetting("bankSync");
+export const load = async ({ parent, url }) => {
+	const { user } = await parent();
 	return {
-		applicationId: settings?.applicationId ?? null,
+		applicationId: bankCredentialsFor(user.id)?.applicationId ?? null,
 		redirectUrl: new URL(
 			resolve("/(protected)/personal/bank"),
 			publicOrigin() ?? url.origin,
@@ -39,23 +42,22 @@ export const load = ({ url }) => {
 
 export const actions = {
 	save: async ({ locals, request }) => {
-		const admin = adminFrom(locals);
-		if (!("id" in admin)) {
-			return admin;
+		if (!locals.user) {
+			return fail(401, { error: "Sign in again to continue." });
 		}
-		const parsed = parseForm(bankSyncSchema, await request.formData());
+		const parsed = parseForm(credentialsSchema, await request.formData());
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
 		}
-		const previous = getSetting("bankSync");
-		setSetting("bankSync", {
+		const credentials = {
 			applicationId: parsed.data.applicationId,
 			encryptedPrivateKey: encryptSecret(parsed.data.privateKey),
-		});
+		};
 		try {
-			return { application: await bankApplicationName() };
+			const application = await bankApplicationName(credentials);
+			saveBankCredentials(locals.user.id, credentials);
+			return { application };
 		} catch (error) {
-			setSetting("bankSync", previous);
 			if (error instanceof BankError) {
 				return fail(400, {
 					error: `Enable Banking refused these keys: ${error.message}`,
@@ -65,11 +67,10 @@ export const actions = {
 		}
 	},
 	remove: ({ locals }) => {
-		const admin = adminFrom(locals);
-		if (!("id" in admin)) {
-			return admin;
+		if (!locals.user) {
+			return fail(401, { error: "Sign in again to continue." });
 		}
-		setSetting("bankSync", null);
+		removeBankCredentials(locals.user.id);
 		return { removed: true };
 	},
 };

@@ -118,4 +118,6 @@ them and those features fail, nothing else.
 - Password and passkey sign-in, single sign-on providers:
   [Sign-in and single sign-on](sign-in-and-sso).
 - The SMTP server: [Email](email).
+- Bank sync: each person's own Enable Banking keys, under Account, Bank sync
+  ([Personal expenses and bank sync](personal-and-banks)).
 - Receipt reading and its languages: [Receipt reading](receipt-reading).

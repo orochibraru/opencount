@@ -26,7 +26,11 @@
 	import { toast } from "svelte-sonner";
 	import { online } from "svelte/reactivity/window";
 
-	import { categoryOptions, type CustomCategory } from "#lib/categories.js";
+	import {
+		categoryOptions,
+		categoryStyle,
+		type CustomCategory,
+	} from "#lib/categories.js";
 	import DateField from "#lib/components/date-field.svelte";
 	import Picker from "#lib/components/picker.svelte";
 	import ResponsiveSheet from "#lib/components/responsive-sheet.svelte";
@@ -59,6 +63,7 @@
 		defaultPayer: string | null;
 		receiptsEnabled: boolean;
 		expense?: EditableExpense;
+		onSaved?: (result: Record<string, unknown> | undefined) => void;
 	}
 
 	let {
@@ -70,6 +75,7 @@
 		defaultPayer,
 		receiptsEnabled,
 		expense,
+		onSaved,
 	}: Props = $props();
 
 	const today = () => new Date().toISOString().slice(0, 10);
@@ -218,7 +224,12 @@
 			label: merchant.name,
 		})),
 	);
-	const categoryChoices = $derived(categoryOptions(categories));
+	const categoryChoices = $derived(
+		categoryOptions(categories).map((option) => ({
+			...option,
+			tint: categoryStyle(option),
+		})),
+	);
 
 	function suggest(category: string | undefined) {
 		if (form.categoryPicked || !category) {
@@ -288,9 +299,10 @@
 			success: expense ? "Expense saved." : "Expense added.",
 			onFailure: (result) =>
 				(errors = (result?.errors as Record<string, string[]>) ?? {}),
-			onSuccess: () => {
+			onSuccess: (result) => {
 				haptic("success");
 				open = false;
+				onSaved?.(result);
 			},
 		}),
 	);
@@ -313,7 +325,11 @@
 	}
 </script>
 
-<ResponsiveSheet bind:open title={expense ? "Edit expense" : "New expense"}>
+<ResponsiveSheet
+	bind:open
+	wide
+	title={expense ? "Edit expense" : "New expense"}
+>
 	{#if receiptsEnabled && !expense && online.current !== false}
 		<form
 			method="POST"

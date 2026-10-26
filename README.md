@@ -36,10 +36,14 @@ open-source alternative to Tricount that installs on your phone like an app.
 - **Personal ledger**: a private list of your own expenses that only your
   account sees, each in any currency, with this month's totals by category.
   **Split in a group** adds one to a group, paid by you and split equally,
-  converted at the day's rate when the currencies differ.
+  converted at the day's rate when the currencies differ. Folders group expenses
+  into projects, each with its own totals.
 - **Bank sync**, optional: link your bank through Enable Banking (most European
   banks, Revolut included) and booked debits land in your personal ledger every
-  day, categorized. The admin sets it up under **Bank sync**.
+  day, categorized. Each person sets up their own Enable Banking keys under
+  **Account, Bank sync**.
+- **Search and filter**: find an expense by description or merchant, or filter a
+  group's list by category. Lists load 50 at a time.
 - **Insights** by period, category, merchant and payer, and over time.
 - **Archiving**: hide a finished group from your own list without touching
   anyone else's.

@@ -6,8 +6,8 @@
 	"gitBuildContext": ".",
 	"gitDockerfilePath": "Dockerfile",
 	"containerPort": 3000,
-	"domains": ["opencount.eu"],
-	"primaryDomain": "opencount.eu",
+	"domains": ["app.opencount.eu"],
+	"primaryDomain": "app.opencount.eu",
 	"envVars": {
 		"ADDRESS_HEADER": "x-forwarded-for",
 		"XFF_DEPTH": "1"

@@ -42,8 +42,8 @@ on, a photo or a PDF of a receipt fills in the amount, the date and the
 merchant.
 
 **Personal expenses.** A private ledger of your own spending in any currency,
-with optional daily bank sync through Enable Banking, and a one-tap split into a
-group.
+with folders for projects, optional daily bank sync through your own Enable
+Banking application, and a one-tap split into a group.
 
 **Insights.** What the group spent by period, category, merchant and payer, and
 how it moved over time.

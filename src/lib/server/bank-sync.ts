@@ -1,4 +1,5 @@
-import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
+import type { BankConnectionDTO } from "#lib/dto/bank-connection.js";
+import { bankCredentialsFor } from "#lib/dto/bank-credential.js";
 import {
 	type BankExpense,
 	PersonalExpenseDTO,
@@ -52,8 +53,8 @@ export function bankExpense(
 }
 
 /**
- * Fetches every account of linked bank `connection` since its last sync and records the new spending as personal
- * expenses; returns how many are new.
+ * Fetches every account of linked bank `connection` since its last sync, with its owner's Enable Banking keys, and
+ * records the new spending as personal expenses; returns how many are new.
  *
  * @throws When the bank refuses or the link expired; the link records why.
  */
@@ -62,10 +63,16 @@ export async function syncBank(connection: BankConnectionDTO): Promise<number> {
 		if (connection.expired()) {
 			throw new Error("The bank link expired. Connect the bank again.");
 		}
+		const credentials = bankCredentialsFor(connection.userId);
+		if (!credentials) {
+			throw new Error(
+				"Bank sync is off for this account. Set it up again in your account.",
+			);
+		}
 		let added = 0;
 		const from = connection.fetchFrom();
 		for (const account of connection.accounts) {
-			const expenses = (await bankTransactions(account.uid, from))
+			const expenses = (await bankTransactions(credentials, account.uid, from))
 				.map((transaction) => bankExpense(account.uid, transaction))
 				.filter((entry) => entry !== undefined);
 			added += PersonalExpenseDTO.importFromBank(

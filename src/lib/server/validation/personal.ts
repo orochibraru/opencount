@@ -16,6 +16,7 @@ const personalSchema = z.object({
 	amount: z.string(),
 	currency: z.enum(currencies, "Pick a currency."),
 	spentOn: z.iso.date("Pick a date."),
+	folderId: z.string().default(""),
 });
 
 /** Validates the add or edit form of a personal expense. */
@@ -26,7 +27,7 @@ export function parsePersonalForm(
 	if (!parsed.success) {
 		return parsed;
 	}
-	const { amount, ...fields } = parsed.data;
+	const { amount, folderId, ...fields } = parsed.data;
 	const amountMinor = parseMoney(amount, fields.currency);
 	if (!amountMinor) {
 		return {
@@ -34,5 +35,8 @@ export function parsePersonalForm(
 			errors: { amount: ["Enter an amount above zero."] },
 		};
 	}
-	return { success: true, data: { ...fields, amountMinor } };
+	return {
+		success: true,
+		data: { ...fields, amountMinor, folderId: folderId || null },
+	};
 }

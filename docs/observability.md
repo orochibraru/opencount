@@ -20,6 +20,10 @@ on).
 - `LOG_LEVEL` is `info` by default. `debug` and `trace` add detail, like each
   finished job and how long it took.
 
+At boot, the server and the worker each log whether tracing is on and, when it
+is, where it sends. OpenTelemetry's own warnings, like a failed export, reach
+the logs too.
+
 Every request logs its method, path, status and duration, except static assets
 and the health check. A 4xx or 5xx response other than a 404 logs at error
 level.

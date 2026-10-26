@@ -144,6 +144,17 @@ describe("guessCategory", () => {
 		expect(guessCategory("Dîner au port")).toBe("food");
 		expect(guessCategory("Uber Eats order")).toBe("food");
 		expect(guessCategory("Uber to the airport")).toBe("transport");
+		expect(guessCategory("Croquettes Saïko")).toBe("pets");
+		expect(guessCategory("Bières Viking")).toBe("food");
+		expect(guessCategory("Yt premium")).toBe("subscriptions");
+		expect(guessCategory("Leroy Merlin escalier")).toBe("home");
+		expect(guessCategory("Coiffeur")).toBe("care");
+		expect(guessCategory("Apotheke am Markt")).toBe("health");
+		expect(guessCategory("Supermercado Día")).toBe("groceries");
+		expect(guessCategory("Plaquettes Mazda")).toBe("transport");
+		expect(guessCategory("Concert Muse")).toBe("culture");
+		expect(guessCategory("Livres")).toBe("culture");
+		expect(guessCategory("Guitare")).toBe("culture");
 		expect(guessCategory("Courses Carrefour")).toBe("groceries");
 		expect(guessCategory("Hôtel Ibis")).toBe("lodging");
 		expect(guessCategory("Something else")).toBeUndefined();
@@ -183,6 +194,13 @@ describe("categories", () => {
 			"activities",
 			"shopping",
 			"bills",
+			"home",
+			"health",
+			"pets",
+			"subscriptions",
+			"care",
+			"education",
+			"culture",
 			"other",
 			"kids",
 			"odd",

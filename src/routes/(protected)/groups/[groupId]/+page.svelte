@@ -1,25 +1,41 @@
 <script lang="ts">
 	import { deserialize, enhance } from "$app/forms";
+	import { goto } from "$app/navigation";
 	import { resolve } from "$app/paths";
 	import ArchiveIcon from "@lucide/svelte/icons/archive";
 	import ArchiveRestoreIcon from "@lucide/svelte/icons/archive-restore";
 	import ArrowLeftRightIcon from "@lucide/svelte/icons/arrow-left-right";
 	import ChartColumnIcon from "@lucide/svelte/icons/chart-column";
+	import ListFilterIcon from "@lucide/svelte/icons/list-filter";
 	import PencilIcon from "@lucide/svelte/icons/pencil";
 	import PlusIcon from "@lucide/svelte/icons/plus";
 	import ReceiptIcon from "@lucide/svelte/icons/receipt";
 	import RepeatIcon from "@lucide/svelte/icons/repeat";
+	import SearchIcon from "@lucide/svelte/icons/search";
 	import SettingsIcon from "@lucide/svelte/icons/settings";
 	import Share2Icon from "@lucide/svelte/icons/share-2";
 	import Trash2Icon from "@lucide/svelte/icons/trash-2";
 	import WifiOffIcon from "@lucide/svelte/icons/wifi-off";
+	import XIcon from "@lucide/svelte/icons/x";
 	import { toast } from "svelte-sonner";
 
-	import { categoryOf } from "#lib/categories.js";
+	import {
+		categoryOf,
+		categoryOptions,
+		categoryStyle,
+	} from "#lib/categories.js";
 	import EmptyState from "#lib/components/empty-state.svelte";
 	import Fab from "#lib/components/fab.svelte";
+	import IconButton from "#lib/components/icon-button.svelte";
 	import ItemMenu from "#lib/components/item-menu.svelte";
+	import LoadedFromHere from "#lib/components/loaded-from-here.svelte";
+	import ResponsiveSheet from "#lib/components/responsive-sheet.svelte";
+	import SimilarSheet, {
+		type SimilarExpense,
+	} from "#lib/components/similar-sheet.svelte";
 	import { Button } from "#lib/components/ui/button/index.js";
+	import { Input } from "#lib/components/ui/input/index.js";
+	import { listBlocks } from "#lib/list-blocks.js";
 	import { formatMoney } from "#lib/money.js";
 	import { offlineQueue } from "#lib/offline-queue.svelte.js";
 	import { setPageTitle } from "#lib/page-title.svelte.js";
@@ -104,6 +120,8 @@
 	);
 
 	let sheetOpen = $state(false);
+
+	let leftOff = $state<number>();
 	let editing = $state<EditableExpense | undefined>();
 
 	const names = $derived(
@@ -112,21 +130,68 @@
 	const merchantNames = $derived(
 		new Map(data.merchants.map((merchant) => [merchant.id, merchant.name])),
 	);
-	const days = $derived.by(() => {
-		const grouped = new Map<string, typeof data.expenses>();
-		for (const entry of data.expenses) {
-			grouped.set(entry.spentOn, [
-				...(grouped.get(entry.spentOn) ?? []),
-				entry,
-			]);
-		}
-		return [...grouped];
-	});
-	const totalSpent = $derived(
-		data.expenses
-			.filter((entry) => entry.kind === "expense")
-			.reduce((sum, entry) => sum + entry.amountMinor, 0),
+	const days = $derived(
+		listBlocks(data.expenses, (entry) => entry.spentOn, leftOff),
 	);
+	let filterOpen = $state(false);
+	let similarOpen = $state(false);
+	let similar = $state<{
+		category: { value: string; label: string };
+		expenses: SimilarExpense[];
+	}>();
+
+	const filterOptions = $derived(categoryOptions(data.categories));
+	const activeCategory = $derived(
+		data.category ? categoryOf(data.category, data.categories) : undefined,
+	);
+
+	function listHref(
+		category: string | null,
+		limit?: number,
+		search = data.search,
+	): string {
+		const params = new URLSearchParams();
+		if (category) {
+			params.set("category", category);
+		}
+		if (search) {
+			params.set("q", search);
+		}
+		if (limit) {
+			params.set("limit", String(limit));
+		}
+		const query = params.toString();
+		return query ? `?${query}` : "?";
+	}
+
+	let searchTimer: ReturnType<typeof setTimeout> | undefined;
+
+	function searchFor(text: string) {
+		clearTimeout(searchTimer);
+		searchTimer = setTimeout(() => {
+			void goto(listHref(data.category, undefined, text.trim()), {
+				replace: true,
+				reset: false,
+			});
+		}, 300);
+	}
+
+	function reviewSimilar(result: Record<string, unknown> | undefined) {
+		const found = (result?.similar ?? []) as Omit<SimilarExpense, "currency">[];
+		const category = String(result?.category ?? "");
+		if (found.length === 0 || !category) {
+			return;
+		}
+		const option = categoryOf(category, data.categories);
+		similar = {
+			category: { value: category, label: option.label },
+			expenses: found.map((entry) => ({
+				...entry,
+				currency: data.group.currency,
+			})),
+		};
+		similarOpen = true;
+	}
 
 	function dayLabel(day: string): string {
 		const date = new Date(`${day}T12:00:00`);
@@ -192,8 +257,12 @@
 >
 	<div class="flex min-w-0 flex-col gap-4 xl:sticky xl:top-24">
 		<BalanceHero
-			balanceMinor={data.myMemberId ? (data.balances[data.myMemberId] ?? 0) : 0}
-			totalSpentMinor={totalSpent}
+			balanceMinor={data.matchingTotals?.balanceMinor ??
+				(data.myMemberId ? (data.balances[data.myMemberId] ?? 0) : 0)}
+			totalSpentMinor={data.matchingTotals?.spentMinor ?? data.totalSpent}
+			scope={data.matchingTotals
+				? `In these ${data.matching} ${data.matching === 1 ? "result" : "results"}`
+				: undefined}
 			currency={data.group.currency}
 			memberCount={data.members.length}
 			balancesHref={resolve("/(protected)/groups/[groupId]/balances", {
@@ -213,7 +282,68 @@
 					: `${waiting.length} expenses are saved on this device and are added once you're back online.`}
 			</p>
 		{/if}
-		{#if data.expenses.length === 0}
+		{#if data.matching > 0 || activeCategory || data.search}
+			<div class="mb-4 flex items-center gap-2">
+				<label class="relative min-w-0 flex-1">
+					<span class="sr-only">Search expenses</span>
+					<SearchIcon
+						class="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
+					/>
+					<Input
+						type="search"
+						value={data.search}
+						placeholder="Search"
+						autocomplete="off"
+						oninput={(event) => searchFor(event.currentTarget.value)}
+						class="h-11 rounded-xl pl-9"
+					/>
+				</label>
+				<Button
+					variant="secondary"
+					class="h-11 max-w-[45%] shrink-0 rounded-xl"
+					aria-label={activeCategory
+						? `Filtered by ${activeCategory.label}`
+						: "Filter by category"}
+					onclick={() => (filterOpen = true)}
+				>
+					{#if activeCategory}
+						<span
+							class="category-tile flex size-6 shrink-0 items-center justify-center rounded-md"
+							style={categoryStyle(activeCategory)}
+						>
+							<activeCategory.icon class="size-3.5" />
+						</span>
+						<span class="truncate">{activeCategory.label}</span>
+					{:else}
+						<ListFilterIcon />
+						Filter
+					{/if}
+				</Button>
+				{#if activeCategory}
+					<IconButton
+						label="Show every category"
+						icon={XIcon}
+						href={listHref(null)}
+						data-sveltekit-reset="false"
+					/>
+				{/if}
+			</div>
+			{#if activeCategory || data.search}
+				<p class="text-muted-foreground mb-3 px-1 text-sm">
+					{data.matching}
+					{data.matching === 1 ? "expense" : "expenses"}
+				</p>
+			{/if}
+		{/if}
+		{#if data.expenses.length === 0 && (activeCategory || data.search)}
+			<EmptyState
+				icon={activeCategory?.icon ?? SearchIcon}
+				title="No expense matches"
+				subtitle={data.search
+					? `Nothing with "${data.search}"${activeCategory ? ` under ${activeCategory.label}` : ""}.`
+					: `No expense is filed under ${activeCategory?.label}.`}
+			/>
+		{:else if data.expenses.length === 0}
 			<EmptyState
 				icon={ReceiptIcon}
 				title="No expenses yet"
@@ -226,15 +356,18 @@
 			</EmptyState>
 		{:else}
 			<div class="flex flex-col gap-6">
-				{#each days as [day, entries] (day)}
+				{#each days as block (block.key)}
+					{#if block.loadedFromHere}<LoadedFromHere />{/if}
 					<div>
-						<h2 class="text-muted-foreground mb-2 px-1 text-sm font-medium">
-							{dayLabel(day)}
-						</h2>
+						{#if block.heading}
+							<h2 class="text-muted-foreground mb-2 px-1 text-sm font-medium">
+								{dayLabel(block.group)}
+							</h2>
+						{/if}
 						<ul
 							class="glass divide-border divide-y overflow-hidden rounded-2xl"
 						>
-							{#each entries as entry (entry.id)}
+							{#each block.entries as entry (entry.id)}
 								{@const category = categoryOf(entry.category, data.categories)}
 								{@const share = myShare(entry)}
 								<li>
@@ -272,7 +405,10 @@
 											onclick={() => openEdit(entry)}
 										>
 											<span
-												class="bg-accent text-accent-foreground flex size-11 shrink-0 items-center justify-center rounded-xl"
+												class="category-tile flex size-11 shrink-0 items-center justify-center rounded-xl"
+												style={entry.kind === "transfer"
+													? "--category-chroma: 0"
+													: categoryStyle(category)}
 											>
 												{#if entry.kind === "transfer"}
 													<ArrowLeftRightIcon class="size-5" />
@@ -330,10 +466,80 @@
 						</ul>
 					</div>
 				{/each}
+				{#if data.hasMore}
+					<div class="self-center" data-sveltekit-reset="false">
+						<Button
+							href={listHref(
+								data.category,
+								data.expenses.length + data.pageSize,
+							)}
+							onclick={() => (leftOff = data.expenses.length)}
+							variant="secondary"
+							class="h-11 rounded-xl px-6"
+						>
+							Load more
+							<span class="text-muted-foreground tabular"
+								>({data.expenses.length} of {data.matching})</span
+							>
+						</Button>
+					</div>
+				{/if}
 			</div>
 		{/if}
 	</section>
 </div>
+
+<ResponsiveSheet bind:open={filterOpen} title="Filter by category">
+	<ul class="flex flex-col gap-1 pb-4" aria-label="Categories">
+		<li>
+			<a
+				href={listHref(null)}
+				data-sveltekit-reset="false"
+				onclick={() => (filterOpen = false)}
+				class="hover:bg-muted flex min-h-12 items-center gap-3 rounded-xl px-2 {data.category
+					? ''
+					: 'bg-muted font-medium'}"
+			>
+				<span
+					class="category-tile flex size-9 items-center justify-center rounded-lg"
+					style="--category-chroma: 0"
+				>
+					<ListFilterIcon class="size-4" />
+				</span>
+				Every category
+			</a>
+		</li>
+		{#each filterOptions as option (option.value)}
+			<li>
+				<a
+					href={listHref(option.value)}
+					data-sveltekit-reset="false"
+					onclick={() => (filterOpen = false)}
+					class="hover:bg-muted flex min-h-12 items-center gap-3 rounded-xl px-2 {data.category ===
+					option.value
+						? 'bg-muted font-medium'
+						: ''}"
+				>
+					<span
+						class="category-tile flex size-9 items-center justify-center rounded-lg"
+						style={categoryStyle(option)}
+					>
+						<option.icon class="size-4" />
+					</span>
+					{option.label}
+				</a>
+			</li>
+		{/each}
+	</ul>
+</ResponsiveSheet>
+
+{#if similar}
+	<SimilarSheet
+		bind:open={similarOpen}
+		category={similar.category}
+		expenses={similar.expenses}
+	/>
+{/if}
 
 <Fab label="Add expense" icon={PlusIcon} onclick={openNew} />
 
@@ -346,4 +552,5 @@
 	receiptsEnabled={data.receiptsEnabled}
 	defaultPayer={data.myMemberId}
 	expense={editing}
+	onSaved={reviewSimilar}
 />

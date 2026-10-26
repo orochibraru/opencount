@@ -6,6 +6,7 @@
 		amountMinor: number;
 		currency: string;
 		spentOn: string;
+		folderId: string | null;
 	}
 </script>
 
@@ -15,7 +16,7 @@
 	import PlusIcon from "@lucide/svelte/icons/plus";
 	import { untrack } from "svelte";
 
-	import { categories } from "#lib/categories.js";
+	import { categories, categoryStyle } from "#lib/categories.js";
 	import DateField from "#lib/components/date-field.svelte";
 	import Picker from "#lib/components/picker.svelte";
 	import ResponsiveSheet from "#lib/components/responsive-sheet.svelte";
@@ -30,11 +31,23 @@
 
 	interface Props {
 		open: boolean;
+		action: string;
 		defaultCurrency: string;
+		folders: { id: string; name: string }[];
+		defaultFolderId: string | null;
 		expense?: EditablePersonalExpense;
+		onSaved?: (result: Record<string, unknown> | undefined) => void;
 	}
 
-	let { open = $bindable(), defaultCurrency, expense }: Props = $props();
+	let {
+		open = $bindable(),
+		action,
+		defaultCurrency,
+		folders,
+		defaultFolderId,
+		expense,
+		onSaved,
+	}: Props = $props();
 
 	function initialState() {
 		return {
@@ -46,6 +59,7 @@
 			category: expense?.category ?? "other",
 			categoryPicked: expense !== undefined,
 			spentOn: expense?.spentOn ?? new Date().toISOString().slice(0, 10),
+			folderId: expense ? (expense.folderId ?? "") : (defaultFolderId ?? ""),
 		};
 	}
 
@@ -69,19 +83,24 @@
 	}
 </script>
 
-<ResponsiveSheet bind:open title={expense ? "Edit expense" : "New expense"}>
+<ResponsiveSheet
+	bind:open
+	wide
+	title={expense ? "Edit expense" : "New expense"}
+>
 	<form
 		method="POST"
-		action={expense ? "?/update" : "?/create"}
+		action="{action}?/{expense ? 'update' : 'create'}"
 		class="flex flex-col gap-5 pb-4 md:max-h-[70vh] md:overflow-y-auto"
 		use:enhance={enhanceToast({
 			loading: expense ? "Saving expense" : "Adding expense",
 			success: expense ? "Expense saved." : "Expense added.",
 			onFailure: (result) =>
 				(errors = (result?.errors as Record<string, string[]>) ?? {}),
-			onSuccess: () => {
+			onSuccess: (result) => {
 				haptic("success");
 				open = false;
+				onSaved?.(result);
 			},
 		})}
 	>
@@ -140,7 +159,10 @@
 					id="personal-category"
 					name="category"
 					label="Category"
-					options={[...categories]}
+					options={categories.map((option) => ({
+						...option,
+						tint: categoryStyle(option),
+					}))}
 					bind:value={form.category}
 					onPick={() => (form.categoryPicked = true)}
 				/>
@@ -155,6 +177,24 @@
 				/>
 			</Field.Field>
 		</div>
+		{#if folders.length > 0}
+			<Field.Field>
+				<Field.Label for="personal-folder">Folder</Field.Label>
+				<Picker
+					id="personal-folder"
+					name="folderId"
+					label="Folder"
+					options={[
+						{ value: "", label: "No folder" },
+						...folders.map((folder) => ({
+							value: folder.id,
+							label: folder.name,
+						})),
+					]}
+					bind:value={form.folderId}
+				/>
+			</Field.Field>
+		{/if}
 		<div class="bg-popover sticky bottom-0 z-10 -mb-4 pt-2 pb-4">
 			<Button
 				type="submit"

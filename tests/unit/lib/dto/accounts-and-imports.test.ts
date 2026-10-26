@@ -286,3 +286,173 @@ describe("ExpenseDTO client ids and sorting", () => {
 		});
 	});
 });
+
+describe("personal folders, stats and similar expenses", () => {
+	beforeEach(resetDatabase);
+
+	test("folders hold expenses with their own totals, and similar ones are found", async () => {
+		const { PersonalExpenseDTO } = await import("#lib/dto/personal-expense.js");
+		const { PersonalFolderDTO } = await import("#lib/dto/personal-folder.js");
+		const ada = createUser("ada");
+		const grace = createUser("grace");
+		const folderId = PersonalFolderDTO.create(ada.id, "Kitchen");
+		const add = (description: string, amountMinor: number, extra = {}) =>
+			PersonalExpenseDTO.create(ada.id, {
+				description,
+				category: "other",
+				amountMinor,
+				currency: "EUR",
+				spentOn: "2026-10-05",
+				...extra,
+			});
+		const tiles = add("Tiles", 12_000, { folderId, category: "shopping" });
+		add("tiles ", 3_000);
+		add("Lunch", 1_500, { spentOn: "2026-09-02", category: "food" });
+
+		expect(
+			PersonalFolderDTO.forUser(ada.id).map((folder) => folder.toJSON()),
+		).toEqual([{ id: folderId, name: "Kitchen", expenseCount: 1 }]);
+		expect(PersonalFolderDTO.findForUser(folderId, grace.id)).toBeUndefined();
+
+		const inFolder = PersonalExpenseDTO.page(ada.id, { limit: 50, folderId });
+		expect(inFolder.total).toBe(1);
+		expect(inFolder.entries[0]?.toJSON().folderName).toBe("Kitchen");
+		expect(PersonalExpenseDTO.page(ada.id, { limit: 2 })).toEqual(
+			expect.objectContaining({ total: 3 }),
+		);
+
+		const stats = PersonalExpenseDTO.stats(ada.id, undefined, "2026-10");
+		expect(stats.totals).toEqual([{ currency: "EUR", minor: 16_500 }]);
+		expect(stats.thisMonth).toEqual([{ currency: "EUR", minor: 15_000 }]);
+		expect(stats.byMonth.map((row) => row.month)).toEqual([
+			"2026-10",
+			"2026-09",
+		]);
+		expect(stats.byCategory[0]).toEqual({
+			category: "shopping",
+			currency: "EUR",
+			minor: 12_000,
+		});
+
+		const similar = PersonalExpenseDTO.similarTo(
+			ada.id,
+			{ id: tiles, description: "TILES" },
+			"shopping",
+		);
+		expect(similar.map((entry) => entry.toJSON().description)).toEqual([
+			"tiles ",
+		]);
+		expect(
+			PersonalExpenseDTO.recategorize(
+				ada.id,
+				similar.map((entry) => entry.id),
+				"shopping",
+			),
+		).toBe(1);
+		expect(PersonalExpenseDTO.recategorize(grace.id, [tiles], "food")).toBe(0);
+		expect(PersonalExpenseDTO.recategorize(ada.id, [], "food")).toBe(0);
+
+		const folder = PersonalFolderDTO.findForUser(folderId, ada.id);
+		folder?.rename("Kitchen 2026");
+		expect(PersonalFolderDTO.forUser(ada.id)[0]?.toJSON().name).toBe(
+			"Kitchen 2026",
+		);
+		folder?.delete();
+		expect(
+			PersonalExpenseDTO.findForUser(tiles, ada.id)?.toJSON().folderId,
+		).toBeNull();
+	});
+
+	test("ExpenseDTO finds similar expenses by description or merchant and re-files them", () => {
+		const ada = createUser("ada");
+		const group = GroupDTO.create({
+			name: "Flat",
+			currency: "EUR",
+			owner: ada,
+		});
+		const member = GroupMemberDTO.forGroup(group.id)[0]?.id ?? "";
+		const add = (description: string, category: string) =>
+			ExpenseDTO.create(
+				group.id,
+				{
+					kind: "expense",
+					description,
+					category,
+					amountMinor: 500,
+					paidBy: member,
+					splitMode: "equal",
+					spentOn: "2026-10-01",
+					merchantId: null,
+					shares: [{ memberId: member, amountMinor: 500, weight: 1 }],
+				},
+				ada.id,
+			);
+		const first = add("Croquettes", "shopping");
+		const second = add("croquette's", "other");
+		add("Croquettes", "shopping");
+		const found = ExpenseDTO.similarTo(
+			group.id,
+			{ id: first.id, description: "Croquettes", merchantId: null },
+			"shopping",
+		);
+		expect(found.map((entry) => entry.id)).toEqual([second.id]);
+		expect(ExpenseDTO.categoryHistory(group.id).get("croquette")).toBe(
+			"shopping",
+		);
+		expect(ExpenseDTO.recategorize(group.id, [second.id], "shopping")).toBe(1);
+		expect(ExpenseDTO.recategorize(group.id, [], "shopping")).toBe(0);
+		expect(
+			ExpenseDTO.page(group.id, { limit: 50, category: "shopping" }).total,
+		).toBe(3);
+	});
+
+	test("page searches descriptions and merchant names in the database", async () => {
+		const { MerchantDTO } = await import("#lib/dto/merchant.js");
+		const ada = createUser("ada");
+		const group = GroupDTO.create({
+			name: "Flat",
+			currency: "EUR",
+			owner: ada,
+		});
+		const member = GroupMemberDTO.forGroup(group.id)[0]?.id ?? "";
+		const add = (description: string, merchantId: string | null = null) =>
+			ExpenseDTO.create(
+				group.id,
+				{
+					kind: "expense",
+					description,
+					category: "other",
+					amountMinor: 500,
+					paidBy: member,
+					splitMode: "equal",
+					spentOn: "2026-10-01",
+					merchantId,
+					shares: [{ memberId: member, amountMinor: 500, weight: 1 }],
+				},
+				ada.id,
+			);
+		add(
+			"Weekly groceries",
+			MerchantDTO.remember(group.id, "Lidl", "groceries"),
+		);
+		add("Dinner at Luigi");
+		add("100% cotton sheets");
+		const found = (search: string) =>
+			ExpenseDTO.page(group.id, { limit: 50, search }).entries.map(
+				(entry) => entry.toJSON().description,
+			);
+		expect(found("LIDL")).toEqual(["Weekly groceries"]);
+		expect(found("luigi")).toEqual(["Dinner at Luigi"]);
+		expect(found("100%")).toEqual(["100% cotton sheets"]);
+		expect(found("%")).toEqual(["100% cotton sheets"]);
+		expect(found("nothing")).toEqual([]);
+		expect(ExpenseDTO.summary(group.id, { search: "luigi" }, member)).toEqual({
+			spentMinor: 500,
+			balanceMinor: 0,
+		});
+		expect(ExpenseDTO.summary(group.id, { search: "e" }, null)).toEqual({
+			spentMinor: 1500,
+			balanceMinor: 0,
+		});
+	});
+});

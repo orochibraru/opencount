@@ -10,6 +10,7 @@
 			label: string;
 			totalMinor: number;
 			icon?: Component<{ class?: string }>;
+			colour?: string;
 		}[];
 		currency: string;
 		empty: string;
@@ -31,7 +32,12 @@
 				<li class="flex flex-col gap-1.5">
 					<div class="flex items-center gap-2 text-sm">
 						{#if row.icon}
-							<row.icon class="text-muted-foreground size-4 shrink-0" />
+							<span
+								class="category-tile flex size-6 shrink-0 items-center justify-center rounded-md"
+								style={row.colour}
+							>
+								<row.icon class="size-3.5" />
+							</span>
 						{/if}
 						<span class="min-w-0 flex-1 truncate">{row.label}</span>
 						<span class="text-muted-foreground tabular text-xs"
@@ -46,8 +52,13 @@
 						aria-hidden="true"
 					>
 						<div
-							class="bg-primary h-full rounded-full"
-							style="width: {Math.max(2, (row.totalMinor / largest) * 100)}%"
+							class="h-full rounded-full {row.colour
+								? 'category-bar'
+								: 'bg-primary'}"
+							style="width: {Math.max(
+								2,
+								(row.totalMinor / largest) * 100,
+							)}%; {row.colour ?? ''}"
 						></div>
 					</div>
 				</li>

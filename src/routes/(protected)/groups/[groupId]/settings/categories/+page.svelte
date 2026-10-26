@@ -10,6 +10,7 @@
 	import {
 		categories,
 		categoryOf,
+		categoryStyle,
 		type CustomCategory,
 		customCategoryIcons,
 	} from "#lib/categories.js";
@@ -97,7 +98,8 @@
 							]}
 						>
 							<span
-								class="bg-accent text-accent-foreground flex size-10 shrink-0 items-center justify-center rounded-xl"
+								class="category-tile flex size-10 shrink-0 items-center justify-center rounded-xl"
+								style={categoryStyle(option)}
 							>
 								<option.icon class="size-5" />
 							</span>
@@ -162,7 +164,8 @@
 			{#each categories as category (category.value)}
 				<li class="flex min-h-14 items-center gap-3 px-3 py-2 md:px-4">
 					<span
-						class="bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-xl"
+						class="category-tile flex size-10 shrink-0 items-center justify-center rounded-xl"
+						style={categoryStyle(category)}
 					>
 						<category.icon class="size-5" />
 					</span>

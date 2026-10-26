@@ -5,7 +5,7 @@
 	import WalletIcon from "@lucide/svelte/icons/wallet";
 
 	import { type Bucket, periodLabels, periods } from "#lib/analytics.js";
-	import { categoryOf } from "#lib/categories.js";
+	import { categoryOf, categoryStyle } from "#lib/categories.js";
 	import StatCard from "#lib/components/stat-card.svelte";
 	import { formatMoney } from "#lib/money.js";
 	import { setPageTitle } from "#lib/page-title.svelte.js";
@@ -165,7 +165,12 @@
 		empty="Nothing spent in this period."
 		rows={data.summary.byCategory.map((row) => {
 			const category = categoryOf(row.key, data.categories);
-			return { ...row, label: category.label, icon: category.icon };
+			return {
+				...row,
+				label: category.label,
+				icon: category.icon,
+				colour: categoryStyle(category),
+			};
 		})}
 	/>
 	<BarList

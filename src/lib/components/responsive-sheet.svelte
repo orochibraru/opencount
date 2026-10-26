@@ -9,17 +9,24 @@
 		open: boolean;
 		title: string;
 		description?: string;
+		wide?: boolean;
 		children: Snippet;
 	}
 
-	let { open = $bindable(), title, description, children }: Props = $props();
+	let {
+		open = $bindable(),
+		title,
+		description,
+		wide = false,
+		children,
+	}: Props = $props();
 
 	const desktop = new MediaQuery("(min-width: 768px)");
 </script>
 
 {#if desktop.current}
 	<Dialog.Root bind:open>
-		<Dialog.Content class="sm:max-w-md">
+		<Dialog.Content class={wide ? "sm:max-w-xl" : "sm:max-w-md"}>
 			<Dialog.Header>
 				<Dialog.Title>{title}</Dialog.Title>
 				{#if description}

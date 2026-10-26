@@ -2,16 +2,18 @@ import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { createVerify, generateKeyPairSync } from "node:crypto";
 
 import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
+import {
+	bankCredentialsFor,
+	removeBankCredentials,
+	saveBankCredentials,
+} from "#lib/dto/bank-credential.js";
 import { JobDTO } from "#lib/dto/job.js";
 import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
-import { setSetting } from "#lib/dto/setting.js";
 import { bankExpense, syncBank } from "#lib/server/bank-sync.js";
 import {
 	bankApplicationName,
-	BankError,
 	type BankTransaction,
 	closeBankSession,
-	isBankSyncConfigured,
 	listBanks,
 	openBankSession,
 	startBankLink,
@@ -27,11 +29,11 @@ const { privateKey, publicKey } = generateKeyPairSync("rsa", {
 	privateKeyEncoding: { type: "pkcs8", format: "pem" },
 });
 
-function configure() {
-	setSetting("bankSync", {
+function credentials() {
+	return {
 		applicationId: "app-123",
 		encryptedPrivateKey: encryptSecret(privateKey),
-	});
+	};
 }
 
 function card(fields: Partial<BankTransaction> = {}): BankTransaction {
@@ -64,13 +66,17 @@ describe("Enable Banking client", () => {
 	beforeEach(resetDatabase);
 
 	test("signs each call with a short-lived RS256 token for the application", async () => {
-		expect(isBankSyncConfigured()).toBe(false);
-		await expect(bankApplicationName()).rejects.toThrow(BankError);
-		configure();
+		const ada = createUser("ada");
+		expect(bankCredentialsFor(ada.id)).toBeUndefined();
+		saveBankCredentials(ada.id, credentials());
+		saveBankCredentials(ada.id, { ...credentials(), applicationId: "app-123" });
+		expect(bankCredentialsFor(ada.id)?.applicationId).toBe("app-123");
+		removeBankCredentials(ada.id);
+		expect(bankCredentialsFor(ada.id)).toBeUndefined();
 		const fetched = spyOn(globalThis, "fetch").mockResolvedValue(
 			Response.json({ name: "OpenCount" }),
 		);
-		expect(await bankApplicationName()).toBe("OpenCount");
+		expect(await bankApplicationName(credentials())).toBe("OpenCount");
 		const headers = new Headers(fetched.mock.calls[0]?.[1]?.headers);
 		const [header = "", body = "", signature = ""] = (
 			headers.get("Authorization") ?? ""
@@ -96,7 +102,6 @@ describe("Enable Banking client", () => {
 	});
 
 	test("lists banks, starts a link, opens a session and closes it", async () => {
-		configure();
 		const fetched = spyOn(globalThis, "fetch")
 			.mockResolvedValueOnce(
 				Response.json({
@@ -118,11 +123,12 @@ describe("Enable Banking client", () => {
 				}),
 			)
 			.mockResolvedValueOnce(Response.json({ message: "OK" }));
-		expect(await listBanks("FR")).toEqual([
+		expect(await listBanks(credentials(), "FR")).toEqual([
 			{ name: "Revolut", country: "FR", logo: "https://x/l.png" },
 		]);
 		expect(
 			await startBankLink(
+				credentials(),
 				{ name: "Revolut", country: "FR" },
 				"https://app.test/personal/bank",
 				"state",
@@ -133,22 +139,23 @@ describe("Enable Banking client", () => {
 			redirect_url: string;
 		};
 		expect(body.psu_type).toBe("personal");
-		const session = await openBankSession("code");
+		const session = await openBankSession(credentials(), "code");
 		expect(session.sessionId).toBe("s-1");
 		expect(session.accounts).toEqual([
 			{ uid: "a-1", name: "Main", currency: "EUR" },
 			{ uid: "a-2", name: "…1111", currency: "EUR" },
 		]);
-		await closeBankSession("s-1");
+		await closeBankSession(credentials(), "s-1");
 		expect(String(fetched.mock.calls[3]?.[0])).toEndWith("/sessions/s-1");
 	});
 
 	test("reports the service's own message when it refuses", async () => {
-		configure();
 		spyOn(globalThis, "fetch").mockResolvedValue(
 			Response.json({ message: "Wrong redirect URL" }, { status: 422 }),
 		);
-		await expect(listBanks("FR")).rejects.toThrow("Wrong redirect URL");
+		await expect(listBanks(credentials(), "FR")).rejects.toThrow(
+			"Wrong redirect URL",
+		);
 	});
 });
 
@@ -181,8 +188,8 @@ describe("bank sync", () => {
 	});
 
 	test("syncs new card payments once, pages included, and tells the owner", async () => {
-		configure();
 		const ada = createUser("ada");
+		saveBankCredentials(ada.id, credentials());
 		const connection = link(ada.id);
 		spyOn(globalThis, "fetch")
 			.mockResolvedValueOnce(
@@ -197,7 +204,9 @@ describe("bank sync", () => {
 			)
 			.mockResolvedValueOnce(Response.json({ transactions: [card()] }));
 		await jobHandlers["bank.sync"]({ connectionId: connection.id });
-		expect(PersonalExpenseDTO.forUser(ada.id)).toHaveLength(2);
+		expect(PersonalExpenseDTO.page(ada.id, { limit: 50 }).entries).toHaveLength(
+			2,
+		);
 		expect(JobDTO.counts().pending).toBe(1);
 		const again = BankConnectionDTO.find(connection.id);
 		expect(await syncBank(again!)).toBe(0);
@@ -206,8 +215,12 @@ describe("bank sync", () => {
 		);
 	});
 
+	test("a link without keys fails and says why", async () => {
+		const ada = createUser("ada");
+		await expect(syncBank(link(ada.id))).rejects.toThrow("Bank sync is off");
+	});
+
 	test("an expired link fails and says why", async () => {
-		configure();
 		const ada = createUser("ada");
 		const connection = link(ada.id, new Date(Date.now() - 1000));
 		await expect(syncBank(connection)).rejects.toThrow("expired");
@@ -264,14 +277,16 @@ describe("PersonalExpenseDTO", () => {
 			currency: "EUR",
 			spentOn: "2026-10-01",
 		});
-		const [taxi, novel] = PersonalExpenseDTO.forUser(ada.id);
+		const [taxi, novel] = PersonalExpenseDTO.page(ada.id, {
+			limit: 50,
+		}).entries;
 		expect(taxi?.toJSON()).toEqual(
 			expect.objectContaining({ fromBank: true, bankName: "Revolut" }),
 		);
 		expect(novel?.toJSON().description).toBe("Novel");
 		taxi?.delete();
 		novel?.delete();
-		expect(PersonalExpenseDTO.forUser(ada.id)).toEqual([]);
+		expect(PersonalExpenseDTO.page(ada.id, { limit: 50 }).entries).toEqual([]);
 		expect(
 			PersonalExpenseDTO.importFromBank(ada.id, connection.id, [
 				{

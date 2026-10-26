@@ -1,7 +1,7 @@
 # Your account
 
-**Account** holds four sections: profile, security, notifications and
-appearance. Signing out is at the bottom of it.
+**Account** holds five sections: profile, security, appearance, notifications
+and bank sync. Signing out is at the bottom of it.
 
 ## Profile
 
@@ -63,6 +63,11 @@ computer is turned on separately and listed under **Your devices**, where you
 can remove any of them; **Send a test** checks the one you're on. On iPhone and
 iPad, Apple only allows notifications in the installed app, so add it to the
 home screen first.
+
+## Bank sync
+
+**Account, Bank sync** is where you set up your own Enable Banking application
+for [bank sync](personal-and-banks). Nobody else can see or use your keys.
 
 ## On a phone
 

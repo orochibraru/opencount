@@ -74,7 +74,7 @@ Each is a hard rule.
   `(protected)` layout, which sends anyone missing one to `/account/security`.
 - Instance settings (sign-ups, required factors, SMTP, OCR) live in the
   `setting` table through `getSetting`/`setSetting`; secrets in them are
-  encrypted with `encryptSecret` and never sent back to the browser.
+  encrypted with `encryptSecret`, never sent back. Bank keys are per account.
 - Group data is scoped to the group's members: a group id from the URL or a form
   is never trusted until membership is checked.
 - A tabbed page is one real route per tab under a `TabSection` layout, each tab
@@ -123,7 +123,7 @@ Each is a hard rule.
 - Appearance is per account (`appearance` table) and applied as data attributes
   on `<html>` by an inline boot script, so a reload never flashes. Colours come
   from the tokens in `layout.css`, all derived from `--hue`: never a raw
-  Tailwind palette colour.
+  Tailwind palette colour (a category's is `--category-hue`).
 - A page runs full width (`px-4 md:px-6`, no `max-w-*` on the page) except a
   centred single-purpose card; lists cap themselves at `md:max-w-2xl`.
 - `#lib` with extensions; links through `resolve()` with a route id or a

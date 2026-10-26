@@ -191,6 +191,26 @@ describe("parseTricount", () => {
 		]);
 	});
 
+	test("turns an entry described as a reimbursement into a payment", () => {
+		const [payment] = parseTricount(
+			registry([
+				entry({
+					description: "Remboursement",
+					amount: { value: "-20.00", currency: "EUR" },
+					allocations: [
+						{
+							membership: member("Bob"),
+							amount: { value: "-20.00", currency: "EUR" },
+						},
+					],
+				}),
+			]),
+		).entries;
+		expect(payment).toEqual(
+			expect.objectContaining({ kind: "transfer", category: "other" }),
+		);
+	});
+
 	test("refuses what isn't a Tricount, or holds nothing", () => {
 		expect(() => parseTricount({ hello: "world" })).toThrow(TricountError);
 		expect(() => parseTricount(registry([]))).toThrow("no expenses");

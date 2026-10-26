@@ -1,7 +1,6 @@
 import { fail } from "@sveltejs/kit";
 import { z } from "zod";
 
-import { computeBalances } from "#lib/balances.js";
 import { ExpenseDTO } from "#lib/dto/expense.js";
 import { GroupMemberDTO } from "#lib/dto/group-member.js";
 import { GroupDTO } from "#lib/dto/group.js";
@@ -22,9 +21,9 @@ export const load = async ({ parent }) => {
 			const myMemberId = members.find(
 				(member) => member.userId === user.id,
 			)?.id;
-			const balances = computeBalances(
+			const balances = ExpenseDTO.balances(
+				group.id,
 				members.map((member) => member.id),
-				ExpenseDTO.ledger(group.id),
 			);
 			return {
 				...group,

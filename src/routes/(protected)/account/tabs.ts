@@ -1,4 +1,5 @@
 import { resolve } from "$app/paths";
+import BanknoteIcon from "@lucide/svelte/icons/banknote";
 import BellIcon from "@lucide/svelte/icons/bell";
 import FingerprintIcon from "@lucide/svelte/icons/fingerprint";
 import PaletteIcon from "@lucide/svelte/icons/palette";
@@ -33,6 +34,12 @@ export function accountTabs(): SectionTab[] {
 			label: "Notifications",
 			description: "Get told on this device when someone adds an expense.",
 			icon: BellIcon,
+		},
+		{
+			href: resolve("/(protected)/account/banks"),
+			label: "Bank sync",
+			description: "Bring your card payments into your personal expenses.",
+			icon: BanknoteIcon,
 		},
 	];
 }

@@ -1,9 +1,9 @@
 # The admin area
 
 **Admin** is where an instance is run from: who gets in, how they sign in,
-email, receipt reading, bank sync and backups. It shows in the navigation for
-admins only; anyone else who opens its URL gets a **404, not a 403**, so it
-doesn't announce itself.
+email, receipt reading and backups. It shows in the navigation for admins only;
+anyone else who opens its URL gets a **404, not a 403**, so it doesn't announce
+itself.
 
 ## Who is an admin
 
@@ -55,13 +55,6 @@ name and a password: the email is the invited one, already verified.
 Pending invites can be revoked; the link stops working right away. An address
 that already has an account can't be invited.
 
-## Bank sync
-
-**Bank sync** lets people link their bank to their personal expenses through
-Enable Banking. It takes the application ID and RSA private key, stored
-encrypted and checked against the API before saving, and shows the redirect URL
-to register. See [Personal expenses and bank sync](personal-and-banks).
-
 On a phone, admin pages show a floating **Invite someone** button, except on
 **Invites** itself.
 
@@ -100,11 +93,10 @@ Each has its own page:
   Connect providers.
 - [Email](email): the SMTP server.
 - [Receipt reading](receipt-reading): Tesseract and its languages.
-- [Personal expenses and bank sync](personal-and-banks): Enable Banking.
 
 ## Storage
 
 All of it lives in the same SQLite file as the groups. Secrets (the SMTP
-password, single sign-on client secrets) are encrypted with a key derived from
-`AUTH_SECRET` and never sent back to the browser: their fields show whether one
-is set, and stay empty to keep it.
+password, single sign-on client secrets, each person's bank sync key) are
+encrypted with a key derived from `AUTH_SECRET` and never sent back to the
+browser: their fields show whether one is set, and stay empty to keep it.

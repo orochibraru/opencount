@@ -1,6 +1,5 @@
 import { resolve } from "$app/paths";
 import ActivityIcon from "@lucide/svelte/icons/activity";
-import BanknoteIcon from "@lucide/svelte/icons/banknote";
 import DatabaseBackupIcon from "@lucide/svelte/icons/database-backup";
 import DoorOpenIcon from "@lucide/svelte/icons/door-open";
 import KeyRoundIcon from "@lucide/svelte/icons/key-round";
@@ -55,12 +54,6 @@ export function adminTabs(): SectionTab[] {
 			label: "Receipts",
 			description: "Read receipt photos on this server with Tesseract.",
 			icon: ScanTextIcon,
-		},
-		{
-			href: resolve("/(protected)/admin/banks"),
-			label: "Bank sync",
-			description: "Let people link their bank through Enable Banking.",
-			icon: BanknoteIcon,
 		},
 		{
 			href: resolve("/(protected)/admin/backup"),

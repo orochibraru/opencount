@@ -40,6 +40,8 @@
 	--destructive: oklch(0.55 0.21 27);
 	--positive: oklch(0.55 0.15 155);
 	--negative: oklch(0.58 0.19 27);
+	--category-tile-lightness: 0.92;
+	--category-ink-lightness: 0.42;
 	--border: oklch(0.2 0.03 var(--hue) / 9%);
 	--input: oklch(0.2 0.03 var(--hue) / 14%);
 	--ring: var(--primary);
@@ -84,6 +86,8 @@
 	--destructive: oklch(0.7 0.19 22);
 	--positive: oklch(0.78 0.15 155);
 	--negative: oklch(0.72 0.17 25);
+	--category-tile-lightness: 0.32;
+	--category-ink-lightness: 0.86;
 	--border: oklch(1 0 0 / 9%);
 	--input: oklch(1 0 0 / 14%);
 	--chrome: oklch(0.2 0.02 var(--hue) / 58%);
@@ -311,6 +315,24 @@
 		inset 0 1px 0 var(--glass-edge),
 		0 1px 2px var(--glass-shadow),
 		0 18px 42px -24px var(--glass-shadow);
+}
+
+@utility category-tile {
+	background: oklch(
+		var(--category-tile-lightness) calc(0.07 * var(--category-chroma, 1))
+			var(--category-hue, var(--hue))
+	);
+	color: oklch(
+		var(--category-ink-lightness) calc(0.14 * var(--category-chroma, 1))
+			var(--category-hue, var(--hue))
+	);
+}
+
+@utility category-bar {
+	background: oklch(
+		var(--category-ink-lightness) calc(0.14 * var(--category-chroma, 1))
+			var(--category-hue, var(--hue))
+	);
 }
 
 @utility glow {

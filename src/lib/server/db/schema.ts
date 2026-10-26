@@ -275,6 +275,13 @@ export const expenseCategories = [
 	"activities",
 	"shopping",
 	"bills",
+	"home",
+	"health",
+	"pets",
+	"subscriptions",
+	"care",
+	"education",
+	"culture",
 	"other",
 ] as const;
 export const expenseKinds = ["expense", "transfer"] as const;
@@ -463,6 +470,30 @@ export const download = sqliteTable(
 	(table) => [index("download_user_id_idx").on(table.userId)],
 );
 
+export const bankCredential = sqliteTable("bank_credential", {
+	userId: text("user_id")
+		.primaryKey()
+		.references(() => user.id, { onDelete: "cascade" }),
+	applicationId: text("application_id").notNull(),
+	encryptedPrivateKey: text("encrypted_private_key").notNull(),
+	updatedAt: updatedAt(),
+});
+
+export const personalFolder = sqliteTable(
+	"personal_folder",
+	{
+		id: text("id")
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		name: text("name").notNull(),
+		createdAt: createdAt(),
+	},
+	(table) => [index("personal_folder_user_id_idx").on(table.userId)],
+);
+
 export const bankConnection = sqliteTable(
 	"bank_connection",
 	{
@@ -506,6 +537,9 @@ export const personalExpense = sqliteTable(
 			{ onDelete: "set null" },
 		),
 		sharedExpenseId: text("shared_expense_id").references(() => expense.id, {
+			onDelete: "set null",
+		}),
+		folderId: text("folder_id").references(() => personalFolder.id, {
 			onDelete: "set null",
 		}),
 		hiddenAt: integer("hidden_at", { mode: "timestamp_ms" }),

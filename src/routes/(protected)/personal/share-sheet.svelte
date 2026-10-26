@@ -19,9 +19,10 @@
 			currency: string;
 		};
 		groups: { id: string; name: string; currency: string }[];
+		action: string;
 	}
 
-	let { open = $bindable(), expense, groups }: Props = $props();
+	let { open = $bindable(), expense, groups, action }: Props = $props();
 
 	let groupId = $state("");
 </script>
@@ -36,7 +37,7 @@
 >
 	<form
 		method="POST"
-		action="?/share"
+		action="{action}?/share"
 		class="flex flex-col gap-4 pb-4"
 		use:enhance={enhanceToast({
 			loading: "Adding it to the group",

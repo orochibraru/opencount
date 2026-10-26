@@ -31,8 +31,11 @@
 		{...restProps}
 	>
 		<div
-			class="bg-muted-foreground/30 mx-auto mt-3 hidden h-1.5 w-12 rounded-full shrink-0 group-data-[vaul-drawer-direction=bottom]/drawer-content:block"
-		></div>
+			class="hidden shrink-0 cursor-grab justify-center pt-3 pb-2 group-data-[vaul-drawer-direction=bottom]/drawer-content:flex"
+			aria-hidden="true"
+		>
+			<div class="bg-muted-foreground/30 h-1.5 w-12 rounded-full"></div>
+		</div>
 		{@render children?.()}
 	</DrawerPrimitive.Content>
 </DrawerPortal>

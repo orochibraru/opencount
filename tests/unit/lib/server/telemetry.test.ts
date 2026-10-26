@@ -1,5 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 
+import { diag } from "@opentelemetry/api";
+
 import { getConfig } from "#lib/server/config.js";
 import {
 	flushTelemetry,
@@ -49,6 +51,16 @@ describe("telemetry", () => {
 		expect(reportError(new Error("reported"), { job: "test" })).toMatch(
 			/^[0-9a-f]{32}$/,
 		);
+
+		for (const level of [
+			"error",
+			"warn",
+			"info",
+			"debug",
+			"verbose",
+		] as const) {
+			diag[level]("collector unreachable");
+		}
 
 		await flushTelemetry();
 		const paths = received.map((request) => request.path);

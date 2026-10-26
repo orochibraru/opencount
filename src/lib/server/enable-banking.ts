@@ -1,6 +1,6 @@
 import { createSign } from "node:crypto";
 
-import { getSetting } from "#lib/dto/setting.js";
+import type { BankCredentials } from "#lib/dto/bank-credential.js";
 import { decryptSecret } from "#lib/server/secrets.js";
 import { withSpan } from "#lib/server/telemetry.js";
 
@@ -44,23 +44,18 @@ export interface BankTransaction {
 	creditor?: { name?: string | null } | null;
 }
 
-/** Whether an admin set up bank sync with an Enable Banking application. */
-export function isBankSyncConfigured(): boolean {
-	return getSetting("bankSync") !== null;
-}
-
 function base64url(value: string | Buffer): string {
 	return Buffer.from(value).toString("base64url");
 }
 
-function bearerToken(): string {
-	const settings = getSetting("bankSync");
-	if (!settings) {
-		throw new BankError("Bank sync isn't set up on this server.");
-	}
+function bearerToken(credentials: BankCredentials): string {
 	const now = Math.floor(Date.now() / 1000);
 	const unsigned = `${base64url(
-		JSON.stringify({ typ: "JWT", alg: "RS256", kid: settings.applicationId }),
+		JSON.stringify({
+			typ: "JWT",
+			alg: "RS256",
+			kid: credentials.applicationId,
+		}),
 	)}.${base64url(
 		JSON.stringify({
 			iss: "enablebanking.com",
@@ -71,17 +66,21 @@ function bearerToken(): string {
 	)}`;
 	const signature = createSign("RSA-SHA256")
 		.update(unsigned)
-		.sign(decryptSecret(settings.encryptedPrivateKey));
+		.sign(decryptSecret(credentials.encryptedPrivateKey));
 	return `${unsigned}.${base64url(signature)}`;
 }
 
-function call<Result>(path: string, init: RequestInit = {}): Promise<Result> {
+function call<Result>(
+	credentials: BankCredentials,
+	path: string,
+	init: RequestInit = {},
+): Promise<Result> {
 	return withSpan(
 		"enable banking",
 		{ "bank.path": path.split("?")[0] ?? "" },
 		async () => {
 			const headers = new Headers(init.headers);
-			headers.set("Authorization", `Bearer ${bearerToken()}`);
+			headers.set("Authorization", `Bearer ${bearerToken(credentials)}`);
 			headers.set("Content-Type", "application/json");
 			const response = await fetch(`${apiBase}${path}`, {
 				...init,
@@ -102,19 +101,25 @@ function call<Result>(path: string, init: RequestInit = {}): Promise<Result> {
 }
 
 /**
- * The name of the Enable Banking application the admin configured, to check the keys work.
+ * The name of the Enable Banking application `credentials` belong to, to check the keys work.
  *
  * @throws BankError when the keys are refused.
  */
-export async function bankApplicationName(): Promise<string> {
-	return (await call<{ name: string }>("/application")).name;
+export async function bankApplicationName(
+	credentials: BankCredentials,
+): Promise<string> {
+	return (await call<{ name: string }>(credentials, "/application")).name;
 }
 
 /** The banks personal accounts can be linked at in `country`. */
-export async function listBanks(country: string): Promise<Bank[]> {
+export async function listBanks(
+	credentials: BankCredentials,
+	country: string,
+): Promise<Bank[]> {
 	const { aspsps } = await call<{
 		aspsps: { name: string; country: string; logo?: string | null }[];
 	}>(
+		credentials,
 		`/aspsps?country=${encodeURIComponent(country)}&psu_type=personal&service=AIS`,
 	);
 	return aspsps.map((aspsp) => ({
@@ -131,12 +136,13 @@ export async function listBanks(country: string): Promise<Bank[]> {
  * @throws BankError when the bank or the application refuses.
  */
 export async function startBankLink(
+	credentials: BankCredentials,
 	bank: { name: string; country: string },
 	redirectUrl: string,
 	state: string,
 ): Promise<string> {
 	const validUntil = new Date(Date.now() + consentDays * 24 * 60 * 60 * 1000);
-	const { url } = await call<{ url: string }>("/auth", {
+	const { url } = await call<{ url: string }>(credentials, "/auth", {
 		method: "POST",
 		body: JSON.stringify({
 			access: { valid_until: validUntil.toISOString() },
@@ -154,7 +160,10 @@ export async function startBankLink(
  *
  * @throws BankError when the code is refused or expired.
  */
-export async function openBankSession(code: string): Promise<BankLink> {
+export async function openBankSession(
+	credentials: BankCredentials,
+	code: string,
+): Promise<BankLink> {
 	const session = await call<{
 		session_id: string;
 		aspsp: { name: string; country: string };
@@ -167,7 +176,10 @@ export async function openBankSession(code: string): Promise<BankLink> {
 			currency?: string | null;
 			account_id?: { iban?: string | null } | null;
 		}[];
-	}>("/sessions", { method: "POST", body: JSON.stringify({ code }) });
+	}>(credentials, "/sessions", {
+		method: "POST",
+		body: JSON.stringify({ code }),
+	});
 	return {
 		sessionId: session.session_id,
 		bankName: session.aspsp.name,
@@ -190,6 +202,7 @@ export async function openBankSession(code: string): Promise<BankLink> {
 
 /** Every transaction of account `uid` from `dateFrom` on, following the pages. */
 export async function bankTransactions(
+	credentials: BankCredentials,
 	uid: string,
 	dateFrom: string,
 ): Promise<BankTransaction[]> {
@@ -203,7 +216,10 @@ export async function bankTransactions(
 		const page = await call<{
 			transactions: BankTransaction[];
 			continuation_key?: string | null;
-		}>(`/accounts/${encodeURIComponent(uid)}/transactions?${query}`);
+		}>(
+			credentials,
+			`/accounts/${encodeURIComponent(uid)}/transactions?${query}`,
+		);
 		transactions.push(...page.transactions);
 		continuationKey = page.continuation_key ?? undefined;
 	} while (continuationKey);
@@ -211,8 +227,11 @@ export async function bankTransactions(
 }
 
 /** Ends a bank session, which closes the consent at the bank when it can; failures are ignored. */
-export async function closeBankSession(sessionId: string): Promise<void> {
-	await call(`/sessions/${encodeURIComponent(sessionId)}`, {
+export async function closeBankSession(
+	credentials: BankCredentials,
+	sessionId: string,
+): Promise<void> {
+	await call(credentials, `/sessions/${encodeURIComponent(sessionId)}`, {
 		method: "DELETE",
 	}).catch(() => undefined);
 }

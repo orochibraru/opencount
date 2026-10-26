@@ -7,6 +7,7 @@ import { GroupCategoryDTO } from "#lib/dto/group-category.js";
 import { MerchantDTO } from "#lib/dto/merchant.js";
 import { groupForMember } from "#lib/server/group-access.js";
 import { parseForm } from "#lib/server/validation/form.js";
+import { similarKey } from "#lib/similar-key.js";
 import { guessCategory } from "#lib/smart-category.js";
 
 const categorySchema = z.object({
@@ -52,13 +53,16 @@ export const actions = {
 				return [id, category];
 			}),
 		);
+		const history = ExpenseDTO.categoryHistory(group.id);
 		const moved = ExpenseDTO.categorizeUncategorized(
 			group.id,
 			(description, merchantId) => {
 				const remembered = merchantId ? merchants.get(merchantId) : undefined;
-				return remembered && remembered !== "other"
-					? remembered
-					: guessCategory(description, custom);
+				return (
+					history.get(similarKey(description)) ??
+					(remembered && remembered !== "other" ? remembered : undefined) ??
+					guessCategory(description, custom)
+				);
 			},
 		);
 		return { moved };

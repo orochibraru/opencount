@@ -155,6 +155,7 @@ describe("parsePersonalForm", () => {
 			success: true,
 			data: {
 				description: "Book",
+				folderId: null,
 				amountMinor: 1500,
 				currency: "JPY",
 				category: "shopping",

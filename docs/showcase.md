@@ -32,8 +32,7 @@ its repeating expenses, and importing and exporting. Members added by name show
 ![The admin area](images/admin-desktop.webp)
 
 The admin area holds the setup checklist, the users, invites, access rules,
-sign-in methods, email, receipt reading, bank sync and backups. Only admins see
-it.
+sign-in methods, email, receipt reading and backups. Only admins see it.
 
 ## On a phone
 

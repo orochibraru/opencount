@@ -4,7 +4,7 @@
 	import RepeatIcon from "@lucide/svelte/icons/repeat";
 	import Trash2Icon from "@lucide/svelte/icons/trash-2";
 
-	import { categoryOf } from "#lib/categories.js";
+	import { categoryOf, categoryStyle } from "#lib/categories.js";
 	import EmptyState from "#lib/components/empty-state.svelte";
 	import ItemMenu from "#lib/components/item-menu.svelte";
 	import { Badge } from "#lib/components/ui/badge/index.js";
@@ -80,7 +80,8 @@
 					]}
 				>
 					<span
-						class="bg-accent text-accent-foreground flex size-11 shrink-0 items-center justify-center rounded-xl"
+						class="category-tile flex size-11 shrink-0 items-center justify-center rounded-xl"
+						style={categoryStyle(category)}
 					>
 						<category.icon class="size-5" />
 					</span>

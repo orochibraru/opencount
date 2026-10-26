@@ -54,12 +54,30 @@
   among all members, converted with `exchangeRate()` when the currencies differ,
   and marks the personal one as split in that group.
 
+- Folders (`personal_folder`) are projects inside Personal: created from the
+  Personal page, renamed and deleted on `/personal/folders/[folderId]` (total,
+  this month, top categories, last 6 months). Deleting one nulls the folder on
+  its expenses; the expense sheet has a Folder picker and actions check the
+  folder belongs to the user.
+- Lists (group expenses, Personal) load 50 with a "Load more" button, a `limit`
+  URL param growing by 50. Balances, totals and month totals are SQL sums, never
+  a sum over loaded rows. The group page also takes a debounced,
+  case-insensitive search over descriptions and merchant names in SQL, plus a
+  category filter, both in the URL.
+- After a category change, the update action returns `similar` (same
+  description, plus same merchant in groups, under another category) for
+  `SimilarSheet`, which posts `?/applyCategory` to re-file the ticked ones.
+
 ## Bank sync
 
 - Enable Banking, not GoCardless: Bank Account Data closed new sign-ups in 2025.
-  The admin tab stores the application ID and RSA private key (encrypted,
-  checked against the API before saving) and shows the redirect URL to register.
-  Without a contract the application is "restricted": each person's own accounts
+  Bank sync is per account, not an admin setting: Account > Bank sync stores
+  that account's application ID and RSA private key in `bank_credential`
+  (encrypted, checked against Enable Banking's `/application` before saving) and
+  shows the redirect URL to register; Turn off deletes them. Every bank call and
+  `bank.sync` use the link owner's keys; a link whose owner removed them fails
+  with a message. Personal links to Account > Bank sync when the account has
+  none. Without a contract the application is "restricted": the owner's accounts
   must be linked to it in Enable Banking's control panel.
 - A person links a bank from Personal (country, bank, the bank's consent screen,
   90 days of consent). `bank.syncAll` runs daily (queued at worker start if

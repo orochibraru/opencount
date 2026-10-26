@@ -1,4 +1,11 @@
-import { context, type Span, SpanStatusCode, trace } from "@opentelemetry/api";
+import {
+	context,
+	diag,
+	DiagLogLevel,
+	type Span,
+	SpanStatusCode,
+	trace,
+} from "@opentelemetry/api";
 import { AsyncLocalStorageContextManager } from "@opentelemetry/context-async-hooks";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto";
 import {
@@ -9,6 +16,9 @@ import { BatchSpanProcessor, TracerProvider } from "@opentelemetry/sdk-trace";
 import * as Sentry from "@sentry/bun";
 
 import { getConfig } from "#lib/server/config.js";
+import { Logger } from "#lib/server/logger.js";
+
+const logger = new Logger("Telemetry");
 
 export type ProcessRole = "server" | "worker";
 
@@ -32,7 +42,23 @@ export function startTelemetry(role: ProcessRole): void {
 		initialScope: { tags: { process: role } },
 	});
 	let provider: TracerProvider | undefined;
-	if (telemetry.otlpEndpoint) {
+	if (!telemetry.otlpEndpoint) {
+		logger.info("Tracing off: OTEL_EXPORTER_OTLP_ENDPOINT isn't set", {
+			process: role,
+		});
+	} else {
+		const forward = (message: string, ...args: unknown[]) =>
+			logger.warn(message, ...args);
+		diag.setLogger(
+			{
+				error: forward,
+				warn: forward,
+				info: forward,
+				debug: forward,
+				verbose: forward,
+			},
+			DiagLogLevel.WARN,
+		);
 		context.setGlobalContextManager(
 			new AsyncLocalStorageContextManager().enable(),
 		);
@@ -54,6 +80,11 @@ export function startTelemetry(role: ProcessRole): void {
 			],
 		});
 		trace.setGlobalTracerProvider(provider);
+		logger.info("Tracing on", {
+			process: role,
+			endpoint: telemetry.otlpEndpoint,
+			serviceName: telemetry.serviceName,
+		});
 	}
 	globalForTelemetry.__opencountTelemetry = { provider };
 }
@@ -90,7 +121,7 @@ export function withSpan<Result>(
 		});
 }
 
-/** Exports pending spans and Sentry events, waiting at most two seconds, then stops both; never throws. */
+/** Exports pending spans and Sentry events, waiting at most two seconds, then stops both and their logging; never throws. */
 export async function flushTelemetry(): Promise<void> {
 	await Promise.allSettled([
 		globalForTelemetry.__opencountTelemetry?.provider?.shutdown(),
@@ -98,5 +129,6 @@ export async function flushTelemetry(): Promise<void> {
 	]);
 	trace.disable();
 	context.disable();
+	diag.disable();
 	globalForTelemetry.__opencountTelemetry = undefined;
 }

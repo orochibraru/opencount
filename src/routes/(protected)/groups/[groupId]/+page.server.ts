@@ -16,13 +16,46 @@ import { readUploadedReceipt } from "#lib/server/receipt-upload.js";
 import { parseExpenseForm } from "#lib/server/validation/expense.js";
 
 const expenseIdSchema = z.object({ id: z.string().min(1) });
+const applyCategorySchema = z.object({
+	category: z.string().min(1),
+	ids: z.array(z.string().min(1)).min(1).max(500),
+});
+const pageSize = 50;
+const limitSchema = z.coerce
+	.number()
+	.int()
+	.min(pageSize)
+	.max(10_000)
+	.catch(pageSize);
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-export const load = async ({ parent }) => {
-	const { group } = await parent();
+export const load = async ({ parent, url }) => {
+	const { group, categories, myMemberId } = await parent();
+	const wanted = url.searchParams.get("category");
+	const category = categoryOptions(categories).some(
+		(option) => option.value === wanted,
+	)
+		? (wanted ?? undefined)
+		: undefined;
+	const search = url.searchParams.get("q")?.trim().slice(0, 100) || undefined;
+	const page = ExpenseDTO.page(group.id, {
+		limit: limitSchema.parse(url.searchParams.get("limit") ?? pageSize),
+		category,
+		search,
+	});
 	return {
-		expenses: ExpenseDTO.forGroup(group.id).map((entry) => entry.toJSON()),
+		expenses: page.entries.map((entry) => entry.toJSON()),
+		hasMore: page.total > page.entries.length,
+		matching: page.total,
+		pageSize,
+		category: category ?? null,
+		search: search ?? "",
+		totalSpent: ExpenseDTO.spentTotal(group.id),
+		matchingTotals:
+			(category || search) && page.total > 0
+				? ExpenseDTO.summary(group.id, { category, search }, myMemberId)
+				: null,
 		merchants: MerchantDTO.forGroup(group.id).map((entry) => entry.toJSON()),
 		receiptsEnabled: isOcrConfigured(),
 	};
@@ -126,13 +159,52 @@ export const actions = {
 			clientId: _clientId,
 			...input
 		} = parsed.data;
-		existing.update({
-			...input,
-			merchantId: merchant
-				? MerchantDTO.remember(group.id, merchant, input.category)
-				: null,
+		const merchantId = merchant
+			? MerchantDTO.remember(group.id, merchant, input.category)
+			: null;
+		existing.update({ ...input, merchantId });
+		const recategorized = existing.toJSON().category !== input.category;
+		return {
+			updated: true,
+			category: input.category,
+			similar: recategorized
+				? ExpenseDTO.similarTo(
+						group.id,
+						{ id: existing.id, description: input.description, merchantId },
+						input.category,
+					).map((entry) => {
+						const { id, description, spentOn, amountMinor, category } =
+							entry.toJSON();
+						return { id, description, spentOn, amountMinor, category };
+					})
+				: [],
+		};
+	},
+	applyCategory: async ({ locals, params, request }) => {
+		if (!locals.user) {
+			return fail(401, { error: "Sign in again to continue." });
+		}
+		const { group } = groupForMember(params.groupId, locals.user.id);
+		const formData = await request.formData();
+		const parsed = applyCategorySchema.safeParse({
+			category: formData.get("category"),
+			ids: formData.getAll("ids"),
 		});
-		return { updated: true };
+		if (
+			!parsed.success ||
+			!categoryOptions(
+				GroupCategoryDTO.forGroup(group.id).map((entry) => entry.toJSON()),
+			).some((option) => option.value === parsed.data.category)
+		) {
+			return fail(400, { error: "Pick the expenses to move." });
+		}
+		return {
+			moved: ExpenseDTO.recategorize(
+				group.id,
+				parsed.data.ids,
+				parsed.data.category,
+			),
+		};
 	},
 	delete: async ({ locals, params, request }) => {
 		if (!locals.user) {

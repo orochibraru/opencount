@@ -7,5 +7,12 @@ export const categoryLabels = {
 	activities: "Activities",
 	shopping: "Shopping",
 	bills: "Bills",
+	home: "Home & DIY",
+	health: "Health",
+	pets: "Pets",
+	subscriptions: "Subscriptions",
+	care: "Personal care",
+	education: "Education",
+	culture: "Culture",
 	other: "Other",
 } as const;
