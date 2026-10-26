@@ -20,12 +20,11 @@ import {
 } from "#lib/server/enable-banking.js";
 import { exchangeRate } from "#lib/server/exchange-rates.js";
 import { groupForMember } from "#lib/server/group-access.js";
+import { personalPage } from "#lib/server/personal-page.js";
 import { signPayload } from "#lib/server/secrets.js";
 import { parseForm } from "#lib/server/validation/form.js";
 import { parsePersonalForm } from "#lib/server/validation/personal.js";
 import { splitByWeight } from "#lib/split.js";
-
-import { personalPage } from "./page.js";
 
 const idSchema = z.object({ id: z.string().min(1) });
 const folderSchema = z.object({
