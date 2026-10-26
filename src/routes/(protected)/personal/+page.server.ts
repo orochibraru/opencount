@@ -309,7 +309,7 @@ export const actions = {
 			}
 			throw error;
 		}
-		redirect(303, target);
+		redirect(303, target, { external: true });
 	},
 	syncBank: async ({ locals, request }) => {
 		if (!locals.user) {

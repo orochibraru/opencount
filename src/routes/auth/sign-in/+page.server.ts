@@ -171,6 +171,6 @@ export const actions = {
 		if (!target) {
 			return fail(400, { error: "The provider couldn't start the sign-in." });
 		}
-		redirect(303, target);
+		redirect(303, target, { external: true });
 	},
 };
