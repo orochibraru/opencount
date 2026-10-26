@@ -8,28 +8,36 @@ Every expense has a category, and can have a merchant. Both feed
 Food & drinks, Groceries, Transport, Lodging, Activities, Shopping, Bills, Home
 & DIY (hardware stores, furniture, repairs), Health, Pets, Subscriptions
 (streaming and apps), Personal care, Education, Culture (books, shows, concerts,
-instruments), and Other for the rest. Every group, and Personal, has them.
+instruments), Finance (bank fees, loans, savings, investing, cash withdrawals,
+transfers), Income (salary, refunds, top-ups), and Other for the rest. Every
+group, and Personal, has them.
 
 ## Your own categories
 
-A group can add its own, for what the built-in ones miss: Rent, Kids, Car. From
-**Settings, Categories**, give one a name (up to 40 characters) and pick an
-icon. A name can't repeat another category of the group, built-in ones included,
-whatever its case.
+A group, and your Personal ledger, can add their own, for what the built-in ones
+miss: Rent, Kids, Car. For a group, from **Settings, Categories**; for Personal,
+from **Categories** in its header menu. Give one a name (up to 40 characters)
+and pick an icon. A name can't repeat another category of the group, built-in
+ones included, whatever its case.
 
 Each category has its own colour, on its icon, in the filter and on the Insights
 bars: a fixed one for each built-in category, a colour derived from its id for a
 custom one, and a neutral grey for Other. The colours follow the account's
 theme.
 
-Custom categories belong to their group; other groups don't see them. Deleting
-one files its expenses, repeating expenses and merchants under Other.
+Custom categories belong to their group, or to your Personal ledger; nobody else
+sees them. Deleting one files its expenses, repeating expenses and merchants
+under Other.
 
 ## Sorting what's under Other
 
 **Settings, Categories** has **Sort what's under Other**. It files every expense
 still under Other using the description, the merchant's remembered category and
 the group's own categories. Expenses you filed by hand aren't touched.
+
+In Personal, the same button on its **Categories** page also uses how you filed
+the same description before, ahead of the keywords, and marks savings and
+investing as set aside (see [Personal expenses](personal-and-banks)).
 
 ## The category guess
 

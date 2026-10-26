@@ -89,6 +89,29 @@ describe("downloads", () => {
 		);
 	});
 
+	test("groupCsv keeps formulas from running in a spreadsheet", () => {
+		const { ada, group } = setUp();
+		const member = GroupMemberDTO.forGroup(group.id)[0]?.id ?? "";
+		ExpenseDTO.create(
+			group.id,
+			{
+				kind: "expense",
+				description: '=HYPERLINK("http://evil.test")',
+				category: "food",
+				amountMinor: 1000,
+				paidBy: member,
+				splitMode: "equal",
+				spentOn: "2026-02-02",
+				merchantId: null,
+				shares: [{ memberId: member, amountMinor: 1000, weight: 1 }],
+			},
+			ada.id,
+		);
+		const csv = groupCsv(exportSource(group.id, group.toJSON()));
+		expect(csv).toContain('"\'=HYPERLINK(""http://evil.test"")"');
+		expect(csv).not.toContain(",=HYPERLINK");
+	});
+
 	test("request queues a build that writes a CSV, a PDF and a database copy", async () => {
 		const { ada, group } = setUp();
 		const csv = DownloadDTO.request(ada.id, "group-csv", "trip.csv", group.id);

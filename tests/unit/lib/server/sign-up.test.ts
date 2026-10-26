@@ -44,8 +44,11 @@ describe("startSignUp", () => {
 		expect(() => startSignUp("someone@example.com")).toThrow("Wait a minute");
 	});
 
-	test("refuses an address that already has an account", () => {
+	test("refuses an address that already has an account, but only once sign-ups are open", () => {
 		createUser("ada");
+		expect(() => startSignUp("ada@example.com")).toThrow("invite");
+		setSetting("signUpsEnabled", true);
+		setSetting("smtp", smtp);
 		expect(() => startSignUp("ada@example.com")).toThrow(
 			"already uses this email",
 		);

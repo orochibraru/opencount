@@ -14,10 +14,17 @@ export default defineConfig({
 			},
 			adapter: adapter({
 				buildOptions: { compile: true },
-				serverOptions: { maxRequestBodySize: 256 * 1024 * 1024 },
+				serverOptions: { maxRequestBodySize: 32 * 1024 * 1024 },
 			}),
 			experimental: { remoteFunctions: true },
 			csrf: { trustedOrigins: ["*"] },
+			csp: {
+				directives: {
+					"frame-ancestors": ["none"],
+					"object-src": ["none"],
+					"base-uri": ["self"],
+				},
+			},
 			tracing: { server: true },
 		}),
 	],

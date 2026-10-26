@@ -38,7 +38,11 @@ export function exportSource(
 	};
 }
 
-function csvCell(value: string): string {
+function csvCell(raw: string): string {
+	const value =
+		/^[=+\-@\t\r]/.test(raw) && !/^-?\d+(?:[.,]\d+)?$/.test(raw)
+			? `'${raw}`
+			: raw;
 	return /[",\n\r]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value;
 }
 

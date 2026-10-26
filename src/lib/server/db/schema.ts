@@ -253,6 +253,8 @@ export const darkVariants = ["default", "amoled"] as const;
 export const fonts = ["default", "system", "serif", "mono"] as const;
 export const cornerStyles = ["rounded", "square"] as const;
 
+export const homePages = ["groups", "money"] as const;
+
 export const appearance = sqliteTable("appearance", {
 	userId: text("user_id")
 		.primaryKey()
@@ -264,6 +266,7 @@ export const appearance = sqliteTable("appearance", {
 		.default("default"),
 	font: text("font", { enum: fonts }).notNull().default("default"),
 	corners: text("corners", { enum: cornerStyles }).notNull().default("rounded"),
+	home: text("home", { enum: homePages }),
 	updatedAt: updatedAt(),
 });
 
@@ -282,9 +285,12 @@ export const expenseCategories = [
 	"care",
 	"education",
 	"culture",
+	"finance",
+	"income",
 	"other",
 ] as const;
 export const expenseKinds = ["expense", "transfer"] as const;
+export const personalKinds = ["expense", "income"] as const;
 export const splitModes = ["equal", "exact", "shares"] as const;
 
 export const expense = sqliteTable(
@@ -494,6 +500,22 @@ export const personalFolder = sqliteTable(
 	(table) => [index("personal_folder_user_id_idx").on(table.userId)],
 );
 
+export const personalCategory = sqliteTable(
+	"personal_category",
+	{
+		id: text("id")
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		name: text("name").notNull(),
+		icon: text("icon").notNull(),
+		createdAt: createdAt(),
+	},
+	(table) => [index("personal_category_user_id_idx").on(table.userId)],
+);
+
 export const bankConnection = sqliteTable(
 	"bank_connection",
 	{
@@ -529,9 +551,12 @@ export const personalExpense = sqliteTable(
 		description: text("description").notNull(),
 		category: text("category").notNull().default("other"),
 		amountMinor: integer("amount_minor").notNull(),
+		kind: text("kind", { enum: personalKinds }).notNull().default("expense"),
+		aside: integer("aside", { mode: "boolean" }).notNull().default(false),
 		currency: text("currency").notNull(),
 		spentOn: text("spent_on").notNull(),
 		bankRef: text("bank_ref"),
+		bankAccountUid: text("bank_account_uid"),
 		bankConnectionId: text("bank_connection_id").references(
 			() => bankConnection.id,
 			{ onDelete: "set null" },

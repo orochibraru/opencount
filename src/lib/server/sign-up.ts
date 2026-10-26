@@ -18,17 +18,17 @@ export class SignUpError extends Error {}
  * @throws SignUpError when sign-ups are closed, email isn't set up, the address is taken, or a code was sent less than a minute ago.
  */
 export function startSignUp(email: string): void {
-	if (UserDTO.emailExists(email)) {
-		throw new SignUpError(
-			"An account already uses this email. Sign in instead.",
-		);
-	}
 	if (!getSetting("signUpsEnabled")) {
 		throw new SignUpError("Sign-ups are closed. Ask an admin for an invite.");
 	}
 	if (!isEmailConfigured()) {
 		throw new SignUpError(
 			"Sign-ups need email delivery, which isn't set up yet. Ask an admin.",
+		);
+	}
+	if (UserDTO.emailExists(email)) {
+		throw new SignUpError(
+			"An account already uses this email. Sign in instead.",
 		);
 	}
 	let code: string;

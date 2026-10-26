@@ -40,6 +40,14 @@ With passwords off, anyone who has neither a passkey nor a linked provider is
 sent to **Account, Security** on their next page load to add a passkey while
 their session still lets them.
 
+## Guessing protection
+
+Password sign-in is rate limited in memory: 10 failures per email and 50 per IP
+address in 15 minutes. Reset emails are capped at 3 per address per hour; the
+page still says the link was sent. The counters reset when the server restarts.
+Set `ADDRESS_HEADER` behind a proxy so the IP limit sees the visitor, see
+[Configuration](configuration).
+
 ## Forgotten password
 
 With password sign-in on and [email delivery](email) set up, the sign-in page
@@ -85,7 +93,9 @@ with PKCE.
 
 - **Someone with an account**: signing in with a provider that returns the same
   email links the provider to their account, and they can use either from then
-  on.
+  on, but only when the provider says that email is verified. Providers are not
+  trusted otherwise, so nobody can take over an account with an unverified
+  address.
 - **Someone without an account**: the provider creates one only while sign-ups
   are open. With sign-ups closed, invite them first; they can then sign in with
   the provider.

@@ -1,37 +1,16 @@
 import { fail } from "@sveltejs/kit";
-import { z } from "zod";
 
-import { categories, customCategoryIcons } from "#lib/categories.js";
 import { ExpenseDTO } from "#lib/dto/expense.js";
 import { GroupCategoryDTO } from "#lib/dto/group-category.js";
 import { MerchantDTO } from "#lib/dto/merchant.js";
 import { groupForMember } from "#lib/server/group-access.js";
+import {
+	categoryNameTaken,
+	categorySchema,
+} from "#lib/server/validation/category.js";
 import { parseForm } from "#lib/server/validation/form.js";
 import { similarKey } from "#lib/similar-key.js";
 import { guessCategory } from "#lib/smart-category.js";
-
-const categorySchema = z.object({
-	id: z.string().optional(),
-	name: z
-		.string()
-		.trim()
-		.min(1, "Give it a name.")
-		.max(40, "Keep it under 40 characters."),
-	icon: z
-		.string()
-		.refine((icon) => icon in customCategoryIcons, "Pick an icon."),
-});
-
-function nameTaken(groupId: string, name: string, exceptId?: string): boolean {
-	const wanted = name.toLocaleLowerCase();
-	return (
-		categories.some((entry) => entry.label.toLocaleLowerCase() === wanted) ||
-		GroupCategoryDTO.forGroup(groupId).some((entry) => {
-			const row = entry.toJSON();
-			return row.id !== exceptId && row.name.toLocaleLowerCase() === wanted;
-		})
-	);
-}
 
 export const load = async ({ parent }) => {
 	const { group } = await parent();
@@ -77,7 +56,13 @@ export const actions = {
 			return fail(400, { errors: parsed.errors });
 		}
 		const { id, name, icon } = parsed.data;
-		if (nameTaken(group.id, name, id)) {
+		if (
+			categoryNameTaken(
+				GroupCategoryDTO.forGroup(group.id).map((entry) => entry.toJSON()),
+				name,
+				id,
+			)
+		) {
 			return fail(400, {
 				errors: { name: ["A category already has that name."] },
 			});

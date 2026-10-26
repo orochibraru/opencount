@@ -1,0 +1,1 @@
+ALTER TABLE `personal_expense` ADD `aside` integer DEFAULT false NOT NULL;

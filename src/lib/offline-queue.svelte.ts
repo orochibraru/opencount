@@ -3,6 +3,7 @@ import { invalidateAll } from "$app/navigation";
 
 export interface QueuedExpense {
 	id: string;
+	userId?: string;
 	groupId: string;
 	action: string;
 	description: string;
@@ -37,11 +38,21 @@ async function store(mode: IDBTransactionMode): Promise<IDBObjectStore> {
 class OfflineQueue {
 	pending = $state<QueuedExpense[]>([]);
 	#syncing = false;
+	#userId: string | undefined;
 
-	/** Reloads the queued expenses from IndexedDB into `pending`. */
+	/** Ties the queue to the signed-in account: it keeps and posts only that account's expenses. */
+	async signedInAs(userId: string): Promise<void> {
+		this.#userId = userId;
+		await this.load();
+	}
+
+	/** Reloads the signed-in account's queued expenses from IndexedDB into `pending`. */
 	async load(): Promise<void> {
-		this.pending = await settle(
+		const all = await settle(
 			(await store("readonly")).getAll() as IDBRequest<QueuedExpense[]>,
+		);
+		this.pending = all.filter(
+			(entry) => entry.userId === undefined || entry.userId === this.#userId,
 		);
 	}
 
@@ -57,6 +68,7 @@ class OfflineQueue {
 		await settle(
 			(await store("readwrite")).put({
 				id: crypto.randomUUID(),
+				userId: this.#userId,
 				groupId,
 				action,
 				description: String(formData.get("description") ?? "Expense"),

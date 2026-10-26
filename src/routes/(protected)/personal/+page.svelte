@@ -1,12 +1,16 @@
 <script lang="ts">
 	import { enhance } from "$app/forms";
+	import { goto } from "$app/navigation";
 	import { resolve } from "$app/paths";
 	import { page } from "$app/state";
 	import BanknoteIcon from "@lucide/svelte/icons/banknote";
+	import ChartColumnIcon from "@lucide/svelte/icons/chart-column";
 	import CheckIcon from "@lucide/svelte/icons/check";
 	import FolderIcon from "@lucide/svelte/icons/folder";
 	import FolderPlusIcon from "@lucide/svelte/icons/folder-plus";
+	import LandmarkIcon from "@lucide/svelte/icons/landmark";
 	import PlusIcon from "@lucide/svelte/icons/plus";
+	import TagsIcon from "@lucide/svelte/icons/tags";
 	import { onMount } from "svelte";
 	import { toast } from "svelte-sonner";
 
@@ -28,9 +32,31 @@
 
 	setPageTitle("Personal", undefined, [
 		{
+			label: "Insights",
+			icon: ChartColumnIcon,
+			href: resolve("/(protected)/personal/analytics"),
+		},
+		{
+			label: "Categories",
+			icon: TagsIcon,
+			href: resolve("/(protected)/personal/categories"),
+		},
+		{
 			label: "New folder",
 			icon: FolderPlusIcon,
 			onSelect: () => (folderOpen = true),
+		},
+		{
+			label: "Bank accounts",
+			icon: LandmarkIcon,
+			onSelect: () => {
+				const card = document.getElementById("bank-accounts");
+				if (card) {
+					card.scrollIntoView({ behavior: "smooth" });
+				} else {
+					void goto(resolve("/(protected)/account/banks"));
+				}
+			},
 		},
 		{
 			label: "Add expense",
@@ -43,7 +69,7 @@
 	onMount(() => {
 		const outcome = page.url.searchParams.get("bank");
 		if (outcome === "connected") {
-			toast.success("Bank linked. Its card payments show up in a moment.");
+			toast.success("Bank linked. Its payments show up in a moment.");
 		} else if (outcome === "failed") {
 			toast.error("The bank refused the link. Try again.");
 		} else if (outcome === "cancelled") {
@@ -58,6 +84,12 @@
 	matching={data.matching}
 	pageSize={data.pageSize}
 	stats={data.stats}
+	categories={data.categories}
+	category={data.category}
+	search={data.search}
+	accounts={data.accounts}
+	bank={data.bank}
+	account={data.account}
 	folders={data.folders}
 	shareGroups={data.shareGroups}
 	defaultCurrency={data.defaultCurrency}

@@ -5,6 +5,7 @@ import { APIError } from "better-auth/api";
 import { getSetting } from "#lib/dto/setting.js";
 import { getAuth } from "#lib/server/auth.js";
 import { isEmailConfigured } from "#lib/server/mailer.js";
+import { resetRequests } from "#lib/server/rate-limit.js";
 import { passwordResetRequestSchema } from "#lib/server/validation/auth.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
@@ -28,6 +29,11 @@ export const actions = {
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
 		}
+		const account = parsed.data.email.toLowerCase();
+		if (resetRequests.blocked(account)) {
+			return { sentTo: parsed.data.email };
+		}
+		resetRequests.hit(account);
 		try {
 			await getAuth().api.requestPasswordReset({
 				body: {

@@ -22,7 +22,9 @@ export function redirectToSignIn(url: URL): never {
 /** The in-app path to go to after signing in: `redirectTo` when it's a local path, home otherwise. */
 export function safeRedirectTarget(url: URL): string {
 	const target = url.searchParams.get("redirectTo");
-	return target?.startsWith("/") && !target.startsWith("//")
-		? target
+	const local = "http://local.invalid";
+	const parsed = target?.startsWith("/") ? new URL(target, local) : undefined;
+	return parsed?.origin === local
+		? `${parsed.pathname}${parsed.search}${parsed.hash}`
 		: resolve("/(protected)");
 }

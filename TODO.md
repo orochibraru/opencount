@@ -3,13 +3,11 @@
 The only backlog. Each entry is a `- [ ]` checkbox: put `**[WIP]**` after the
 box while it's being worked on, and delete the entry once it's done.
 
-## Small
-
-- [ ] Search and category filter in Personal and its folders, like the group
-      page has.
-
 ## Medium
 
+- [ ] Adding someone to a group by email adds their account without asking them
+      and tells the adder whether an account uses that email: turn it into an
+      invite they accept.
 - [ ] PDF export still prints CJK and emoji as `?`: Noto Sans covers Latin,
       Greek and Cyrillic only. Noto Sans CJK adds about 16 MB per weight to the
       image, and pdf-lib can't draw colour emoji.

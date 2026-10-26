@@ -15,6 +15,28 @@ When you change an expense's category, a sheet lists your other expenses with
 the same description that sit under another category, so you can re-file them in
 one go. Untick any that don't belong.
 
+The search box looks through descriptions as you type. **Filter** narrows the
+list by category, and by bank and by account once you have linked more than one
+bank account. The totals at the top follow what is shown.
+
+Your own categories live at **Categories** (the **...** menu in the header on a
+phone). **Sort what's under Other** there files the entries still under Other,
+using how you filed the same description before, then the keywords and your own
+categories.
+
+### Set aside
+
+Savings and investing, like a Revolut round-up sent to a robo portfolio, a
+vault, a livret or a PEA, are detected from the description, filed under Finance
+and counted apart from spending, as **set aside, not spent**. A switch in the
+expense sheet sets or clears it by hand.
+
+### Insights
+
+**Insights** (`/personal/analytics`, also in the header menu) shows, for a
+period, what you spent, what you set aside, a chart by day, week or month, and
+the breakdown by category and by folder. It only counts your main currency.
+
 ## Folders
 
 A folder is a project inside Personal: a trip, a renovation. Create one from
@@ -37,14 +59,30 @@ bank's own screen. Until then, Personal shows a pointer to that page. OpenCount
 never sees your bank credentials. The consent lasts 90 days, after which you
 link again.
 
-Once a day the server fetches your booked debits and adds them to your personal
-ledger, categorized like any expense. The first sync goes back 90 days, later
-ones start 3 days before the previous one, and a transaction is never added
-twice. You get a notification when new ones arrive. **Sync now** fetches right
-away and **Unlink** stops the sync.
+Once a day the server fetches your booked transactions and adds them to your
+personal ledger, categorized like any expense, reusing how you filed the same
+description before. Money coming in (salary, top-ups, refunds) is imported as
+income: shown with a + in green and counted as **came in**, not as spending.
+Each line records its bank account, and rows show the bank and account when you
+have more than one. The first sync goes back 90 days, later ones start 3 days
+before the previous one, and a transaction is never added twice. You get a
+notification when new ones arrive. **Sync now** fetches right away and
+**Unlink** stops the sync.
 
 Delete an expense that came from your bank and it is hidden, so the next sync
-doesn't bring it back.
+doesn't bring it back. A line from your bank keeps its amount, currency and
+description as the bank gave them: only its category, date, folder and set aside
+can change.
+
+## Money overview
+
+Off by default. Once a bank is linked, the home page asks once whether to open
+on your money; you can change it later with **Open on my money** under
+**Account, Bank sync**. The home page then starts with this month's spent, came
+in, set aside and left over, your pace against last month and a forecast for the
+month's end, yesterday's report, your biggest habit (something you pay for more
+than once a month), the top category against last month, payments that repeat
+every month and spending day by day. Your groups stay below.
 
 ## Setting it up
 

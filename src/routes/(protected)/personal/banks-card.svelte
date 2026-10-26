@@ -95,7 +95,10 @@
 	}
 </script>
 
-<section class="glass flex flex-col gap-4 rounded-2xl p-4 md:p-6">
+<section
+	id="bank-accounts"
+	class="glass flex scroll-mt-24 flex-col gap-4 rounded-2xl p-4 md:p-6"
+>
 	<div class="flex items-start gap-3">
 		<span
 			class="bg-accent text-accent-foreground flex size-10 shrink-0 items-center justify-center rounded-xl"

@@ -155,6 +155,7 @@ const categoryPatterns: [RegExp, ImportCategory][] = [
 		"activities",
 	],
 	[/shopping|gift|cloth/i, "shopping"],
+	[/bank|financ|fee|interest|loan|saving|invest/i, "finance"],
 	[/bill|utilit|insurance/i, "bills"],
 ];
 

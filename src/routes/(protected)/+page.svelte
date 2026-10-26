@@ -13,12 +13,13 @@
 	import EmptyState from "#lib/components/empty-state.svelte";
 	import Fab from "#lib/components/fab.svelte";
 	import ItemMenu, { type MenuAction } from "#lib/components/item-menu.svelte";
-	import PullToRefresh from "#lib/components/pull-to-refresh.svelte";
 	import { Button } from "#lib/components/ui/button/index.js";
 	import { hueOf } from "#lib/group-hue.js";
 	import { formatMoney } from "#lib/money.js";
 	import { setPageTitle } from "#lib/page-title.svelte.js";
 
+	import HomeQuestion from "./home-question.svelte";
+	import MoneyOverview from "./money-overview.svelte";
 	import NewGroupSheet from "./new-group-sheet.svelte";
 
 	const { data } = $props();
@@ -97,6 +98,13 @@
 	}
 </script>
 
+{#if data.askHome}
+	<HomeQuestion />
+{/if}
+{#if data.overview}
+	<MoneyOverview overview={data.overview} />
+{/if}
+
 {#if data.groups.length === 0}
 	<div class="glass mx-auto mt-6 max-w-xl rounded-3xl">
 		<EmptyState
@@ -174,8 +182,6 @@
 		{/each}
 	</ul>
 {/if}
-
-<PullToRefresh />
 
 <Fab label="New group" icon={PlusIcon} onclick={() => (creating = true)} />
 

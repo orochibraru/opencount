@@ -42,6 +42,7 @@ export interface BankTransaction {
 	transaction_date?: string | null;
 	remittance_information?: string[] | null;
 	creditor?: { name?: string | null } | null;
+	debtor?: { name?: string | null } | null;
 }
 
 function base64url(value: string | Buffer): string {

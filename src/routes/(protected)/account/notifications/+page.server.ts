@@ -6,8 +6,21 @@ import { PushSubscriptionDTO } from "#lib/dto/push-subscription.js";
 import { vapidPublicKey } from "#lib/server/push.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
+const pushServices = [
+	"fcm.googleapis.com",
+	"android.googleapis.com",
+	"push.services.mozilla.com",
+	"push.apple.com",
+	"notify.windows.com",
+];
+
 const subscriptionSchema = z.object({
-	endpoint: z.url({ protocol: /^https$/ }),
+	endpoint: z.url({ protocol: /^https$/ }).refine((endpoint) => {
+		const host = new URL(endpoint).hostname;
+		return pushServices.some(
+			(service) => host === service || host.endsWith(`.${service}`),
+		);
+	}),
 	p256dh: z.string().min(1).max(200),
 	auth: z.string().min(1).max(100),
 	device: z.string().trim().min(1).max(80),

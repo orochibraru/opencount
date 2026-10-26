@@ -108,7 +108,20 @@ async function pdfText(
 		return text;
 	}
 	const rendered = await run(
-		["pdftoppm", "-r", "300", "-png", "-singlefile", "-f", "1", "-l", "1", "-"],
+		[
+			"pdftoppm",
+			"-r",
+			"300",
+			"-scale-to",
+			"2500",
+			"-png",
+			"-singlefile",
+			"-f",
+			"1",
+			"-l",
+			"1",
+			"-",
+		],
 		pdf,
 	);
 	if (rendered.exitCode !== 0) {

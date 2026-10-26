@@ -148,6 +148,21 @@ describe("AppearanceDTO", () => {
 		AppearanceDTO.save(ada.id, custom);
 		expect(AppearanceDTO.forUser(ada.id).toJSON()).toEqual(custom);
 	});
+
+	test("the home page choice is unset until picked, and keeps the rest", () => {
+		const ada = createUser("ada");
+		const grace = createUser("grace");
+		expect(AppearanceDTO.homeFor(ada.id)).toBeNull();
+		AppearanceDTO.saveHome(grace.id, "money");
+		expect(AppearanceDTO.homeFor(grace.id)).toBe("money");
+		const custom = { ...defaultAppearance, accent: "rose" as const };
+		AppearanceDTO.save(ada.id, custom);
+		AppearanceDTO.saveHome(ada.id, "groups");
+		expect(AppearanceDTO.homeFor(ada.id)).toBe("groups");
+		expect(AppearanceDTO.forUser(ada.id).toJSON()).toEqual(custom);
+		AppearanceDTO.save(ada.id, defaultAppearance);
+		expect(AppearanceDTO.homeFor(ada.id)).toBe("groups");
+	});
 });
 
 describe("PasskeyDTO", () => {

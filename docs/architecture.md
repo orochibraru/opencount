@@ -38,15 +38,15 @@ claims up to `WORKER_CONCURRENCY` at once, and runs each in a `job <type>` span.
 A failure is retried with exponential backoff (5 seconds, doubling) up to five
 attempts, then marked failed and shown on the admin overview.
 
-| Job               | What it does                                                                                             |
-| ----------------- | -------------------------------------------------------------------------------------------------------- |
-| `email.send`      | Delivers one email through the configured SMTP server                                                    |
-| `recurring.run`   | Adds due repeating expenses, then requeues itself for the next day at 00:05 UTC                          |
-| `jobs.prune`      | Deletes finished jobs older than 7 days and downloads older than a day, then requeues itself a day later |
-| `download.build`  | Builds a database backup, or a group's CSV or PDF export, into a file waiting for its owner              |
-| `bank.syncAll`    | Queues a `bank.sync` for every linked bank, then requeues itself a day later                             |
-| `bank.sync`       | Fetches one link's new booked debits into the personal ledger, then sends a push notification            |
-| `import.tricount` | Adds the expenses of a previewed Tricount to a group, then sends a push notification                     |
+| Job               | What it does                                                                                                            |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `email.send`      | Delivers one email through the configured SMTP server                                                                   |
+| `recurring.run`   | Adds due repeating expenses, then requeues itself for the next day at 00:05 UTC                                         |
+| `jobs.prune`      | Deletes finished jobs older than 7 days and downloads older than a day, then requeues itself a day later                |
+| `download.build`  | Builds a database backup, or a group's CSV or PDF export, into a file waiting for its owner                             |
+| `bank.syncAll`    | Queues a `bank.sync` for every linked bank, then requeues itself a day later                                            |
+| `bank.sync`       | Fetches one link's new booked transactions, money in included, into the personal ledger, then sends a push notification |
+| `import.tricount` | Adds the expenses of a previewed Tricount to a group, then sends a push notification                                    |
 
 Built files (exports and backups) live in a `downloads` folder next to the
 database, and are served only to the account that asked for them.
@@ -54,6 +54,7 @@ database, and are served only to the account that asked for them.
 Requests enqueue and return; they never await a job. Receipt reading is the one
 slow thing done in a request, on purpose: the person is waiting for the reading
 to fill the form, and the file must not be stored to hand it to another process.
+Scans run one at a time, and a request body is capped at 32 MB.
 
 ## Requests
 
@@ -106,9 +107,20 @@ A service worker precaches the built assets, so an installed app starts
 instantly. Pages and their data are fetched from the server first and each
 answer is kept per app version (never `/api/`, `/auth/` or `/downloads/`), so a
 page already visited reopens with no connection; an unvisited one gets a static
-offline page. Signing out wipes that cache. A new expense submitted offline is
-kept in IndexedDB with a client id and posted when the connection returns, so a
-retry never adds it twice.
+offline page. Signing out wipes that cache and the offline queue, and so does
+any visit to a sign-in page, which means the session ended or someone else is
+signing in. A new expense submitted offline is kept in IndexedDB with a client
+id and posted when the connection returns, so a retry never adds it twice.
+
+## Hardening
+
+Every response carries a Content-Security-Policy with `frame-ancestors 'none'`,
+`object-src 'none'` and `base-uri 'self'`. A `redirectTo` is resolved against a
+dummy origin, so tricks like `/\evil` fall back to the home page. Push
+subscriptions must point at a known browser push service. Sign-up checks that
+sign-ups are open before saying an email is taken, and CSV exports neutralise
+cells that start like a spreadsheet formula. Password sign-in and reset emails
+are rate limited in memory, see [Sign-in and single sign-on](sign-in-and-sso).
 
 ## Telemetry
 

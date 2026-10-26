@@ -1,12 +1,10 @@
 <script lang="ts">
 	import { deserialize, enhance } from "$app/forms";
-	import { goto } from "$app/navigation";
 	import { resolve } from "$app/paths";
 	import ArchiveIcon from "@lucide/svelte/icons/archive";
 	import ArchiveRestoreIcon from "@lucide/svelte/icons/archive-restore";
 	import ArrowLeftRightIcon from "@lucide/svelte/icons/arrow-left-right";
 	import ChartColumnIcon from "@lucide/svelte/icons/chart-column";
-	import ListFilterIcon from "@lucide/svelte/icons/list-filter";
 	import PencilIcon from "@lucide/svelte/icons/pencil";
 	import PlusIcon from "@lucide/svelte/icons/plus";
 	import ReceiptIcon from "@lucide/svelte/icons/receipt";
@@ -16,7 +14,6 @@
 	import Share2Icon from "@lucide/svelte/icons/share-2";
 	import Trash2Icon from "@lucide/svelte/icons/trash-2";
 	import WifiOffIcon from "@lucide/svelte/icons/wifi-off";
-	import XIcon from "@lucide/svelte/icons/x";
 	import { toast } from "svelte-sonner";
 
 	import {
@@ -26,15 +23,13 @@
 	} from "#lib/categories.js";
 	import EmptyState from "#lib/components/empty-state.svelte";
 	import Fab from "#lib/components/fab.svelte";
-	import IconButton from "#lib/components/icon-button.svelte";
 	import ItemMenu from "#lib/components/item-menu.svelte";
+	import ListFilters from "#lib/components/list-filters.svelte";
 	import LoadedFromHere from "#lib/components/loaded-from-here.svelte";
-	import ResponsiveSheet from "#lib/components/responsive-sheet.svelte";
 	import SimilarSheet, {
 		type SimilarExpense,
 	} from "#lib/components/similar-sheet.svelte";
 	import { Button } from "#lib/components/ui/button/index.js";
-	import { Input } from "#lib/components/ui/input/index.js";
 	import { listBlocks } from "#lib/list-blocks.js";
 	import { formatMoney } from "#lib/money.js";
 	import { offlineQueue } from "#lib/offline-queue.svelte.js";
@@ -133,7 +128,6 @@
 	const days = $derived(
 		listBlocks(data.expenses, (entry) => entry.spentOn, leftOff),
 	);
-	let filterOpen = $state(false);
 	let similarOpen = $state(false);
 	let similar = $state<{
 		category: { value: string; label: string };
@@ -162,18 +156,6 @@
 		}
 		const query = params.toString();
 		return query ? `?${query}` : "?";
-	}
-
-	let searchTimer: ReturnType<typeof setTimeout> | undefined;
-
-	function searchFor(text: string) {
-		clearTimeout(searchTimer);
-		searchTimer = setTimeout(() => {
-			void goto(listHref(data.category, undefined, text.trim()), {
-				replace: true,
-				reset: false,
-			});
-		}, 300);
 	}
 
 	function reviewSimilar(result: Record<string, unknown> | undefined) {
@@ -283,51 +265,17 @@
 			</p>
 		{/if}
 		{#if data.matching > 0 || activeCategory || data.search}
-			<div class="mb-4 flex items-center gap-2">
-				<label class="relative min-w-0 flex-1">
-					<span class="sr-only">Search expenses</span>
-					<SearchIcon
-						class="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
-					/>
-					<Input
-						type="search"
-						value={data.search}
-						placeholder="Search"
-						autocomplete="off"
-						oninput={(event) => searchFor(event.currentTarget.value)}
-						class="h-11 rounded-xl pl-9"
-					/>
-				</label>
-				<Button
-					variant="secondary"
-					class="h-11 max-w-[45%] shrink-0 rounded-xl"
-					aria-label={activeCategory
-						? `Filtered by ${activeCategory.label}`
-						: "Filter by category"}
-					onclick={() => (filterOpen = true)}
-				>
-					{#if activeCategory}
-						<span
-							class="category-tile flex size-6 shrink-0 items-center justify-center rounded-md"
-							style={categoryStyle(activeCategory)}
-						>
-							<activeCategory.icon class="size-3.5" />
-						</span>
-						<span class="truncate">{activeCategory.label}</span>
-					{:else}
-						<ListFilterIcon />
-						Filter
-					{/if}
-				</Button>
-				{#if activeCategory}
-					<IconButton
-						label="Show every category"
-						icon={XIcon}
-						href={listHref(null)}
-						data-sveltekit-reset="false"
-					/>
-				{/if}
-			</div>
+			<ListFilters
+				search={data.search}
+				active={activeCategory}
+				options={filterOptions}
+				href={(change) =>
+					listHref(
+						change.category === undefined ? data.category : change.category,
+						undefined,
+						change.search ?? data.search,
+					)}
+			/>
 			{#if activeCategory || data.search}
 				<p class="text-muted-foreground mb-3 px-1 text-sm">
 					{data.matching}
@@ -488,50 +436,6 @@
 		{/if}
 	</section>
 </div>
-
-<ResponsiveSheet bind:open={filterOpen} title="Filter by category">
-	<ul class="flex flex-col gap-1 pb-4" aria-label="Categories">
-		<li>
-			<a
-				href={listHref(null)}
-				data-sveltekit-reset="false"
-				onclick={() => (filterOpen = false)}
-				class="hover:bg-muted flex min-h-12 items-center gap-3 rounded-xl px-2 {data.category
-					? ''
-					: 'bg-muted font-medium'}"
-			>
-				<span
-					class="category-tile flex size-9 items-center justify-center rounded-lg"
-					style="--category-chroma: 0"
-				>
-					<ListFilterIcon class="size-4" />
-				</span>
-				Every category
-			</a>
-		</li>
-		{#each filterOptions as option (option.value)}
-			<li>
-				<a
-					href={listHref(option.value)}
-					data-sveltekit-reset="false"
-					onclick={() => (filterOpen = false)}
-					class="hover:bg-muted flex min-h-12 items-center gap-3 rounded-xl px-2 {data.category ===
-					option.value
-						? 'bg-muted font-medium'
-						: ''}"
-				>
-					<span
-						class="category-tile flex size-9 items-center justify-center rounded-lg"
-						style={categoryStyle(option)}
-					>
-						<option.icon class="size-4" />
-					</span>
-					{option.label}
-				</a>
-			</li>
-		{/each}
-	</ul>
-</ResponsiveSheet>
 
 {#if similar}
 	<SimilarSheet

@@ -2,12 +2,14 @@ import { eq } from "drizzle-orm";
 
 import { BaseDTO } from "#lib/dto/base-dto.js";
 import { getDb } from "#lib/server/db/lib.js";
-import { appearance } from "#lib/server/db/schema.js";
+import { appearance, type homePages } from "#lib/server/db/schema.js";
 
 export type Appearance = Omit<
 	typeof appearance.$inferSelect,
-	"userId" | "updatedAt"
+	"userId" | "updatedAt" | "home"
 >;
+
+export type HomePage = (typeof homePages)[number];
 
 export const defaultAppearance: Appearance = {
 	accent: "bordeaux",
@@ -32,6 +34,29 @@ export class AppearanceDTO extends BaseDTO<Appearance> {
 			.where(eq(appearance.userId, userId))
 			.get();
 		return new AppearanceDTO(row ?? defaultAppearance);
+	}
+
+	/** What `userId` picked as their home page, or `null` when they were never asked. */
+	static homeFor(userId: string): HomePage | null {
+		return (
+			getDb()
+				.select({ home: appearance.home })
+				.from(appearance)
+				.where(eq(appearance.userId, userId))
+				.get()?.home ?? null
+		);
+	}
+
+	/** Stores `userId`'s choice of home page, keeping the rest of their appearance. */
+	static saveHome(userId: string, home: HomePage): void {
+		getDb()
+			.insert(appearance)
+			.values({ userId, ...defaultAppearance, home })
+			.onConflictDoUpdate({
+				target: appearance.userId,
+				set: { home, updatedAt: new Date() },
+			})
+			.run();
 	}
 
 	/** Stores `userId`'s appearance. */

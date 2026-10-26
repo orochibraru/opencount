@@ -14,5 +14,7 @@ export const categoryLabels = {
 	care: "Personal care",
 	education: "Education",
 	culture: "Culture",
+	finance: "Finance",
+	income: "Income",
 	other: "Other",
 } as const;

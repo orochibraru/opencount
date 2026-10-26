@@ -1,0 +1,1 @@
+ALTER TABLE `appearance` ADD `home` text;

@@ -7,6 +7,7 @@ import { getSetting } from "#lib/dto/setting.js";
 import { getAuth } from "#lib/server/auth.js";
 import { safeRedirectTarget } from "#lib/server/guards.js";
 import { isEmailConfigured } from "#lib/server/mailer.js";
+import { addressAttempts, passwordAttempts } from "#lib/server/rate-limit.js";
 import { enabledSignInMethods } from "#lib/server/sign-in-methods.js";
 import {
 	emailCodeSignInSchema,
@@ -24,10 +25,17 @@ export const load = () => ({
 });
 
 export const actions = {
-	password: async ({ request, url }) => {
+	password: async ({ getClientAddress, request, url }) => {
 		const parsed = parseForm(signInSchema, await request.formData());
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
+		}
+		const account = parsed.data.email.toLowerCase();
+		const address = getClientAddress();
+		if (passwordAttempts.blocked(account) || addressAttempts.blocked(address)) {
+			return fail(429, {
+				error: "Too many tries. Wait 15 minutes, or reset your password.",
+			});
 		}
 		let result: Awaited<
 			ReturnType<ReturnType<typeof getAuth>["api"]["signInEmail"]>
@@ -39,6 +47,8 @@ export const actions = {
 			});
 		} catch (error) {
 			if (error instanceof APIError) {
+				passwordAttempts.hit(account);
+				addressAttempts.hit(address);
 				return fail(400, {
 					error:
 						error.status === "FORBIDDEN"
@@ -48,6 +58,7 @@ export const actions = {
 			}
 			throw error;
 		}
+		passwordAttempts.reset(account);
 		if ("twoFactorRedirect" in result && result.twoFactorRedirect) {
 			redirect(303, `${resolve("/auth/two-factor")}${url.search}`);
 		}

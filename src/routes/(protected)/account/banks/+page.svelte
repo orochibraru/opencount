@@ -4,12 +4,13 @@
 	import PowerOffIcon from "@lucide/svelte/icons/power-off";
 
 	import CopyField from "#lib/components/copy-field.svelte";
+	import SettingSwitch from "#lib/components/setting-switch.svelte";
 	import { Badge } from "#lib/components/ui/badge/index.js";
 	import { Button } from "#lib/components/ui/button/index.js";
 	import * as Field from "#lib/components/ui/field/index.js";
 	import { Input } from "#lib/components/ui/input/index.js";
 	import { Textarea } from "#lib/components/ui/textarea/index.js";
-	import { enhanceToast } from "#lib/toast.js";
+	import { enhanceToast, saveToast } from "#lib/toast.js";
 
 	const { data } = $props();
 
@@ -99,6 +100,27 @@
 	</form>
 
 	{#if data.applicationId}
+		<form
+			method="POST"
+			action="?/home"
+			class="glass flex flex-col gap-4 rounded-2xl p-4 md:p-6"
+			use:enhance={saveToast("Home page")}
+		>
+			<SettingSwitch
+				name="moneyHome"
+				label="Open on my money"
+				description="The home page starts with how you're doing: yesterday's spending, a month-end forecast, your habits and what repeats every month. Your groups stay below."
+				checked={data.moneyHome}
+			/>
+			<Button
+				type="submit"
+				variant="secondary"
+				class="h-11 self-start rounded-xl px-5"
+			>
+				<CheckIcon />
+				Save
+			</Button>
+		</form>
 		<form
 			method="POST"
 			action="?/remove"

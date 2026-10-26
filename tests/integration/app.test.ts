@@ -108,7 +108,11 @@ describe("setting up and using it", () => {
 			password: admin.password,
 		});
 		expect(right.type).toBe("redirect");
-		expect((await stranger.get("/")).status).toBe(200);
+		const home = await stranger.get("/");
+		expect(home.status).toBe(200);
+		expect(home.headers.get("content-security-policy")).toContain(
+			"frame-ancestors 'none'",
+		);
 	});
 
 	test("a group, an expense, its merchant and a repeating copy", async () => {

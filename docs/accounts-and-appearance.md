@@ -76,10 +76,12 @@ per device: Chrome, Edge and Samsung Internet show their install dialog, iPhone
 and iPad browsers explain **Share, Add to Home Screen**, and other browsers
 point to **Install app** in their menu. On a computer, install it from the
 address bar. You can also do it yourself any time. Installed, it opens
-standalone, like a native app, with pull to refresh on the groups list and a
-light tap of haptics on actions. An expense added with no connection is kept on
-the device and sent once you're back online. Pages you already opened reopen
-with no connection; one you never opened shows an offline screen, and signing
-out clears what was kept. The bottom tab bar holds Groups, Personal and Account,
-plus Admin for admins. On a desktop, a sidebar lists Groups, Personal, Admin and
-your groups, with your account in the menu under your name at the bottom.
+standalone, like a native app, with pull to refresh on every page and a light
+tap of haptics on actions. An expense added with no connection is kept on the
+device and sent once you're back online. Pages you already opened reopen with no
+connection; one you never opened shows an offline screen, and signing out clears
+what was kept, the waiting expenses included. Waiting expenses are only sent for
+the account that made them. The bottom tab bar holds Groups, Personal and
+Account, plus Admin for admins. On a desktop, a sidebar lists Groups, Personal,
+Admin and your groups, with your account in the menu under your name at the
+bottom.

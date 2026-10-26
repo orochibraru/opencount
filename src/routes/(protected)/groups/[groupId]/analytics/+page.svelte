@@ -4,14 +4,13 @@
 	import UserRoundIcon from "@lucide/svelte/icons/user-round";
 	import WalletIcon from "@lucide/svelte/icons/wallet";
 
-	import { type Bucket, periodLabels, periods } from "#lib/analytics.js";
+	import { periodLabels, periods } from "#lib/analytics.js";
 	import { categoryOf, categoryStyle } from "#lib/categories.js";
+	import BarList from "#lib/components/bar-list.svelte";
+	import SpendingChart from "#lib/components/spending-chart.svelte";
 	import StatCard from "#lib/components/stat-card.svelte";
 	import { formatMoney } from "#lib/money.js";
 	import { setPageTitle } from "#lib/page-title.svelte.js";
-	import { cn } from "#lib/utils.js";
-
-	import BarList from "./bar-list.svelte";
 
 	const { data } = $props();
 
@@ -27,40 +26,6 @@
 	const merchantNames = $derived(
 		new Map(data.merchants.map((merchant) => [merchant.id, merchant.name])),
 	);
-	const largest = $derived(
-		Math.max(1, ...data.summary.overTime.map((entry) => entry.totalMinor)),
-	);
-	const average = $derived(
-		data.summary.overTime.length > 0
-			? Math.round(data.summary.totalMinor / data.summary.overTime.length)
-			: 0,
-	);
-
-	const bucketNames: Record<Bucket, string> = {
-		day: "day",
-		week: "week",
-		month: "month",
-	};
-
-	function bucketLabel(key: string, bucket: Bucket, long = false): string {
-		const date = new Date(`${bucket === "month" ? `${key}-01` : key}T12:00:00`);
-		if (bucket === "month") {
-			return date.toLocaleDateString(undefined, {
-				month: long ? "long" : "short",
-				year: long ? "numeric" : undefined,
-			});
-		}
-		const day = date.toLocaleDateString(undefined, {
-			day: "numeric",
-			month: "short",
-		});
-		return bucket === "week" && long ? `Week of ${day}` : day;
-	}
-
-	function showTick(index: number, count: number): boolean {
-		const step = Math.ceil(count / 8);
-		return index % step === 0 || index === count - 1;
-	}
 </script>
 
 <nav
@@ -94,69 +59,12 @@
 	<StatCard label="Expenses" icon={ReceiptIcon} value={data.summary.count} />
 </div>
 
-<section class="glass mt-4 flex flex-col gap-4 rounded-2xl p-4 md:mt-6 md:p-5">
-	<div class="flex items-baseline justify-between gap-3">
-		<h2 class="font-semibold">Over time</h2>
-		<p class="text-muted-foreground text-sm">
-			{formatMoney(average, data.group.currency)} per {bucketNames[
-				data.summary.bucket
-			]} on average
-		</p>
-	</div>
-	<div class="flex h-48 items-end gap-0.5 md:h-56" role="presentation">
-		{#each data.summary.overTime as entry (entry.key)}
-			<div class="group relative flex h-full min-w-0 flex-1 items-end">
-				<div
-					class={cn(
-						"w-full rounded-t-sm transition-colors",
-						entry.totalMinor > 0
-							? "bg-primary group-hover:bg-primary/80"
-							: "bg-muted",
-					)}
-					style="height: {entry.totalMinor > 0
-						? Math.max(2, (entry.totalMinor / largest) * 100)
-						: 1}%"
-				></div>
-				<div
-					class="bg-popover text-popover-foreground pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden -translate-x-1/2 rounded-lg border px-2.5 py-1.5 text-xs whitespace-nowrap shadow-md group-hover:block"
-				>
-					<span class="text-muted-foreground block"
-						>{bucketLabel(entry.key, data.summary.bucket, true)}</span
-					>
-					<span class="font-medium tabular"
-						>{formatMoney(entry.totalMinor, data.group.currency)}</span
-					>
-				</div>
-			</div>
-		{/each}
-	</div>
-	<div
-		class="text-muted-foreground -mt-2 flex gap-0.5 text-[0.7rem]"
-		aria-hidden="true"
-	>
-		{#each data.summary.overTime as entry, index (entry.key)}
-			<span
-				class="min-w-0 flex-1 overflow-visible text-center whitespace-nowrap"
-				>{showTick(index, data.summary.overTime.length)
-					? bucketLabel(entry.key, data.summary.bucket)
-					: ""}</span
-			>
-		{/each}
-	</div>
-	<table class="sr-only">
-		<caption>Spending per {bucketNames[data.summary.bucket]}</caption>
-		<tbody>
-			{#each data.summary.overTime as entry (entry.key)}
-				<tr>
-					<th scope="row"
-						>{bucketLabel(entry.key, data.summary.bucket, true)}</th
-					>
-					<td>{formatMoney(entry.totalMinor, data.group.currency)}</td>
-				</tr>
-			{/each}
-		</tbody>
-	</table>
-</section>
+<SpendingChart
+	overTime={data.summary.overTime}
+	bucket={data.summary.bucket}
+	totalMinor={data.summary.totalMinor}
+	currency={data.group.currency}
+/>
 
 <div class="mt-4 grid gap-4 md:mt-6 lg:grid-cols-3 md:gap-6">
 	<BarList

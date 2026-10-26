@@ -321,7 +321,7 @@ describe("personal folders, stats and similar expenses", () => {
 			expect.objectContaining({ total: 3 }),
 		);
 
-		const stats = PersonalExpenseDTO.stats(ada.id, undefined, "2026-10");
+		const stats = PersonalExpenseDTO.stats(ada.id, {}, "2026-10");
 		expect(stats.totals).toEqual([{ currency: "EUR", minor: 16_500 }]);
 		expect(stats.thisMonth).toEqual([{ currency: "EUR", minor: 15_000 }]);
 		expect(stats.byMonth.map((row) => row.month)).toEqual([
@@ -361,6 +361,106 @@ describe("personal folders, stats and similar expenses", () => {
 		expect(
 			PersonalExpenseDTO.findForUser(tiles, ada.id)?.toJSON().folderId,
 		).toBeNull();
+	});
+
+	test("personal categories belong to their owner and fall back to Other when deleted", async () => {
+		const { PersonalCategoryDTO } =
+			await import("#lib/dto/personal-category.js");
+		const { PersonalExpenseDTO } = await import("#lib/dto/personal-expense.js");
+		const ada = createUser("ada");
+		const grace = createUser("grace");
+		const vet = PersonalCategoryDTO.create(ada.id, "Horse", "pet");
+		const id = PersonalExpenseDTO.create(ada.id, {
+			description: "Hay",
+			category: vet.id,
+			amountMinor: 2_000,
+			currency: "EUR",
+			spentOn: "2026-10-01",
+		});
+		expect(PersonalCategoryDTO.findForUser(vet.id, grace.id)).toBeUndefined();
+		expect(PersonalCategoryDTO.usage(ada.id)).toEqual({ [vet.id]: 1 });
+		PersonalCategoryDTO.findForUser(vet.id, ada.id)?.update("Horses", "heart");
+		expect(PersonalCategoryDTO.forUser(ada.id)[0]?.toJSON()).toEqual({
+			id: vet.id,
+			name: "Horses",
+			icon: "heart",
+		});
+		vet.delete();
+		expect(PersonalCategoryDTO.forUser(ada.id)).toEqual([]);
+		expect(PersonalExpenseDTO.findForUser(id, ada.id)?.toJSON().category).toBe(
+			"other",
+		);
+	});
+
+	test("personal expenses are searched, filtered, charted and sorted out of Other", async () => {
+		const { PersonalExpenseDTO } = await import("#lib/dto/personal-expense.js");
+		const { guessCategory } = await import("#lib/smart-category.js");
+		const { similarKey } = await import("#lib/similar-key.js");
+		const ada = createUser("ada");
+		const add = (description: string, category: string, spentOn: string) =>
+			PersonalExpenseDTO.create(ada.id, {
+				description,
+				category,
+				amountMinor: 1_000,
+				currency: "EUR",
+				spentOn,
+			});
+		add("Boulangerie Paul", "food", "2026-09-01");
+		add("BOULANGERIE PAUL", "other", "2026-10-01");
+		add("Frais bancaires", "other", "2026-10-02");
+		add("100% pure", "other", "2026-10-03");
+		add("Mystery", "other", "2026-10-04");
+
+		const searched = PersonalExpenseDTO.page(ada.id, {
+			limit: 50,
+			search: "boulangerie",
+		});
+		expect(searched.total).toBe(2);
+		expect(
+			PersonalExpenseDTO.page(ada.id, { limit: 50, search: "100%" }).total,
+		).toBe(1);
+		expect(
+			PersonalExpenseDTO.stats(ada.id, { category: "food" }).totals,
+		).toEqual([{ currency: "EUR", minor: 1_000 }]);
+		expect(
+			PersonalExpenseDTO.spending(ada.id).map((row) => row.spentOn),
+		).toEqual([
+			"2026-09-01",
+			"2026-10-01",
+			"2026-10-02",
+			"2026-10-03",
+			"2026-10-04",
+		]);
+
+		const history = PersonalExpenseDTO.categoryHistory(ada.id);
+		expect(history.get(similarKey("Boulangerie Paul"))).toBe("food");
+		expect(
+			PersonalExpenseDTO.categorizeUncategorized(
+				ada.id,
+				(description) =>
+					history.get(similarKey(description)) ?? guessCategory(description),
+			),
+		).toBe(2);
+		expect(
+			PersonalExpenseDTO.page(ada.id, { limit: 50, category: "other" }).total,
+		).toBe(2);
+		expect(
+			PersonalExpenseDTO.page(ada.id, { limit: 50, category: "finance" }).total,
+		).toBe(1);
+
+		const { isMoneyAside } = await import("#lib/smart-category.js");
+		add("To robo portfolio", "other", "2026-10-05");
+		expect(PersonalExpenseDTO.markAside(ada.id, isMoneyAside)).toBe(1);
+		expect(PersonalExpenseDTO.markAside(ada.id, isMoneyAside)).toBe(0);
+		const stats = PersonalExpenseDTO.stats(ada.id, {}, "2026-10");
+		expect(stats.asideThisMonth).toEqual([{ currency: "EUR", minor: 1_000 }]);
+		expect(stats.thisMonth).toEqual([{ currency: "EUR", minor: 4_000 }]);
+		expect(
+			PersonalExpenseDTO.page(ada.id, {
+				limit: 1,
+				search: "robo",
+			}).entries[0]?.toJSON(),
+		).toEqual(expect.objectContaining({ aside: true, category: "finance" }));
 	});
 
 	test("ExpenseDTO finds similar expenses by description or merchant and re-files them", () => {

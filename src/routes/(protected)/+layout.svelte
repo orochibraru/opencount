@@ -6,6 +6,7 @@
 	import Sidebar from "#lib/components/app-shell/sidebar.svelte";
 	import InstallPrompt from "#lib/components/install-prompt.svelte";
 	import OfflineSync from "#lib/components/offline-sync.svelte";
+	import PullToRefresh from "#lib/components/pull-to-refresh.svelte";
 
 	const { children, data } = $props();
 </script>
@@ -25,4 +26,5 @@
 <Sidebar isAdmin={data.isAdmin} user={data.user} groups={data.groups} />
 <BottomTabBar isAdmin={data.isAdmin} />
 <InstallPrompt />
-<OfflineSync />
+<OfflineSync userId={data.user.id} />
+<PullToRefresh />

@@ -9,10 +9,12 @@ import DumbbellIcon from "@lucide/svelte/icons/dumbbell";
 import Gamepad2Icon from "@lucide/svelte/icons/gamepad-2";
 import GiftIcon from "@lucide/svelte/icons/gift";
 import GraduationCapIcon from "@lucide/svelte/icons/graduation-cap";
+import HandCoinsIcon from "@lucide/svelte/icons/hand-coins";
 import HeartIcon from "@lucide/svelte/icons/heart";
 import HouseIcon from "@lucide/svelte/icons/house";
 import MusicIcon from "@lucide/svelte/icons/music";
 import PawPrintIcon from "@lucide/svelte/icons/paw-print";
+import PiggyBankIcon from "@lucide/svelte/icons/piggy-bank";
 import PillIcon from "@lucide/svelte/icons/pill";
 import PlaneIcon from "@lucide/svelte/icons/plane";
 import ReceiptIcon from "@lucide/svelte/icons/receipt";
@@ -101,6 +103,18 @@ export const categories = [
 		label: categoryLabels.culture,
 		icon: MusicIcon,
 		hue: 158,
+	},
+	{
+		value: "finance",
+		label: categoryLabels.finance,
+		icon: PiggyBankIcon,
+		hue: 305,
+	},
+	{
+		value: "income",
+		label: categoryLabels.income,
+		icon: HandCoinsIcon,
+		hue: 225,
 	},
 	other,
 ] as const satisfies readonly CategoryOption[];

@@ -3,7 +3,6 @@ import { z } from "zod";
 import { currencies } from "#lib/currencies.js";
 import type { PersonalExpenseInput } from "#lib/dto/personal-expense.js";
 import { parseMoney } from "#lib/money.js";
-import { expenseCategories } from "#lib/server/db/schema.js";
 import { type ParsedForm, parseForm } from "#lib/server/validation/form.js";
 
 const personalSchema = z.object({
@@ -12,7 +11,8 @@ const personalSchema = z.object({
 		.trim()
 		.min(1, "Say what it was for.")
 		.max(120, "Keep it under 120 characters."),
-	category: z.enum(expenseCategories).default("other"),
+	category: z.string().min(1).default("other"),
+	aside: z.stringbool().default(false),
 	amount: z.string(),
 	currency: z.enum(currencies, "Pick a currency."),
 	spentOn: z.iso.date("Pick a date."),

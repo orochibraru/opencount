@@ -120,6 +120,9 @@ export const actions = {
 				error: "You can't remove yourself. Leave the group instead.",
 			});
 		}
+		if (member.userId !== null && member.userId === group.toJSON().createdBy) {
+			return fail(400, { error: "The group's creator can't be removed." });
+		}
 		if (member.isInvolved()) {
 			return fail(400, {
 				error: "They're part of expenses. Delete or edit those first.",

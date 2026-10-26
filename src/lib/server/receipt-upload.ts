@@ -6,6 +6,20 @@ const logger = new Logger("Receipts");
 
 const maxBytes = 10 * 1024 * 1024;
 
+/** Runs one task at a time, in arrival order, so heavy work can't pile up in memory. */
+class OneAtATime {
+	#tail: Promise<unknown> = Promise.resolve();
+
+	/** Runs `task` once every task queued before it settled; settles like `task`. */
+	run<Result>(task: () => Promise<Result>): Promise<Result> {
+		const next = this.#tail.then(task, task);
+		this.#tail = next.catch(() => undefined);
+		return next;
+	}
+}
+
+const scans = new OneAtATime();
+
 /**
  * Reads the receipt uploaded as `receipt` in `formData` and forgets it: the file is never stored, only the reading
  * goes back to the caller.
@@ -22,9 +36,8 @@ export async function readUploadedReceipt(
 	}
 	try {
 		return {
-			reading: await readReceipt(
-				Buffer.from(await file.arrayBuffer()),
-				file.type,
+			reading: await scans.run(async () =>
+				readReceipt(Buffer.from(await file.arrayBuffer()), file.type),
 			),
 		};
 	} catch (error) {

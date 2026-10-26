@@ -159,6 +159,7 @@ describe("parsePersonalForm", () => {
 				amountMinor: 1500,
 				currency: "JPY",
 				category: "shopping",
+				aside: false,
 				spentOn: "2026-10-01",
 			},
 		});

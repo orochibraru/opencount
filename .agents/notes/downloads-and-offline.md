@@ -41,15 +41,34 @@
   frozen on the expense. Balances never convert.
 - The suggested rate comes from the `getExchangeRate` remote query, backed by
   `exchangeRate()` (Frankfurter, cached per process, `undefined` when the
-  service fails: the form then asks for a rate). It and the Tricount import are
-  the Tricount import and Enable Banking are the only outbound calls besides
-  SMTP and OIDC; keep it that way and document any new one in
-  `docs/configuration.md`.
+  service fails: the form then asks for a rate). It, the Tricount import and
+  Enable Banking are the only outbound calls besides SMTP and OIDC; keep it that
+  way and document any new one in `docs/configuration.md`.
 
 ## Personal ledger
 
 - Personal expenses are private to the account: one currency each, never
-  converted, no group. Totals are this month by category.
+  converted, no group. Totals are this month by category, scoped to the filter.
+- `kind` is `expense` or `income`; `aside` marks money set aside (savings,
+  investing). Spent totals count `expense` with `aside = false`; set aside and
+  income are summed apart (`PersonalStats`). `isMoneyAside` detects it from the
+  description and files it under Finance; the expense sheet has a switch.
+- The page takes `search` (SQL `like` on the lowercased description, debounced),
+  `category`, `bank` and `account` in the URL; stats follow the same filter.
+  Custom categories are `personal_category` (`PersonalCategoryDTO`), managed at
+  `/personal/categories` with the same `CategoryManager` as a group's. Its "Sort
+  what's under Other" files Other entries by `categoryHistory` (what the account
+  filed the same description under), then keywords and own categories, and runs
+  `markAside`.
+- Personal Insights at `/personal/analytics`: period tabs, main currency only,
+  built from `PersonalExpenseDTO.spending()`.
+- A line with `bankRef` is read-only except category, date, folder and `aside`;
+  the actions enforce it, not only the sheet.
+- The home page can open on a money overview (`AppearanceDTO.homeFor` is `money`
+  or `groups`, `groups` by default, asked once after a first bank link, switch
+  under Account > Bank sync). `#lib/money-overview.ts` computes it from
+  `spending()`: month totals, pace against last month, forecast, yesterday, the
+  biggest habit, top category change, monthly repeats and the daily series.
 - "Split in a group" adds a group expense paid by the account, split equally
   among all members, converted with `exchangeRate()` when the currencies differ,
   and marks the personal one as split in that group.
@@ -82,10 +101,12 @@
 - A person links a bank from Personal (country, bank, the bank's consent screen,
   90 days of consent). `bank.syncAll` runs daily (queued at worker start if
   absent) and queues a `bank.sync` per link (`maxAttempts: 1`): 90 days back the
-  first time, then from 3 days before the last sync. Booked debits only,
-  categorized by the description guess, deduplicated per bank transaction.
-  Deleting a bank-imported expense hides it so a sync doesn't bring it back. New
-  ones trigger a push notification.
+  first time, then from 3 days before the last sync. Booked transactions, debits
+  as `expense` and credits as `income`, each with its `bankAccountUid`,
+  categorized by what the account filed the same description under, then the
+  description guess, deduplicated per bank transaction. Deleting a bank-imported
+  expense hides it so a sync doesn't bring it back. New ones trigger a push
+  notification.
 
 ## Group invite link
 
@@ -104,7 +125,13 @@
 - The service worker caches every same-origin GET network-first in a per-version
   pages cache, except `/api/`, `/auth/` and `/downloads/`, so visited pages and
   their `__data.json` reopen offline. Sign-out (sidebar and account page) wipes
-  it. It serves `static/offline.html` when an unvisited navigation fails. Pull
-  to refresh only runs in the installed app (`display-mode: standalone`).
-- The server accepts bodies up to 256 MB (`serverOptions.maxRequestBodySize` in
-  `vite.config.ts`, for restoring a backup); `BODY_SIZE_LIMIT` still overrides.
+  it and the offline queue; any navigation to `/auth/` (an expired or revoked
+  session, another person signing in) wipes the pages. Queued expenses carry the
+  account that made them and only sync for that account. It serves
+  `static/offline.html` when an unvisited navigation fails. Pull to refresh runs
+  on every signed-in page, only in the installed app
+  (`display-mode: standalone`), and ignores a pull that starts in a drawer.
+- The server accepts bodies up to 32 MB (`serverOptions.maxRequestBodySize` in
+  `vite.config.ts`): enough for a Tricount file or a receipt, small enough that
+  a few anonymous posts can't exhaust memory. `BODY_SIZE_LIMIT` raises it to
+  restore a bigger backup.

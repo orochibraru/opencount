@@ -2,16 +2,17 @@ import { resolve } from "$app/paths";
 import { fail, redirect } from "@sveltejs/kit";
 import { z } from "zod";
 
+import { categories } from "#lib/categories.js";
 import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
 import { bankCredentialsFor } from "#lib/dto/bank-credential.js";
 import { ExpenseDTO } from "#lib/dto/expense.js";
 import { GroupDTO } from "#lib/dto/group.js";
 import { JobDTO } from "#lib/dto/job.js";
+import { PersonalCategoryDTO } from "#lib/dto/personal-category.js";
 import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
 import { PersonalFolderDTO } from "#lib/dto/personal-folder.js";
 import { convertMinor, formatMoney } from "#lib/money.js";
 import { publicOrigin } from "#lib/server/auth.js";
-import { expenseCategories } from "#lib/server/db/schema.js";
 import {
 	BankError,
 	bankLinkPurpose,
@@ -36,9 +37,16 @@ const folderSchema = z.object({
 		.max(60, "Keep it under 60 characters."),
 });
 const applyCategorySchema = z.object({
-	category: z.enum(expenseCategories),
+	category: z.string().min(1),
 	ids: z.array(z.string().min(1)).min(1).max(500),
 });
+
+function knownCategory(userId: string, category: string): boolean {
+	return (
+		categories.some((option) => option.value === category) ||
+		PersonalCategoryDTO.findForUser(category, userId) !== undefined
+	);
+}
 
 function ownsFolder(userId: string, folderId: string | null | undefined) {
 	return (
@@ -81,6 +89,9 @@ export const actions = {
 		if (!ownsFolder(locals.user.id, parsed.data.folderId)) {
 			return fail(404, { error: "That folder no longer exists." });
 		}
+		if (!knownCategory(locals.user.id, parsed.data.category)) {
+			return fail(400, { errors: { category: ["Pick a category."] } });
+		}
 		PersonalExpenseDTO.create(locals.user.id, parsed.data);
 		return { created: true };
 	},
@@ -103,15 +114,29 @@ export const actions = {
 		if (!ownsFolder(locals.user.id, parsed.data.folderId)) {
 			return fail(404, { error: "That folder no longer exists." });
 		}
-		existing.update(parsed.data);
-		const recategorized = existing.toJSON().category !== parsed.data.category;
+		if (!knownCategory(locals.user.id, parsed.data.category)) {
+			return fail(400, { errors: { category: ["Pick a category."] } });
+		}
+		const current = existing.toJSON();
+		existing.update(
+			current.fromBank
+				? {
+						...parsed.data,
+						description: current.description,
+						amountMinor: current.amountMinor,
+						currency: current.currency,
+						kind: current.kind,
+					}
+				: parsed.data,
+		);
+		const recategorized = current.category !== parsed.data.category;
 		return {
 			updated: true,
 			category: parsed.data.category,
 			similar: recategorized
 				? PersonalExpenseDTO.similarTo(
 						locals.user.id,
-						{ id: existing.id, description: parsed.data.description },
+						{ id: existing.id, description: current.description },
 						parsed.data.category,
 					).map((entry) => {
 						const { id, description, spentOn, amountMinor, currency } =
@@ -144,7 +169,10 @@ export const actions = {
 			category: formData.get("category"),
 			ids: formData.getAll("ids"),
 		});
-		if (!parsed.success) {
+		if (
+			!parsed.success ||
+			!knownCategory(locals.user.id, parsed.data.category)
+		) {
 			return fail(400, { error: "Pick the expenses to move." });
 		}
 		return {
@@ -240,7 +268,9 @@ export const actions = {
 			{
 				kind: "expense",
 				description: entry.description,
-				category: entry.category,
+				category: categories.some((option) => option.value === entry.category)
+					? entry.category
+					: "other",
 				amountMinor,
 				...(entry.currency !== group.currency && {
 					originalCurrency: entry.currency,

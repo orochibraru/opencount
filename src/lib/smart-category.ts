@@ -18,6 +18,38 @@ const rules = keywords.map(
 		] as const,
 );
 
+const aside = new RegExp(
+	`(^|[^a-z0-9])(${[
+		"robo",
+		"portfolio",
+		"round up",
+		"roundup",
+		"vault",
+		"savings",
+		"epargne",
+		"livret",
+		"assurance vie",
+		"invest",
+		"investment",
+		"investing",
+		"investissement",
+		"etf",
+		"sparplan",
+		"ahorro",
+		"risparmio",
+		"poupanca",
+		"trade republic",
+		"degiro",
+		"scalable capital",
+		"bitpanda",
+	].join("|")})(s|x|es)?($|[^a-z0-9])`,
+);
+
+/** Whether an expense called `text` is money put aside, savings or investing, rather than spent. */
+export function isMoneyAside(text: string): boolean {
+	return aside.test(normalise(text));
+}
+
 function escape(text: string): string {
 	return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

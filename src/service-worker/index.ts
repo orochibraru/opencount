@@ -79,6 +79,10 @@ worker.addEventListener("fetch", (event) => {
 		);
 		return;
 	}
+	if (event.request.mode === "navigate" && url.pathname.startsWith("/auth/")) {
+		event.waitUntil(caches.delete(pagesCacheName));
+		return;
+	}
 	if (!neverCached.some((prefix) => url.pathname.startsWith(prefix))) {
 		event.respondWith(networkFirst(event.request, url));
 	}

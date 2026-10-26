@@ -8,8 +8,11 @@ import {
 	group,
 	personalExpense,
 	personalFolder,
+	type personalKinds,
 } from "#lib/server/db/schema.js";
 import { similarKey } from "#lib/similar-key.js";
+
+export type PersonalKind = (typeof personalKinds)[number];
 
 export interface PersonalExpenseRow {
 	id: string;
@@ -18,9 +21,13 @@ export interface PersonalExpenseRow {
 	amountMinor: number;
 	currency: string;
 	spentOn: string;
+	kind: PersonalKind;
+	aside: boolean;
 	folderId: string | null;
 	folderName: string | null;
 	bankName: string | null;
+	bankConnectionId: string | null;
+	bankAccountUid: string | null;
 	fromBank: boolean;
 	sharedGroupId: string | null;
 	sharedGroupName: string | null;
@@ -29,10 +36,11 @@ export interface PersonalExpenseRow {
 export type PersonalExpenseInput = Pick<
 	PersonalExpenseRow,
 	"description" | "category" | "amountMinor" | "currency" | "spentOn"
-> & { folderId?: string | null };
+> & { folderId?: string | null; aside?: boolean; kind?: PersonalKind };
 
 export interface BankExpense extends PersonalExpenseInput {
 	bankRef: string;
+	bankAccountUid: string;
 }
 
 export interface MoneyTotal {
@@ -40,9 +48,32 @@ export interface MoneyTotal {
 	minor: number;
 }
 
+export interface PersonalFilter {
+	folderId?: string;
+	category?: string;
+	search?: string;
+	bankId?: string;
+	accountUid?: string;
+}
+
+export interface SpendingRow {
+	description: string;
+	category: string;
+	kind: PersonalKind;
+	aside: boolean;
+	amountMinor: number;
+	currency: string;
+	spentOn: string;
+	folderId: string | null;
+}
+
 export interface PersonalStats {
 	totals: MoneyTotal[];
 	thisMonth: MoneyTotal[];
+	aside: MoneyTotal[];
+	asideThisMonth: MoneyTotal[];
+	income: MoneyTotal[];
+	incomeThisMonth: MoneyTotal[];
 	byCategory: (MoneyTotal & { category: string })[];
 	byMonth: (MoneyTotal & { month: string })[];
 }
@@ -56,9 +87,13 @@ function select() {
 			amountMinor: personalExpense.amountMinor,
 			currency: personalExpense.currency,
 			spentOn: personalExpense.spentOn,
+			kind: personalExpense.kind,
+			aside: personalExpense.aside,
 			folderId: personalExpense.folderId,
 			folderName: personalFolder.name,
 			bankName: bankConnection.bankName,
+			bankConnectionId: personalExpense.bankConnectionId,
+			bankAccountUid: personalExpense.bankAccountUid,
 			bankRef: personalExpense.bankRef,
 			sharedGroupId: group.id,
 			sharedGroupName: group.name,
@@ -84,23 +119,35 @@ function toRow({
 	return { ...row, fromBank: bankRef !== null };
 }
 
-function visible(userId: string, folderId?: string) {
+function visible(
+	userId: string,
+	{ folderId, category, search, bankId, accountUid }: PersonalFilter = {},
+) {
+	const pattern = search
+		? `%${search.toLowerCase().replaceAll(/[\\%_]/g, (character) => `\\${character}`)}%`
+		: undefined;
 	return and(
 		eq(personalExpense.userId, userId),
 		isNull(personalExpense.hiddenAt),
 		folderId ? eq(personalExpense.folderId, folderId) : undefined,
+		category ? eq(personalExpense.category, category) : undefined,
+		bankId ? eq(personalExpense.bankConnectionId, bankId) : undefined,
+		accountUid ? eq(personalExpense.bankAccountUid, accountUid) : undefined,
+		pattern
+			? sql`lower(${personalExpense.description}) like ${pattern} escape '\\'`
+			: undefined,
 	);
 }
 
 const minor = sql<number>`sum(${personalExpense.amountMinor})`.mapWith(Number);
 
 export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
-	/** The latest `limit` of `userId`'s own expenses, in folder `folderId` when given, with how many there are. */
+	/** The latest `limit` of `userId`'s own expenses matching `filter`, with how many match. */
 	static page(
 		userId: string,
-		{ limit, folderId }: { limit: number; folderId?: string },
+		{ limit, ...filter }: { limit: number } & PersonalFilter,
 	): { entries: PersonalExpenseDTO[]; total: number } {
-		const scope = visible(userId, folderId);
+		const scope = visible(userId, filter);
 		return {
 			entries: select()
 				.where(scope)
@@ -117,16 +164,55 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 		};
 	}
 
-	/** Totals of `userId`'s expenses, in folder `folderId` when given: in all, this month, by category and by month. */
+	/**
+	 * Totals of `userId`'s expenses matching `filter`: spent in all, this month, by category and by month, and what was
+	 * set aside, in all and this month, apart.
+	 */
 	static stats(
 		userId: string,
-		folderId?: string,
+		filter: PersonalFilter = {},
 		month = new Date().toISOString().slice(0, 7),
 	): PersonalStats {
 		const database = getDb();
-		const scope = visible(userId, folderId);
+		const matching = visible(userId, filter);
+		const spent = and(matching, eq(personalExpense.kind, "expense"));
+		const scope = and(spent, eq(personalExpense.aside, false));
+		const setAside = and(spent, eq(personalExpense.aside, true));
+		const earned = and(
+			matching,
+			eq(personalExpense.kind, "income"),
+			eq(personalExpense.aside, false),
+		);
 		const monthOf = sql<string>`substr(${personalExpense.spentOn}, 1, 7)`;
 		return {
+			income: database
+				.select({ currency: personalExpense.currency, minor })
+				.from(personalExpense)
+				.where(earned)
+				.groupBy(personalExpense.currency)
+				.orderBy(desc(minor))
+				.all(),
+			incomeThisMonth: database
+				.select({ currency: personalExpense.currency, minor })
+				.from(personalExpense)
+				.where(and(earned, sql`${monthOf} = ${month}`))
+				.groupBy(personalExpense.currency)
+				.orderBy(desc(minor))
+				.all(),
+			aside: database
+				.select({ currency: personalExpense.currency, minor })
+				.from(personalExpense)
+				.where(setAside)
+				.groupBy(personalExpense.currency)
+				.orderBy(desc(minor))
+				.all(),
+			asideThisMonth: database
+				.select({ currency: personalExpense.currency, minor })
+				.from(personalExpense)
+				.where(and(setAside, sql`${monthOf} = ${month}`))
+				.groupBy(personalExpense.currency)
+				.orderBy(desc(minor))
+				.all(),
 			totals: database
 				.select({ currency: personalExpense.currency, minor })
 				.from(personalExpense)
@@ -160,6 +246,125 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 				.orderBy(desc(monthOf))
 				.all(),
 		};
+	}
+
+	/** Every expense of `userId`, oldest first, reduced to what spending charts need. */
+	static spending(userId: string): SpendingRow[] {
+		return getDb()
+			.select({
+				description: personalExpense.description,
+				category: personalExpense.category,
+				kind: personalExpense.kind,
+				aside: personalExpense.aside,
+				amountMinor: personalExpense.amountMinor,
+				currency: personalExpense.currency,
+				spentOn: personalExpense.spentOn,
+				folderId: personalExpense.folderId,
+			})
+			.from(personalExpense)
+			.where(visible(userId))
+			.orderBy(personalExpense.spentOn)
+			.all();
+	}
+
+	/** For each description `userId` filed outside Other (keyed by `similarKey`), the category they used most. */
+	static categoryHistory(userId: string): Map<string, string> {
+		const counts = new Map<string, Map<string, number>>();
+		for (const row of getDb()
+			.select({
+				description: personalExpense.description,
+				category: personalExpense.category,
+			})
+			.from(personalExpense)
+			.where(
+				and(
+					eq(personalExpense.userId, userId),
+					ne(personalExpense.category, "other"),
+				),
+			)
+			.all()) {
+			const key = similarKey(row.description);
+			const perCategory = counts.get(key) ?? new Map<string, number>();
+			perCategory.set(row.category, (perCategory.get(row.category) ?? 0) + 1);
+			counts.set(key, perCategory);
+		}
+		return new Map(
+			[...counts].map(([key, perCategory]) => [
+				key,
+				[...perCategory].toSorted(
+					(left, right) => right[1] - left[1],
+				)[0]?.[0] ?? "other",
+			]),
+		);
+	}
+
+	/** Files each of `userId`'s expenses under Other where `guess` finds a category; returns how many moved. */
+	static categorizeUncategorized(
+		userId: string,
+		guess: (description: string) => string | undefined,
+	): number {
+		const database = getDb();
+		let moved = 0;
+		database.transaction((transaction) => {
+			for (const row of transaction
+				.select({
+					id: personalExpense.id,
+					description: personalExpense.description,
+				})
+				.from(personalExpense)
+				.where(
+					and(
+						visible(userId),
+						eq(personalExpense.kind, "expense"),
+						eq(personalExpense.category, "other"),
+					),
+				)
+				.all()) {
+				const category = guess(row.description);
+				if (category && category !== "other") {
+					transaction
+						.update(personalExpense)
+						.set({ category })
+						.where(eq(personalExpense.id, row.id))
+						.run();
+					moved += 1;
+				}
+			}
+		});
+		return moved;
+	}
+
+	/** Marks each of `userId`'s expenses that `isAside` recognises as money set aside, filing it under Finance if it was under Other; returns how many. */
+	static markAside(
+		userId: string,
+		isAside: (description: string) => boolean,
+	): number {
+		const database = getDb();
+		let marked = 0;
+		database.transaction((transaction) => {
+			for (const row of transaction
+				.select({
+					id: personalExpense.id,
+					description: personalExpense.description,
+					category: personalExpense.category,
+				})
+				.from(personalExpense)
+				.where(and(visible(userId), eq(personalExpense.aside, false)))
+				.all()) {
+				if (isAside(row.description)) {
+					transaction
+						.update(personalExpense)
+						.set({
+							aside: true,
+							category: row.category === "other" ? "finance" : row.category,
+						})
+						.where(eq(personalExpense.id, row.id))
+						.run();
+					marked += 1;
+				}
+			}
+		});
+		return marked;
 	}
 
 	/** Expense `id`, only when it belongs to `userId`. */

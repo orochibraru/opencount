@@ -146,7 +146,6 @@ const enforceSignInMethods = createAuthMiddleware((context) => {
 
 function createAuth(providers: SsoProvider[], signUpsEnabled: boolean) {
 	const origin = publicOrigin();
-	const ssoIds = providers.map((provider) => provider.id);
 	return betterAuth({
 		appName: "OpenCount",
 		baseURL: origin,
@@ -163,7 +162,7 @@ function createAuth(providers: SsoProvider[], signUpsEnabled: boolean) {
 				},
 			},
 		},
-		account: { accountLinking: { enabled: true, trustedProviders: ssoIds } },
+		account: { accountLinking: { enabled: true } },
 		emailAndPassword: {
 			enabled: true,
 			autoSignIn: true,

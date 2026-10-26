@@ -62,6 +62,12 @@
 	matching={data.matching}
 	pageSize={data.pageSize}
 	stats={data.stats}
+	categories={data.categories}
+	category={data.category}
+	search={data.search}
+	accounts={data.accounts}
+	bank={data.bank}
+	account={data.account}
 	folders={data.folders}
 	shareGroups={data.shareGroups}
 	defaultCurrency={data.defaultCurrency}

@@ -14,7 +14,10 @@
 	let refreshing = $state(false);
 
 	function touchStart(event: TouchEvent) {
-		if (installed.current && !refreshing && window.scrollY <= 0) {
+		const inDialog =
+			event.target instanceof Element &&
+			event.target.closest("[role='dialog']") !== null;
+		if (installed.current && !refreshing && !inDialog && window.scrollY <= 0) {
 			startY = event.touches[0]?.clientY;
 		}
 	}

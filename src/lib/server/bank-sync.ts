@@ -1,5 +1,6 @@
 import type { BankConnectionDTO } from "#lib/dto/bank-connection.js";
 import { bankCredentialsFor } from "#lib/dto/bank-credential.js";
+import { PersonalCategoryDTO } from "#lib/dto/personal-category.js";
 import {
 	type BankExpense,
 	PersonalExpenseDTO,
@@ -9,12 +10,29 @@ import {
 	type BankTransaction,
 	bankTransactions,
 } from "#lib/server/enable-banking.js";
-import { guessCategory } from "#lib/smart-category.js";
+import { similarKey } from "#lib/similar-key.js";
+import { guessCategory, isMoneyAside } from "#lib/smart-category.js";
 
-/** A booked card payment or debit as a personal expense; `undefined` for money in, pending lines and refunds. */
+/** How `userId`'s ledger files a description: like they filed the same one before, else by keywords and their own categories. */
+export function personalGuess(
+	userId: string,
+): (description: string) => string | undefined {
+	const history = PersonalExpenseDTO.categoryHistory(userId);
+	const custom = PersonalCategoryDTO.forUser(userId).map((entry) =>
+		entry.toJSON(),
+	);
+	return (description) =>
+		history.get(similarKey(description)) ?? guessCategory(description, custom);
+}
+
+/**
+ * A booked line of bank account `accountUid` as a personal entry: money out filed by `guess`, money in as income, and
+ * either flagged and filed under Finance when it moves money to or from savings; `undefined` for pending lines.
+ */
 export function bankExpense(
 	accountUid: string,
 	transaction: BankTransaction,
+	guess: (description: string) => string | undefined = guessCategory,
 ): BankExpense | undefined {
 	const spentOn =
 		transaction.booking_date ??
@@ -25,7 +43,6 @@ export function bankExpense(
 		Math.abs(Number(amount)) * 10 ** currencyDigits(currency),
 	);
 	if (
-		transaction.credit_debit_indicator !== "DBIT" ||
 		(transaction.status && transaction.status !== "BOOK") ||
 		!spentOn ||
 		!Number.isFinite(amountMinor) ||
@@ -33,22 +50,32 @@ export function bankExpense(
 	) {
 		return undefined;
 	}
+	const income = transaction.credit_debit_indicator === "CRDT";
 	const description = (
-		transaction.creditor?.name?.trim() ||
+		(income ? transaction.debtor : transaction.creditor)?.name?.trim() ||
 		transaction.remittance_information?.find((line) => line.trim())?.trim() ||
-		"Card payment"
+		(income ? "Money in" : "Card payment")
 	).slice(0, 120);
+	const aside = isMoneyAside(description);
 	const reference =
 		transaction.transaction_id ??
 		transaction.entry_reference ??
 		`${spentOn}:${amount}:${description}`;
+	const fallback = aside ? "finance" : "other";
 	return {
 		description,
-		category: guessCategory(description) ?? "other",
+		category: income
+			? aside
+				? "finance"
+				: "income"
+			: (guess(description) ?? fallback),
+		kind: income ? "income" : "expense",
+		aside,
 		amountMinor,
 		currency,
 		spentOn: spentOn.slice(0, 10),
 		bankRef: `${accountUid}:${reference}`,
+		bankAccountUid: accountUid,
 	};
 }
 
@@ -71,9 +98,10 @@ export async function syncBank(connection: BankConnectionDTO): Promise<number> {
 		}
 		let added = 0;
 		const from = connection.fetchFrom();
+		const guess = personalGuess(connection.userId);
 		for (const account of connection.accounts) {
 			const expenses = (await bankTransactions(credentials, account.uid, from))
-				.map((transaction) => bankExpense(account.uid, transaction))
+				.map((transaction) => bankExpense(account.uid, transaction, guess))
 				.filter((entry) => entry !== undefined);
 			added += PersonalExpenseDTO.importFromBank(
 				connection.userId,

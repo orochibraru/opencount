@@ -54,8 +54,8 @@ Poppler for PDFs (`apt install poppler-utils` or `brew install poppler`).
 
 A PDF is read from its first page. When the page carries text, like a receipt
 emailed by a shop, that text is used directly. When it doesn't, like a scan, the
-page is rendered at 300 dpi and read by Tesseract. Both go through pipes;
-nothing touches the disk.
+page is rendered at 300 dpi, at most 2500 px, and read by Tesseract. Scans run
+one at a time. Both go through pipes; nothing touches the disk.
 
 ## How the parsing works
 

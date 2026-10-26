@@ -42,6 +42,22 @@ describe("guards", () => {
 				new URL("https://example.com/auth/sign-in?redirectTo=//evil.test"),
 			),
 		).toBe("/");
+		for (const sneaky of [
+			"/%5Cevil.test",
+			"/%09/evil.test",
+			"https://evil.test",
+		]) {
+			expect(
+				safeRedirectTarget(
+					new URL(`https://example.com/auth/sign-in?redirectTo=${sneaky}`),
+				),
+			).toBe("/");
+		}
+		expect(
+			safeRedirectTarget(
+				new URL("https://example.com/auth/sign-in?redirectTo=/groups%3Fq%3Da"),
+			),
+		).toBe("/groups?q=a");
 		expect(
 			safeRedirectTarget(new URL("https://example.com/auth/sign-in")),
 		).toBe("/");

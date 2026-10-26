@@ -157,6 +157,12 @@ describe("guessCategory", () => {
 		expect(guessCategory("Guitare")).toBe("culture");
 		expect(guessCategory("Courses Carrefour")).toBe("groceries");
 		expect(guessCategory("Hôtel Ibis")).toBe("lodging");
+		expect(guessCategory("Frais bancaires")).toBe("finance");
+		expect(guessCategory("Retrait DAB 12/10")).toBe("finance");
+		expect(guessCategory("Assurance vie")).toBe("finance");
+		expect(guessCategory("Assurance habitation")).toBe("bills");
+		expect(guessCategory("Überweisung an Max")).toBe("finance");
+		expect(guessCategory("Trade Republic")).toBe("finance");
 		expect(guessCategory("Something else")).toBeUndefined();
 	});
 
@@ -201,6 +207,8 @@ describe("categories", () => {
 			"care",
 			"education",
 			"culture",
+			"finance",
+			"income",
 			"other",
 			"kids",
 			"odd",

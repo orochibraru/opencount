@@ -32,7 +32,7 @@ client secrets again, and everyone has to set up their authenticator app again.
 | `ADDRESS_HEADER`  | unset                | To see the client's IP, not the proxy's     |
 | `XFF_DEPTH`       | unset                | With `ADDRESS_HEADER: x-forwarded-for`      |
 | `PORT`            | `3000`               | To listen on another port                   |
-| `BODY_SIZE_LIMIT` | `256M`               | To accept bigger or smaller uploads         |
+| `BODY_SIZE_LIMIT` | `32M`                | To restore a backup bigger than 32 MB       |
 
 Every form post is checked against the app's public origin, and a mismatch is
 refused with `403 Cross-site POST form submissions are forbidden`. OpenCount
@@ -47,7 +47,8 @@ Setting `ORIGIN` behind a proxy does no harm, and it also fixes the base URL of
 invite links and single sign-on callbacks.
 
 `PROTOCOL_HEADER`, `HOST_HEADER`, `ADDRESS_HEADER`, `XFF_DEPTH`, `PORT` and
-`BODY_SIZE_LIMIT` belong to the Bun adapter; its
+`BODY_SIZE_LIMIT` belong to the Bun adapter (uploads are capped at 32 MB unless
+you raise it, which restoring a bigger backup needs); its
 [documentation](https://svelte.dev/docs/kit/adapter-bun#Environment-variables)
 lists the rest. Only trust forwarded headers when every request reaches the
 server through a proxy you control.

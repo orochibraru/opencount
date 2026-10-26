@@ -39,11 +39,15 @@ open-source alternative to Tricount that installs on your phone like an app.
   converted at the day's rate when the currencies differ. Folders group expenses
   into projects, each with its own totals.
 - **Bank sync**, optional: link your bank through Enable Banking (most European
-  banks, Revolut included) and booked debits land in your personal ledger every
-  day, categorized. Each person sets up their own Enable Banking keys under
+  banks, Revolut included) and its payments, salary and top-ups land in your
+  personal ledger every day, categorized, with savings and investing kept apart
+  from spending. Each person sets up their own Enable Banking keys under
   **Account, Bank sync**.
+- **Money overview**, optional: once a bank is linked, the home page can open on
+  how you're doing: this month against the last, a month-end forecast,
+  yesterday's spending, your habits and what repeats every month.
 - **Search and filter**: find an expense by description or merchant, or filter a
-  group's list by category. Lists load 50 at a time.
+  list by category, and Personal by bank and account. Lists load 50 at a time.
 - **Insights** by period, category, merchant and payer, and over time.
 - **Archiving**: hide a finished group from your own list without touching
   anyone else's.

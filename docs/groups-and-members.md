@@ -32,7 +32,7 @@ From **Settings, Members**, any member can:
   name only shows in this group, your account name stays the same.
 - **Remove** a member, only while they are not part of any expense or repeating
   expense, as payer or in a split. Edit or delete those first, so no balance
-  quietly changes.
+  quietly changes. The group's creator can't be removed by another member.
 
 ### Invite link
 
@@ -67,8 +67,9 @@ own CSV export; the link is read from Tricount's servers.
 
 **Settings, Export** builds the group's expenses as a CSV spreadsheet or a PDF
 summary in the background. The PDF embeds Noto Sans, so Latin, Greek and
-Cyrillic names print; CJK and emoji print as `?`. The file waits in the list for
-a day and only you can download it.
+Cyrillic names print; CJK and emoji print as `?`. In the CSV, a cell that would
+read as a formula is prefixed so a spreadsheet shows it as text. The file waits
+in the list for a day and only you can download it.
 
 ## Leaving and deleting
 

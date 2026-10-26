@@ -4,6 +4,8 @@
 
 	import { offlineQueue } from "#lib/offline-queue.svelte.js";
 
+	const { userId }: { userId: string } = $props();
+
 	async function syncCallback(): Promise<string> {
 		const { synced, rejected } = await offlineQueue.sync();
 		if (rejected.length > 0) {
@@ -18,7 +20,7 @@
 
 	async function handleSync() {
 		try {
-			await offlineQueue.load();
+			await offlineQueue.signedInAs(userId);
 		} catch {
 			return;
 		}

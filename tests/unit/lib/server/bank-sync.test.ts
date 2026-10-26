@@ -166,18 +166,53 @@ describe("Enable Banking client", () => {
 describe("bank sync", () => {
 	beforeEach(resetDatabase);
 
-	test("bankExpense keeps booked spending only", () => {
+	test("bankExpense keeps booked lines, money in as income", () => {
 		expect(bankExpense("acc", card())).toEqual({
 			description: "Carrefour City",
 			category: "groceries",
+			kind: "expense",
 			amountMinor: 1230,
 			currency: "EUR",
 			spentOn: "2026-10-20",
+			aside: false,
 			bankRef: "acc:t1",
+			bankAccountUid: "acc",
 		});
+		expect(bankExpense("acc", card(), () => "food")?.category).toBe("food");
 		expect(
-			bankExpense("acc", card({ credit_debit_indicator: "CRDT" })),
-		).toBeUndefined();
+			bankExpense("acc", card({ creditor: { name: "To robo portfolio" } })),
+		).toEqual(expect.objectContaining({ aside: true, category: "finance" }));
+		expect(
+			bankExpense(
+				"acc",
+				card({
+					credit_debit_indicator: "CRDT",
+					creditor: null,
+					debtor: { name: "ACME Payroll" },
+				}),
+			),
+		).toEqual(
+			expect.objectContaining({
+				description: "ACME Payroll",
+				kind: "income",
+				category: "income",
+			}),
+		);
+		expect(
+			bankExpense(
+				"acc",
+				card({
+					credit_debit_indicator: "CRDT",
+					debtor: { name: "From robo portfolio" },
+				}),
+			),
+		).toEqual(
+			expect.objectContaining({
+				kind: "income",
+				aside: true,
+				category: "finance",
+			}),
+		);
 		expect(bankExpense("acc", card({ status: "PDNG" }))).toBeUndefined();
 		expect(
 			bankExpense(
@@ -266,6 +301,7 @@ describe("PersonalExpenseDTO", () => {
 					currency: "EUR",
 					spentOn: "2026-10-02",
 					bankRef: "acc:1",
+					bankAccountUid: "acc",
 				},
 			]),
 		).toBe(1);
@@ -300,6 +336,7 @@ describe("PersonalExpenseDTO", () => {
 					currency: "EUR",
 					spentOn: "2026-10-02",
 					bankRef: "acc:1",
+					bankAccountUid: "acc",
 				},
 			]),
 		).toBe(0);
