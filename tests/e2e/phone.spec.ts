@@ -1,6 +1,9 @@
 import { expect, test } from "@playwright/test";
 
 test("adding an expense with the drawers on a phone", async ({ page }) => {
+	await page.addInitScript(() =>
+		localStorage.setItem("opencount-install-prompted", "e2e"),
+	);
 	await page.goto("/");
 	await page.getByRole("button", { name: "New group" }).last().click();
 	await page.getByRole("dialog").getByLabel("Name").fill("Ski weekend");
@@ -48,4 +51,17 @@ test("the app links an installable manifest", async ({ page, request }) => {
 	expect(
 		body.icons.some((icon: { sizes: string }) => icon.sizes === "512x512"),
 	).toBe(true);
+});
+
+test("a phone is offered the install once", async ({ page }) => {
+	await page.goto("/");
+	const prompt = page.getByRole("dialog", { name: "Install OpenCount" });
+	await expect(prompt).toBeVisible({ timeout: 10_000 });
+	await prompt.getByRole("button", { name: /Got it|Not now/ }).click();
+	await expect(prompt).toBeHidden();
+	expect(
+		await page.evaluate(() =>
+			localStorage.getItem("opencount-install-prompted"),
+		),
+	).not.toBeNull();
 });

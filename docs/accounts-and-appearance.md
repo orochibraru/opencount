@@ -71,14 +71,15 @@ for [bank sync](personal-and-banks). Nobody else can see or use your keys.
 
 ## On a phone
 
-After you sign in, OpenCount offers to install itself, once per device: Chrome,
-Edge and Android show their install dialog, and Safari on iPhone and iPad
-explains **Share, Add to Home Screen**. You can also do it yourself any time.
-Installed, it opens standalone, like a native app, with pull to refresh on the
-groups list and a light tap of haptics on actions. An expense added with no
-connection is kept on the device and sent once you're back online. Pages you
-already opened reopen with no connection; one you never opened shows an offline
-screen, and signing out clears what was kept. The bottom tab bar holds Groups,
-Personal and Account, plus Admin for admins. On a desktop, a sidebar lists
-Groups, Personal, Admin and your groups, with your account in the menu under
-your name at the bottom.
+After you sign in on a phone or tablet, OpenCount offers to install itself, once
+per device: Chrome, Edge and Samsung Internet show their install dialog, iPhone
+and iPad browsers explain **Share, Add to Home Screen**, and other browsers
+point to **Install app** in their menu. On a computer, install it from the
+address bar. You can also do it yourself any time. Installed, it opens
+standalone, like a native app, with pull to refresh on the groups list and a
+light tap of haptics on actions. An expense added with no connection is kept on
+the device and sent once you're back online. Pages you already opened reopen
+with no connection; one you never opened shows an offline screen, and signing
+out clears what was kept. The bottom tab bar holds Groups, Personal and Account,
+plus Admin for admins. On a desktop, a sidebar lists Groups, Personal, Admin and
+your groups, with your account in the menu under your name at the bottom.
