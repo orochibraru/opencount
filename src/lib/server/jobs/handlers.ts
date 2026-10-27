@@ -47,7 +47,16 @@ export const jobHandlers: JobHandlers = {
 			return;
 		}
 		const added = await syncBank(connection, full);
-		logger.info("Bank synced", { added });
+		logger.info("Bank synced", {
+			added,
+			accounts: (connection.toJSON().lastReport ?? []).map(
+				({ fetched, booked, added: fresh }) => ({
+					fetched,
+					booked,
+					added: fresh,
+				}),
+			),
+		});
 		if (added > 0) {
 			JobDTO.enqueue("push.send", {
 				userIds: [connection.userId],

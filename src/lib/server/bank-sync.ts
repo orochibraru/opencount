@@ -7,6 +7,7 @@ import {
 	PersonalExpenseDTO,
 } from "#lib/dto/personal-expense.js";
 import { currencyDigits } from "#lib/money.js";
+import type { BankSyncReport } from "#lib/server/db/schema.js";
 import {
 	BankError,
 	bankLogo,
@@ -127,20 +128,36 @@ export async function syncBank(
 				connection.setLogo(logo);
 			}
 		}
-		let added = 0;
-		const from = full ? undefined : connection.fetchFrom();
-		const guess = personalGuess(connection.userId);
-		for (const account of connection.accounts) {
-			const expenses = (await bankTransactions(credentials, account.uid, from))
-				.map((transaction) => bankExpense(account.uid, transaction, guess))
-				.filter((entry) => entry !== undefined);
-			added += PersonalExpenseDTO.importFromBank(
-				connection.userId,
-				connection.id,
-				expenses,
+		if (connection.accounts.length === 0) {
+			throw new BankError(
+				"Your bank shared no account. Unlink it, link it again and tick your accounts on the bank's screen.",
 			);
 		}
-		connection.markSynced(added);
+		const from = full ? undefined : connection.fetchFrom();
+		const guess = personalGuess(connection.userId);
+		const report: BankSyncReport[] = [];
+		for (const account of connection.accounts) {
+			const transactions = await bankTransactions(
+				credentials,
+				account.uid,
+				from,
+			);
+			const expenses = transactions
+				.map((transaction) => bankExpense(account.uid, transaction, guess))
+				.filter((entry) => entry !== undefined);
+			report.push({
+				accountUid: account.uid,
+				fetched: transactions.length,
+				booked: expenses.length,
+				added: PersonalExpenseDTO.importFromBank(
+					connection.userId,
+					connection.id,
+					expenses,
+				),
+			});
+		}
+		const added = report.reduce((total, entry) => total + entry.added, 0);
+		connection.markSynced(added, report);
 		return added;
 	} catch (error) {
 		connection.markFailed(

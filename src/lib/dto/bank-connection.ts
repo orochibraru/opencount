@@ -2,7 +2,7 @@ import { and, asc, eq, gt } from "drizzle-orm";
 
 import { BaseDTO } from "#lib/dto/base-dto.js";
 import { getDb } from "#lib/server/db/lib.js";
-import { bankConnection } from "#lib/server/db/schema.js";
+import { bankConnection, type BankSyncReport } from "#lib/server/db/schema.js";
 
 type ConnectionRow = typeof bankConnection.$inferSelect;
 
@@ -136,12 +136,17 @@ export class BankConnectionDTO extends BaseDTO<BankConnectionRow> {
 		this.#update({ syncState: "running", syncStateAt: at });
 	}
 
-	/** Records a sync that worked and brought `added` new lines. */
-	markSynced(added: number, at = new Date()): void {
+	/** Records a sync that worked: `added` new lines, and what each account returned in `report`. */
+	markSynced(
+		added: number,
+		report: BankSyncReport[] = [],
+		at = new Date(),
+	): void {
 		this.#update({
 			syncedAt: at,
 			lastError: null,
 			lastAdded: added,
+			lastReport: report,
 			syncState: "idle",
 			syncStateAt: at,
 		});

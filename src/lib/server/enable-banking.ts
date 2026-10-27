@@ -170,7 +170,7 @@ export async function openBankSession(
 		aspsp: { name: string; country: string };
 		access: { valid_until: string };
 		accounts: {
-			uid: string;
+			uid?: string | null;
 			name?: string | null;
 			details?: string | null;
 			product?: string | null;
@@ -186,18 +186,22 @@ export async function openBankSession(
 		bankName: session.aspsp.name,
 		bankCountry: session.aspsp.country,
 		validUntil: new Date(session.access.valid_until),
-		accounts: session.accounts.map((account) => ({
-			uid: account.uid,
-			name:
-				account.details ??
-				account.product ??
-				(account.account_id?.iban
-					? `…${account.account_id.iban.slice(-4)}`
-					: null) ??
-				account.name ??
-				"Account",
-			currency: account.currency ?? "EUR",
-		})),
+		accounts: session.accounts
+			.flatMap((account) =>
+				account.uid ? [{ ...account, uid: account.uid }] : [],
+			)
+			.map((account) => ({
+				uid: account.uid,
+				name:
+					account.details ??
+					account.product ??
+					(account.account_id?.iban
+						? `…${account.account_id.iban.slice(-4)}`
+						: null) ??
+					account.name ??
+					"Account",
+				currency: account.currency ?? "EUR",
+			})),
 	};
 }
 

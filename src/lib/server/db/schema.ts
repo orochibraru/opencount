@@ -719,6 +719,13 @@ export const personalCategory = sqliteTable(
 
 export const bankSyncStates = ["idle", "queued", "running"] as const;
 
+export interface BankSyncReport {
+	accountUid: string;
+	fetched: number;
+	booked: number;
+	added: number;
+}
+
 export const bankConnection = sqliteTable(
 	"bank_connection",
 	{
@@ -743,6 +750,7 @@ export const bankConnection = sqliteTable(
 			.default("idle"),
 		syncStateAt: integer("sync_state_at", { mode: "timestamp_ms" }),
 		lastAdded: integer("last_added"),
+		lastReport: text("last_report", { mode: "json" }).$type<BankSyncReport[]>(),
 		createdAt: createdAt(),
 	},
 	(table) => [index("bank_connection_user_id_idx").on(table.userId)],

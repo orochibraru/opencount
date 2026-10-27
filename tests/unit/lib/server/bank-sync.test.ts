@@ -122,6 +122,7 @@ describe("Enable Banking client", () => {
 					accounts: [
 						{ uid: "a-1", details: "Main", currency: "EUR" },
 						{ uid: "a-2", account_id: { iban: "FR7600001111" } },
+						{ uid: null, details: "Card that can't be read" },
 					],
 				}),
 			)
@@ -266,6 +267,7 @@ describe("bank sync", () => {
 				syncState: "idle",
 				lastAdded: 2,
 				lastError: null,
+				lastReport: [{ accountUid: "acc-1", fetched: 2, booked: 2, added: 2 }],
 			}),
 		);
 		expect(again?.syncing()).toBe(false);
@@ -286,6 +288,21 @@ describe("bank sync", () => {
 		expect(connection.syncing()).toBe(true);
 		expect(JobDTO.counts().pending).toBe(1);
 		expect(connection.syncing(new Date(Date.now() + 16 * 60_000))).toBe(false);
+	});
+
+	test("a link that shares no account fails and says how to fix it", async () => {
+		const ada = createUser("ada");
+		saveBankCredentials(ada.id, credentials());
+		const connection = BankConnectionDTO.create(ada.id, {
+			sessionId: "session-2",
+			bankName: "Crédit Mutuel",
+			bankCountry: "FR",
+			accounts: [],
+			validUntil: new Date(Date.now() + 86_400_000),
+		});
+		connection.setLogo("https://logos.example/cm.png");
+		await expect(syncBank(connection)).rejects.toThrow("shared no account");
+		expect(connection.toJSON().lastError).toContain("tick your accounts");
 	});
 
 	test("a link without keys fails and says why", async () => {

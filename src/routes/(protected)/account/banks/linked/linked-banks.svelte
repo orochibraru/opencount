@@ -25,6 +25,9 @@
 		syncedAt: Date | null;
 		lastError: string | null;
 		lastAdded: number | null;
+		lastReport:
+			| { accountUid: string; fetched: number; booked: number; added: number }[]
+			| null;
 		syncing: boolean;
 		historyFrom: string | null;
 	}
@@ -111,6 +114,26 @@
 			month: "short",
 			year: "numeric",
 		});
+	}
+
+	function accountLine(
+		connection: Connection,
+		entry: NonNullable<Connection["lastReport"]>[number],
+	): string {
+		const name =
+			connection.accounts.find((account) => account.uid === entry.accountUid)
+				?.name ?? "Account";
+		if (entry.fetched === 0) {
+			return `${name}: nothing from the bank`;
+		}
+		const skipped = entry.fetched - entry.booked;
+		return [
+			`${name}: ${entry.fetched} from the bank`,
+			skipped > 0 ? `${skipped} pending or empty` : null,
+			`${entry.added} new`,
+		]
+			.filter(Boolean)
+			.join(" · ");
 	}
 
 	function status(connection: Connection): string {
@@ -238,6 +261,13 @@
 								{/if}
 								<span class="min-w-0">{status(connection)}</span>
 							</span>
+							{#if !connection.syncing && !connection.lastError && connection.lastReport?.length}
+								<ul class="text-muted-foreground mt-1 text-xs">
+									{#each connection.lastReport as entry (entry.accountUid)}
+										<li class="truncate">{accountLine(connection, entry)}</li>
+									{/each}
+								</ul>
+							{/if}
 						</span>
 					</ItemMenu>
 				</li>

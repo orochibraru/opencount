@@ -1,0 +1,1 @@
+ALTER TABLE `bank_connection` ADD `last_report` text;
