@@ -49,17 +49,20 @@ async function checkDiscovery(url: string): Promise<string | undefined> {
 	}
 }
 
-export const load = ({ url }) => ({
-	passwordSignIn: getSetting("passwordSignIn"),
-	passkeySignIn: getSetting("passkeySignIn"),
-	magicLinkSignIn: getSetting("magicLinkSignIn"),
-	emailCodeSignIn: getSetting("emailCodeSignIn"),
-	emailConfigured: isEmailConfigured(),
-	providers: getSetting("ssoProviders").map(
-		({ encryptedClientSecret: _secret, ...provider }) => provider,
-	),
-	callbackBase: `${publicOrigin() ?? url.origin}/api/auth/callback/`,
-});
+export const load = async ({ parent, url }) => {
+	await parent();
+	return {
+		passwordSignIn: getSetting("passwordSignIn"),
+		passkeySignIn: getSetting("passkeySignIn"),
+		magicLinkSignIn: getSetting("magicLinkSignIn"),
+		emailCodeSignIn: getSetting("emailCodeSignIn"),
+		emailConfigured: isEmailConfigured(),
+		providers: getSetting("ssoProviders").map(
+			({ encryptedClientSecret: _secret, ...provider }) => provider,
+		),
+		callbackBase: `${publicOrigin() ?? url.origin}/api/auth/callback/`,
+	};
+};
 
 export const actions = {
 	methods: async ({ locals, request }) => {

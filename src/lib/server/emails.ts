@@ -37,6 +37,24 @@ export function verificationCodeEmail(to: string, code: string): EmailMessage {
 	};
 }
 
+/** The email telling `to` someone tried to sign up with their address, which already has an account. */
+export function accountExistsEmail(
+	to: string,
+	signInLink: string,
+): EmailMessage {
+	return {
+		to,
+		subject: "You already have an OpenCount account",
+		text: `Someone, probably you, tried to create an OpenCount account with this email, which already has one. Sign in instead: ${signInLink}\nIf it wasn't you, ignore this email.`,
+		html: layout(
+			"You already have an account",
+			`<p style="margin:0 0 16px;color:#55605c">Someone, probably you, tried to create an OpenCount account with this email, which already has one.</p>
+${button(escapeHtml(signInLink), "Sign in")}
+<p style="margin:24px 0 0;color:#55605c;font-size:13px">If it wasn't you, ignore this email.</p>`,
+		),
+	};
+}
+
 /** The email inviting `to` to create an account. */
 export function inviteEmail(
 	to: string,

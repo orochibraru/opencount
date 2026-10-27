@@ -15,9 +15,10 @@ delivery, and an address another account uses is refused. An admin can also
 change it from [the admin area](admin).
 
 **Delete account** removes your sign-in, sessions and security keys, and asks
-for your password when you have one. In your groups, your member stays as a
-plain name with its expenses, so nobody's balance changes. The last admin can't
-delete their account: make someone else admin first.
+for your password when you have one (otherwise a recent sign-in). In your
+groups, your member stays as a plain name with its expenses, so nobody's balance
+changes. The last admin can't delete their account: make someone else admin
+first.
 
 ## Security
 
@@ -32,10 +33,29 @@ delete their account: make someone else admin first.
   as you like and remove the ones you no longer use. With passkey sign-in on, a
   passkey replaces your email and password at sign-in.
 
-An admin can require either of them. Until you add what is required, every page
-sends you here, with a note saying what is missing. The same happens when an
-admin turns password sign-in off and you have no other way in: add a passkey,
-and you are through. See [Sign-in and single sign-on](sign-in-and-sso).
+- **App lock**: a 6-digit passcode, typed twice, that locks OpenCount after 1,
+  5, 15 or 60 minutes away (5 by default). It is checked on the server for each
+  session, so closing the tab or reloading doesn't get around it: a locked
+  session shows the unlock page and nothing else. The app also locks itself when
+  you come back after the delay, and clears the pages it kept for offline use.
+  Five wrong passcodes sign that session out. If you forget it, sign out and
+  sign in again; a session signed in within the last 15 minutes can change or
+  remove the passcode without the old one. Setting a passcode locks your other
+  devices.
+- **Signed-in devices**: every session of your account, with a button to sign
+  one out or all the others.
+
+Some changes ask for a recent sign-in, within 15 minutes: adding or removing a
+passkey, setting a first password, starting an email change, deleting an account
+with no password, and saving or removing bank sync keys. Otherwise you are told
+to sign out and back in. Changing your email or setting a password signs your
+other devices out.
+
+An admin can require an authenticator app, a passkey or an app lock. Until you
+add what is required, every page, form and request sends you here, with a note
+saying what is missing. The same happens when an admin turns password sign-in
+off and you have no other way in: add a passkey, and you are through. See
+[Sign-in and single sign-on](sign-in-and-sso).
 
 ## Appearance
 

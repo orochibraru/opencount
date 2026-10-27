@@ -58,9 +58,9 @@ the instance over HTTPS. The same goes for installing it on a phone.
 ## Single sign-on fails after the provider
 
 The redirect URI registered with the provider must match the one on **Admin,
-Sign-in methods** exactly. It is built from `ORIGIN` when set; behind a proxy
-without it, check the proxy forwards the public host. A brand new person also
-needs sign-ups open, or an invite first. See
+Sign-in methods** exactly. It is built from `ORIGIN` when set, otherwise from
+the **Public address** in **Admin, Access**; check that one. A brand new person
+also needs sign-ups open, or an invite first. See
 [Sign-in and single sign-on](sign-in-and-sso).
 
 ## Everyone was signed out and email stopped working

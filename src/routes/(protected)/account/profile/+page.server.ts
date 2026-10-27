@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { hasPassword } from "#lib/dto/account.js";
 import { CodeChallengeDTO } from "#lib/dto/code-challenge.js";
+import { SessionDTO } from "#lib/dto/session.js";
 import { UserDTO } from "#lib/dto/user.js";
 import { isAdmin } from "#lib/server/admin.js";
 import { getAuth } from "#lib/server/auth.js";
@@ -14,6 +15,10 @@ import {
 	queueEmail,
 } from "#lib/server/emails.js";
 import { isEmailConfigured } from "#lib/server/mailer.js";
+import {
+	recentSignInMessage,
+	signedInRecently,
+} from "#lib/server/security-policy.js";
 import {
 	emailChangeCodeSchema,
 	emailChangeSchema,
@@ -37,11 +42,14 @@ function isLastAdmin(user: { role?: string | null }): boolean {
 	return isAdmin(user) && UserDTO.adminCount() <= 1;
 }
 
-export const load = ({ locals }) => ({
-	emailChangeAvailable: isEmailConfigured(),
-	hasPassword: locals.user ? hasPassword(locals.user.id) : false,
-	lastAdmin: locals.user ? isLastAdmin(locals.user) : false,
-});
+export const load = async ({ locals, parent }) => {
+	await parent();
+	return {
+		emailChangeAvailable: isEmailConfigured(),
+		hasPassword: locals.user ? hasPassword(locals.user.id) : false,
+		lastAdmin: locals.user ? isLastAdmin(locals.user) : false,
+	};
+};
 
 export const actions = {
 	profile: async ({ locals, request }) => {
@@ -64,6 +72,9 @@ export const actions = {
 		}
 		if (!isEmailConfigured()) {
 			return fail(400, { error: "Email isn't set up here. Ask an admin." });
+		}
+		if (!locals.session || !signedInRecently(locals.session)) {
+			return fail(403, { error: recentSignInMessage });
 		}
 		const parsed = parseForm(emailChangeSchema, await request.formData());
 		if (!parsed.success) {
@@ -114,6 +125,9 @@ export const actions = {
 			});
 		}
 		UserDTO.changeEmail(locals.user.id, email);
+		if (locals.session) {
+			SessionDTO.revokeOthers(locals.user.id, locals.session.id);
+		}
 		queueEmail(emailChangedEmail(locals.user.email, email));
 		return { emailChanged: true };
 	},
@@ -129,6 +143,12 @@ export const actions = {
 		const parsed = parseForm(optionalPasswordSchema, await request.formData());
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
+		}
+		if (
+			!hasPassword(locals.user.id) &&
+			(!locals.session || !signedInRecently(locals.session))
+		) {
+			return fail(403, { error: recentSignInMessage });
 		}
 		if (hasPassword(locals.user.id)) {
 			try {

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { passwordMaxLength, passwordRules } from "#lib/password-policy.js";
+import { appLockMinutes } from "#lib/server/db/schema.js";
 
 export const emailSchema = z
 	.string()
@@ -114,4 +115,36 @@ export const emailSignInSchema = z.object({ email: emailSchema });
 export const emailCodeSignInSchema = z.object({
 	email: emailSchema,
 	code: codeSchema.shape.code,
+});
+
+const passcode = z
+	.string()
+	.trim()
+	.regex(/^\d{6}$/, "Enter the 6 digits of your passcode.");
+
+export const passcodeSchema = z.object({ passcode });
+
+/** A new app lock passcode typed twice, its delay, and the current passcode when one exists. */
+export const appLockSchema = z
+	.object({
+		currentPasscode: z.string().trim().optional(),
+		passcode,
+		confirmPasscode: z.string().trim(),
+		lockAfterMinutes: z.coerce
+			.number()
+			.pipe(z.literal(appLockMinutes, "Pick when the app locks.")),
+	})
+	.refine((value) => value.passcode === value.confirmPasscode, {
+		path: ["confirmPasscode"],
+		message: "The passcodes don't match.",
+	});
+
+export const appLockDelaySchema = z.object({
+	lockAfterMinutes: z.coerce
+		.number()
+		.pipe(z.literal(appLockMinutes, "Pick when the app locks.")),
+});
+
+export const currentPasscodeSchema = z.object({
+	currentPasscode: z.string().trim().optional(),
 });

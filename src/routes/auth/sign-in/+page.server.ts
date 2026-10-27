@@ -7,7 +7,11 @@ import { getSetting } from "#lib/dto/setting.js";
 import { getAuth } from "#lib/server/auth.js";
 import { safeRedirectTarget } from "#lib/server/guards.js";
 import { isEmailConfigured } from "#lib/server/mailer.js";
-import { addressAttempts, passwordAttempts } from "#lib/server/rate-limit.js";
+import {
+	addressAttempts,
+	mayEmail,
+	passwordAttempts,
+} from "#lib/server/rate-limit.js";
 import { enabledSignInMethods } from "#lib/server/sign-in-methods.js";
 import {
 	emailCodeSignInSchema,
@@ -18,7 +22,8 @@ import { parseForm } from "#lib/server/validation/form.js";
 
 const ssoSchema = z.object({ provider: z.string().min(1) });
 
-export const load = () => ({
+export const load = ({ url }) => ({
+	redirectTo: safeRedirectTarget(url),
 	signUpsOpen: getSetting("signUpsEnabled"),
 	methods: enabledSignInMethods(),
 	passwordReset: getSetting("passwordSignIn") && isEmailConfigured(),
@@ -60,17 +65,25 @@ export const actions = {
 		}
 		passwordAttempts.reset(account);
 		if ("twoFactorRedirect" in result && result.twoFactorRedirect) {
-			redirect(303, `${resolve("/auth/two-factor")}${url.search}`);
+			redirect(
+				303,
+				`${resolve("/auth/two-factor")}?redirectTo=${encodeURIComponent(safeRedirectTarget(url))}`,
+			);
 		}
 		redirect(303, safeRedirectTarget(url));
 	},
-	emailLink: async ({ request, url }) => {
+	emailLink: async ({ getClientAddress, request, url }) => {
 		if (!enabledSignInMethods().magicLink) {
 			return fail(400, { error: "That sign-in method is turned off." });
 		}
 		const parsed = parseForm(emailSignInSchema, await request.formData());
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
+		}
+		if (!mayEmail(parsed.data.email, getClientAddress())) {
+			return fail(429, {
+				error: "Too many emails asked for. Wait a while and try again.",
+			});
 		}
 		try {
 			await getAuth().api.signInMagicLink({
@@ -94,13 +107,18 @@ export const actions = {
 		}
 		return { linkSent: parsed.data.email };
 	},
-	emailCode: async ({ request }) => {
+	emailCode: async ({ getClientAddress, request }) => {
 		if (!enabledSignInMethods().emailCode) {
 			return fail(400, { error: "That sign-in method is turned off." });
 		}
 		const parsed = parseForm(emailSignInSchema, await request.formData());
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
+		}
+		if (!mayEmail(parsed.data.email, getClientAddress())) {
+			return fail(429, {
+				error: "Too many emails asked for. Wait a while and try again.",
+			});
 		}
 		try {
 			await getAuth().api.sendVerificationOTP({

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from "$app/paths";
+	import { page } from "$app/state";
 	import ShieldCheckIcon from "@lucide/svelte/icons/shield-check";
 
 	import AuthShell from "#lib/components/auth-shell.svelte";
@@ -8,6 +9,7 @@
 	import { Checkbox } from "#lib/components/ui/checkbox/index.js";
 	import * as Field from "#lib/components/ui/field/index.js";
 	import { Input } from "#lib/components/ui/input/index.js";
+	import { keepRedirect } from "#lib/redirect-target.js";
 
 	let errors = $state<Record<string, string[]>>({});
 	let useBackupCode = $state(false);
@@ -21,7 +23,7 @@
 >
 	{#if useBackupCode}
 		<AuthForm
-			action="?/backup"
+			action={keepRedirect("?/backup", page.url)}
 			submitLabel="Verify"
 			submitIcon={ShieldCheckIcon}
 			loading="Checking"
@@ -42,7 +44,7 @@
 		</AuthForm>
 	{:else}
 		<AuthForm
-			action="?/totp"
+			action={keepRedirect("?/totp", page.url)}
 			submitLabel="Verify"
 			submitIcon={ShieldCheckIcon}
 			loading="Checking"

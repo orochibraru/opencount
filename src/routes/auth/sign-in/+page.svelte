@@ -19,6 +19,7 @@
 	import { Button } from "#lib/components/ui/button/index.js";
 	import * as Field from "#lib/components/ui/field/index.js";
 	import { Input } from "#lib/components/ui/input/index.js";
+	import { keepRedirect } from "#lib/redirect-target.js";
 	import { enhanceToast, toastError } from "#lib/toast.js";
 
 	const { data } = $props();
@@ -33,13 +34,7 @@
 			if (result?.error) {
 				throw new Error(result.error.message ?? "That passkey didn't work.");
 			}
-			const target = page.url.searchParams.get("redirectTo");
-			await goto(
-				target?.startsWith("/") && !target.startsWith("//")
-					? target
-					: resolve("/(protected)"),
-				{ invalidateAll: true },
-			);
+			await goto(data.redirectTo, { invalidateAll: true });
 		} finally {
 			passkeyPending = false;
 		}
@@ -73,6 +68,9 @@
 		if (page.url.searchParams.get("reset") === "done") {
 			toast.success("Password changed. Sign in with the new one.");
 		}
+		if (page.url.searchParams.get("locked") === "out") {
+			toast.error("Too many wrong passcodes: sign in again.");
+		}
 		if (page.url.searchParams.get("link") === "expired") {
 			toast.error(
 				"That sign-in link expired or was already used. Ask for a new one.",
@@ -84,7 +82,7 @@
 <AuthShell heading="Welcome back" subheading="Sign in to see who owes what.">
 	{#if data.methods.password}
 		<AuthForm
-			action="?/password"
+			action={keepRedirect("?/password", page.url)}
 			submitLabel="Sign in"
 			submitIcon={LogInIcon}
 			loading="Signing in"
@@ -166,7 +164,7 @@
 		{#each data.methods.sso as provider (provider.id)}
 			<form
 				method="POST"
-				action="?/sso"
+				action={keepRedirect("?/sso", page.url)}
 				use:enhance={enhanceToast({
 					loading: `Opening ${provider.name}`,
 					success: `Redirecting to ${provider.name}.`,
@@ -227,7 +225,7 @@
 				{#if data.methods.magicLink}
 					<Button
 						type="submit"
-						formaction="?/emailLink"
+						formaction={keepRedirect("?/emailLink", page.url)}
 						size="lg"
 						class="glow h-12 rounded-xl text-base"
 					>
@@ -238,7 +236,7 @@
 				{#if data.methods.emailCode}
 					<Button
 						type="submit"
-						formaction="?/emailCode"
+						formaction={keepRedirect("?/emailCode", page.url)}
 						variant={data.methods.magicLink ? "outline" : "default"}
 						size="lg"
 						class="h-12 rounded-xl text-base"
@@ -266,7 +264,7 @@
 			</div>
 		{:else}
 			<AuthForm
-				action="?/verifyCode"
+				action={keepRedirect("?/verifyCode", page.url)}
 				submitLabel="Sign in"
 				submitIcon={LogInIcon}
 				loading="Checking the code"

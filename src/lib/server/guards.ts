@@ -1,22 +1,31 @@
 import { resolve } from "$app/paths";
-import { redirect } from "@sveltejs/kit";
+import { getRequestEvent } from "$app/server";
+import { redirect, type RequestEvent } from "@sveltejs/kit";
 
 import { needsSetup } from "#lib/server/setup.js";
 
 /**
- * Sends a signed-out visitor to sign-in, remembering where they were going, or to setup on a fresh instance.
+ * Sends a visitor with no usable session where they can get one, remembering where they were going: setup on a fresh
+ * instance, the unlock screen for a locked session, the security page for one missing a factor an admin requires,
+ * sign-in otherwise.
  *
- * @throws A 303 redirect to `/auth/sign-in` or `/auth/setup`.
+ * @throws A 303 redirect.
  */
 export function redirectToSignIn(url: URL): never {
 	if (needsSetup()) {
 		redirect(303, resolve("/auth/setup"));
 	}
-	const target = `${url.pathname}${url.search}`;
-	redirect(
-		303,
-		`${resolve("/auth/sign-in")}?redirectTo=${encodeURIComponent(target)}`,
-	);
+	const event: RequestEvent | undefined = getRequestEvent();
+	const gate = event?.locals.gate;
+	if (gate?.reason === "factors") {
+		redirect(
+			303,
+			`${resolve("/(protected)/account/security")}?required=${gate.missing.join(",")}`,
+		);
+	}
+	const target = encodeURIComponent(`${url.pathname}${url.search}`);
+	const page = gate?.reason === "locked" ? "/auth/unlock" : "/auth/sign-in";
+	redirect(303, `${resolve(page)}?redirectTo=${target}`);
 }
 
 /** The in-app path to go to after signing in: `redirectTo` when it's a local path, home otherwise. */

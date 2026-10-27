@@ -1,9 +1,14 @@
 import { dev } from "$app/env";
 import { getRequestEvent } from "$app/server";
 import { passkey } from "@better-auth/passkey";
+import type { RequestEvent } from "@sveltejs/kit";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { APIError, createAuthMiddleware } from "better-auth/api";
+import {
+	APIError,
+	createAuthMiddleware,
+	getSessionFromCtx,
+} from "better-auth/api";
 import {
 	emailOTP,
 	genericOAuth,
@@ -12,7 +17,7 @@ import {
 } from "better-auth/plugins";
 import { sveltekitCookies } from "better-auth/svelte-kit";
 
-import { getSetting, type SsoProvider } from "#lib/dto/setting.js";
+import { getSetting, setSetting, type SsoProvider } from "#lib/dto/setting.js";
 import { UserDTO } from "#lib/dto/user.js";
 import { passwordMaxLength, passwordMinLength } from "#lib/password-policy.js";
 import { getConfig } from "#lib/server/config.js";
@@ -27,12 +32,29 @@ import {
 import { Logger } from "#lib/server/logger.js";
 import { isEmailConfigured } from "#lib/server/mailer.js";
 import { decryptSecret } from "#lib/server/secrets.js";
+import {
+	recentSignInMessage,
+	signedInRecently,
+} from "#lib/server/security-policy.js";
 
 const logger = new Logger("Auth");
 
-/** The configured public origin, ignored in dev where Vite serves the real one. */
+/**
+ * The public origin links in emails and passkeys use: `ORIGIN`, else the one recorded at setup or by an admin. Ignored in
+ * dev, where Vite serves the real one.
+ */
 export function publicOrigin(): string | undefined {
-	return dev ? undefined : getConfig().origin;
+	if (dev) {
+		return undefined;
+	}
+	return getConfig().origin ?? getSetting("publicOrigin") ?? undefined;
+}
+
+/** Records `origin` as the public origin when nothing pins one yet, from a request only an admin or setup makes. */
+export function rememberPublicOrigin(origin: string): void {
+	if (!dev && !getConfig().origin && !getSetting("publicOrigin")) {
+		setSetting("publicOrigin", origin);
+	}
 }
 
 /** Routes a better-auth log line through the app logger, dropping the "Base URL is not set" warning the request-derived origin causes. */
@@ -66,7 +88,7 @@ const emailCodePaths = new Set([
 
 function emailRefusal(
 	setting: "magicLinkSignIn" | "emailCodeSignIn",
-	body: { email?: unknown; type?: unknown } | undefined,
+	body: { type?: unknown } | undefined,
 ): APIError | undefined {
 	if (!getSetting(setting) || !isEmailConfigured()) {
 		return new APIError("FORBIDDEN", {
@@ -78,17 +100,13 @@ function emailRefusal(
 			message: "Codes by email are only for signing in.",
 		});
 	}
-	const userId =
-		typeof body?.email === "string"
-			? UserDTO.idForEmail(body.email.trim().toLowerCase())
-			: undefined;
-	if (userId && UserDTO.twoFactorEnabled(userId)) {
-		return new APIError("FORBIDDEN", {
-			message:
-				"This account uses an authenticator app: sign in with your password, then your code.",
-		});
-	}
 	return undefined;
+}
+
+/** Whether the account behind `email` uses an authenticator app, which a link or code by email would skip. */
+function usesAuthenticator(email: string): boolean {
+	const userId = UserDTO.idForEmail(email.trim().toLowerCase());
+	return userId !== undefined && UserDTO.twoFactorEnabled(userId);
 }
 
 function refusal(context: {
@@ -138,13 +156,113 @@ function refusal(context: {
 	return undefined;
 }
 
-/** Refuses the sign-in methods an admin turned off, whether the request came over HTTP or from a server action. */
-const enforceSignInMethods = createAuthMiddleware((context) => {
-	const error = refusal(context);
-	return error ? Promise.reject(error) : Promise.resolve();
+const browserPaths = [
+	"/callback/",
+	"/magic-link/verify",
+	"/reset-password/",
+	"/passkey/",
+	"/get-session",
+	"/sign-out",
+	"/error",
+	"/ok",
+];
+
+const passkeyRegistrationPaths = new Set([
+	"/passkey/generate-register-options",
+	"/passkey/verify-registration",
+]);
+
+async function sessionRefusal(
+	context: Parameters<Parameters<typeof createAuthMiddleware>[0]>[0],
+): Promise<APIError | undefined> {
+	if (
+		context.request &&
+		!browserPaths.some((path) => context.path.startsWith(path))
+	) {
+		return new APIError("NOT_FOUND", { message: "Not found." });
+	}
+	const event: RequestEvent | undefined = getRequestEvent();
+	if (event?.locals.gate?.reason === "locked" && context.path !== "/sign-out") {
+		return new APIError("UNAUTHORIZED", { message: "Unlock OpenCount first." });
+	}
+	if (!passkeyRegistrationPaths.has(context.path)) {
+		return undefined;
+	}
+	const current = await getSessionFromCtx(context);
+	if (current && !signedInRecently(current.session)) {
+		return new APIError("FORBIDDEN", { message: recentSignInMessage });
+	}
+	return undefined;
+}
+
+/**
+ * Refuses the sign-in methods an admin turned off, whether the request came over HTTP or from a server action, any
+ * better-auth endpoint the browser has no reason to call directly (form actions call them with their own limits), and
+ * every call from a locked session but signing out.
+ */
+const enforceSignInMethods = createAuthMiddleware(async (context) => {
+	const error = (await sessionRefusal(context)) ?? refusal(context);
+	if (error) {
+		throw error;
+	}
 });
 
-function createAuth(providers: SsoProvider[], signUpsEnabled: boolean) {
+const secondFactorSkippingPaths = [
+	"/callback/",
+	"/magic-link/verify",
+	"/sign-in/email-otp",
+];
+
+/** Stops a single sign-on, email link or email code sign-in from skipping an authenticator app the account set up. */
+function refuseSkippedSecondFactor(
+	userId: string,
+	context: { path?: string } | null | undefined,
+): Promise<void> {
+	if (
+		secondFactorSkippingPaths.some((path) => context?.path?.startsWith(path)) &&
+		UserDTO.twoFactorEnabled(userId)
+	) {
+		return Promise.reject(
+			new APIError("FORBIDDEN", {
+				message:
+					"This account uses an authenticator app: sign in with your password, then your code.",
+			}),
+		);
+	}
+	return Promise.resolve();
+}
+
+/** How long sessions last, how they're rate limited and cookied, and the check that runs before one is created. */
+function sessionOptions(sessionDays: number, origin: string | undefined) {
+	const day = 24 * 60 * 60;
+	return {
+		session: {
+			expiresIn: sessionDays * day,
+			updateAge: sessionDays > 1 ? day : day / 24,
+			freshAge: 15 * 60,
+		},
+		rateLimit: { enabled: !dev, window: 60, max: 100 },
+		advanced: {
+			useSecureCookies: !dev && !origin?.startsWith("http://"),
+		},
+		databaseHooks: {
+			session: {
+				create: {
+					before: (
+						session: { userId: string },
+						context: { path?: string } | null,
+					) => refuseSkippedSecondFactor(session.userId, context),
+				},
+			},
+		},
+	};
+}
+
+function createAuth(
+	providers: SsoProvider[],
+	signUpsEnabled: boolean,
+	sessionDays: number,
+) {
 	const origin = publicOrigin();
 	return betterAuth({
 		appName: "OpenCount",
@@ -152,6 +270,7 @@ function createAuth(providers: SsoProvider[], signUpsEnabled: boolean) {
 		trustedOrigins: origin ? [origin] : [],
 		secret: getConfig().auth.secret,
 		database: drizzleAdapter(getDb(), { provider: "sqlite", schema }),
+		...sessionOptions(sessionDays, origin),
 		user: {
 			additionalFields: {
 				role: {
@@ -194,7 +313,9 @@ function createAuth(providers: SsoProvider[], signUpsEnabled: boolean) {
 				disableSignUp: true,
 				expiresIn: 600,
 				sendMagicLink: ({ email, url }) => {
-					queueEmail(magicLinkEmail(email, url));
+					if (!usesAuthenticator(email)) {
+						queueEmail(magicLinkEmail(email, url));
+					}
 					return Promise.resolve();
 				},
 			}),
@@ -204,7 +325,7 @@ function createAuth(providers: SsoProvider[], signUpsEnabled: boolean) {
 				expiresIn: 600,
 				allowedAttempts: 5,
 				sendVerificationOTP: ({ email, otp, type }) => {
-					if (type === "sign-in") {
+					if (type === "sign-in" && !usesAuthenticator(email)) {
 						queueEmail(signInCodeEmail(email, otp));
 					}
 					return Promise.resolve();
@@ -234,14 +355,23 @@ let instance: { auth: Auth; key: string } | undefined;
 
 /**
  * The better-auth instance, created on first use so a build never opens the database or needs the secret, and rebuilt
- * when an admin changes the single sign-on providers or the sign-up policy they depend on.
+ * when an admin changes the single sign-on providers, the sign-up policy, the session lifetime or the public origin.
  */
 export function getAuth(): Auth {
 	const providers = getSetting("ssoProviders");
 	const signUpsEnabled = getSetting("signUpsEnabled");
-	const key = JSON.stringify([providers, signUpsEnabled]);
+	const sessionDays = getSetting("sessionDays");
+	const key = JSON.stringify([
+		providers,
+		signUpsEnabled,
+		sessionDays,
+		publicOrigin(),
+	]);
 	if (instance?.key !== key) {
-		instance = { auth: createAuth(providers, signUpsEnabled), key };
+		instance = {
+			auth: createAuth(providers, signUpsEnabled, sessionDays),
+			key,
+		};
 	}
 	return instance.auth;
 }
