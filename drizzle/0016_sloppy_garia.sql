@@ -1,1 +1,0 @@
-ALTER TABLE `personal_expense` ADD `note` text;

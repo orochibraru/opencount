@@ -38,10 +38,28 @@ worker.addEventListener("activate", (event) => {
 	);
 });
 
+async function sentToSignIn(response: Response, url: URL): Promise<boolean> {
+	if (
+		response.redirected &&
+		new URL(response.url).pathname.startsWith("/auth/")
+	) {
+		return true;
+	}
+	if (!url.pathname.endsWith("/__data.json")) {
+		return false;
+	}
+	const body = await response.clone().text();
+	return /"type":"redirect","location":"\/auth\//.test(body);
+}
+
 async function networkFirst(request: Request, url: URL): Promise<Response> {
 	const cache = await caches.open(pagesCacheName);
 	try {
 		const response = await fetch(request);
+		if (await sentToSignIn(response, url)) {
+			await caches.delete(pagesCacheName);
+			return response;
+		}
 		if (response.ok && response.type === "basic") {
 			await cache.put(request, response.clone());
 		}

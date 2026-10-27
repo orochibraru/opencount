@@ -23,11 +23,10 @@ import { exchangeRate } from "#lib/server/exchange-rates.js";
 import { groupForMember } from "#lib/server/group-access.js";
 import { personalPage } from "#lib/server/personal-page.js";
 import { signPayload } from "#lib/server/secrets.js";
-import { parseForm } from "#lib/server/validation/form.js";
+import { idSchema, parseForm } from "#lib/server/validation/form.js";
 import { parsePersonalForm } from "#lib/server/validation/personal.js";
 import { splitByWeight } from "#lib/split.js";
 
-const idSchema = z.object({ id: z.string().min(1) });
 const folderSchema = z.object({
 	id: z.string().default(""),
 	name: z
@@ -104,10 +103,10 @@ export const actions = {
 			return fail(401, { error: "Sign in again to continue." });
 		}
 		const formData = await request.formData();
-		const existing = PersonalExpenseDTO.findForUser(
-			String(formData.get("id") ?? ""),
-			locals.user.id,
-		);
+		const target = parseForm(idSchema, formData);
+		const existing =
+			target.success &&
+			PersonalExpenseDTO.findForUser(target.data.id, locals.user.id);
 		if (!existing) {
 			return fail(404, { error: "That expense no longer exists." });
 		}

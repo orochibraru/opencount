@@ -33,10 +33,14 @@ export interface VapidKeys {
 	encryptedPrivateKey: string;
 }
 
+export const sessionDayOptions = [1, 7, 30] as const;
+
 export interface SettingValues {
 	signUpsEnabled: boolean;
 	requireTwoFactor: boolean;
 	requirePasskey: boolean;
+	requireAppLock: boolean;
+	sessionDays: (typeof sessionDayOptions)[number];
 	smtp: SmtpSettings | null;
 	ocr: OcrSettings | null;
 	passwordSignIn: boolean;
@@ -45,12 +49,15 @@ export interface SettingValues {
 	emailCodeSignIn: boolean;
 	ssoProviders: SsoProvider[];
 	vapid: VapidKeys | null;
+	publicOrigin: string | null;
 }
 
 const defaults: SettingValues = {
 	signUpsEnabled: false,
 	requireTwoFactor: false,
 	requirePasskey: false,
+	requireAppLock: false,
+	sessionDays: 7,
 	smtp: null,
 	ocr: null,
 	passwordSignIn: true,
@@ -59,6 +66,7 @@ const defaults: SettingValues = {
 	emailCodeSignIn: false,
 	ssoProviders: [],
 	vapid: null,
+	publicOrigin: null,
 };
 
 /** The stored value of `key`, or its default. */
@@ -79,6 +87,8 @@ export function allSettings(): SettingValues {
 		signUpsEnabled: getSetting("signUpsEnabled"),
 		requireTwoFactor: getSetting("requireTwoFactor"),
 		requirePasskey: getSetting("requirePasskey"),
+		requireAppLock: getSetting("requireAppLock"),
+		sessionDays: getSetting("sessionDays"),
 		smtp: getSetting("smtp"),
 		ocr: getSetting("ocr"),
 		passwordSignIn: getSetting("passwordSignIn"),
@@ -87,6 +97,7 @@ export function allSettings(): SettingValues {
 		emailCodeSignIn: getSetting("emailCodeSignIn"),
 		ssoProviders: getSetting("ssoProviders"),
 		vapid: getSetting("vapid"),
+		publicOrigin: getSetting("publicOrigin"),
 	};
 }
 

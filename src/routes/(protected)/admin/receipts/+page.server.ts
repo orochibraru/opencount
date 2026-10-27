@@ -10,12 +10,15 @@ import {
 } from "#lib/server/ocr.js";
 import { readUploadedReceipt } from "#lib/server/receipt-upload.js";
 
-export const load = async () => ({
-	installed: isTesseractInstalled(),
-	pdfReadable: isPopplerInstalled(),
-	availableLanguages: await installedLanguages(),
-	ocr: getSetting("ocr"),
-});
+export const load = async ({ parent }) => {
+	await parent();
+	return {
+		installed: isTesseractInstalled(),
+		pdfReadable: isPopplerInstalled(),
+		availableLanguages: await installedLanguages(),
+		ocr: getSetting("ocr"),
+	};
+};
 
 export const actions = {
 	save: async ({ locals, request }) => {

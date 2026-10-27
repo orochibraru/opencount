@@ -19,7 +19,7 @@
 	import { Button } from "#lib/components/ui/button/index.js";
 	import * as Field from "#lib/components/ui/field/index.js";
 	import { Input } from "#lib/components/ui/input/index.js";
-	import { keepRedirect } from "#lib/keep-redirect.js";
+	import { keepRedirect } from "#lib/redirect-target.js";
 	import { enhanceToast, toastError } from "#lib/toast.js";
 
 	const { data } = $props();
@@ -34,13 +34,7 @@
 			if (result?.error) {
 				throw new Error(result.error.message ?? "That passkey didn't work.");
 			}
-			const target = page.url.searchParams.get("redirectTo");
-			await goto(
-				target?.startsWith("/") && !target.startsWith("//")
-					? target
-					: resolve("/(protected)"),
-				{ invalidateAll: true },
-			);
+			await goto(data.redirectTo, { invalidateAll: true });
 		} finally {
 			passkeyPending = false;
 		}
@@ -73,6 +67,9 @@
 	onMount(() => {
 		if (page.url.searchParams.get("reset") === "done") {
 			toast.success("Password changed. Sign in with the new one.");
+		}
+		if (page.url.searchParams.get("locked") === "out") {
+			toast.error("Too many wrong passcodes: sign in again.");
 		}
 		if (page.url.searchParams.get("link") === "expired") {
 			toast.error(

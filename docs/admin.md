@@ -81,9 +81,17 @@ first.
 - **Require an authenticator app**: everyone, you included, must set up a
   6-digit code app before using OpenCount.
 - **Require a passkey**: everyone must register at least one passkey.
+- **Require an app lock**: everyone must set a passcode that locks the app.
+- **Sign people out after**: 1, 7 (the default) or 30 days without use.
+- **Public address**: the origin emails and passkeys use when `ORIGIN` isn't
+  set. It is recorded at setup; correct it here if the instance moves.
 
-A required factor applies on the next page load: anyone missing it is sent to
-**Account, Security** until they add it.
+A required factor applies to every request, pages and forms alike: anyone
+missing it is sent to **Account, Security** until they add it.
+
+Promoting someone, changing an email, resetting two-factor and deleting an
+account ask for a recent sign-in, within 15 minutes; otherwise sign out and back
+in.
 
 ## Sign-in methods, email and receipts
 

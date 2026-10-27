@@ -1,5 +1,6 @@
 <script lang="ts">
 	import AppFooter from "#lib/components/app-footer.svelte";
+	import AppLockGuard from "#lib/components/app-lock-guard.svelte";
 	import AppBar from "#lib/components/app-shell/app-bar.svelte";
 	import BottomTabBar from "#lib/components/app-shell/bottom-tab-bar.svelte";
 	import PageHeader from "#lib/components/app-shell/page-header.svelte";
@@ -33,3 +34,4 @@
 <InstallPrompt />
 <OfflineSync userId={data.user.id} />
 <PullToRefresh />
+<AppLockGuard lockAfterMinutes={data.lockAfterMinutes} />

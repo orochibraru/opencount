@@ -22,7 +22,8 @@ const smtpSchema = z.object({
 	fromName: z.string().trim().min(1, "Enter a sender name.").max(80),
 });
 
-export const load = () => {
+export const load = async ({ parent }) => {
+	await parent();
 	const smtp = getSetting("smtp");
 	return {
 		smtp: smtp && {

@@ -2,7 +2,11 @@ import { CodeChallengeDTO } from "#lib/dto/code-challenge.js";
 import { getSetting } from "#lib/dto/setting.js";
 import { UserDTO } from "#lib/dto/user.js";
 import { getAuth } from "#lib/server/auth.js";
-import { queueEmail, verificationCodeEmail } from "#lib/server/emails.js";
+import {
+	accountExistsEmail,
+	queueEmail,
+	verificationCodeEmail,
+} from "#lib/server/emails.js";
 import { isEmailConfigured } from "#lib/server/mailer.js";
 
 /** The challenge identifier of a sign-up for `email`. */
@@ -13,22 +17,18 @@ export function signUpIdentifier(email: string): string {
 export class SignUpError extends Error {}
 
 /**
- * Starts a sign-up for `email`: checks sign-ups are open and email works, then emails a verification code.
+ * Starts a sign-up for `email`: checks sign-ups are open and email works, then emails a verification code, or a note to
+ * sign in instead when the address already has an account, so the answer never tells whether it does.
  *
- * @throws SignUpError when sign-ups are closed, email isn't set up, the address is taken, or a code was sent less than a minute ago.
+ * @throws SignUpError when sign-ups are closed, email isn't set up, or a code was sent less than a minute ago.
  */
-export function startSignUp(email: string): void {
+export function startSignUp(email: string, signInLink: string): void {
 	if (!getSetting("signUpsEnabled")) {
 		throw new SignUpError("Sign-ups are closed. Ask an admin for an invite.");
 	}
 	if (!isEmailConfigured()) {
 		throw new SignUpError(
 			"Sign-ups need email delivery, which isn't set up yet. Ask an admin.",
-		);
-	}
-	if (UserDTO.emailExists(email)) {
-		throw new SignUpError(
-			"An account already uses this email. Sign in instead.",
 		);
 	}
 	let code: string;
@@ -39,7 +39,11 @@ export function startSignUp(email: string): void {
 			error instanceof Error ? error.message : String(error),
 		);
 	}
-	queueEmail(verificationCodeEmail(email, code));
+	queueEmail(
+		UserDTO.emailExists(email)
+			? accountExistsEmail(email, signInLink)
+			: verificationCodeEmail(email, code),
+	);
 }
 
 export interface NewAccount {

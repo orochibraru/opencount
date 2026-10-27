@@ -1,4 +1,4 @@
-import type { z } from "zod";
+import { z } from "zod";
 
 export type FieldErrors = Record<string, string[]>;
 
@@ -21,3 +21,13 @@ export function parseForm<Schema extends z.ZodType>(
 	}
 	return { success: false, errors };
 }
+
+export const idSchema = z.object({ id: z.string().trim().min(1) });
+
+export const archivedSchema = z.object({
+	archived: z.stringbool().default(false),
+});
+
+export const activeRuleSchema = idSchema.extend({
+	active: z.stringbool().default(false),
+});

@@ -13,6 +13,10 @@ import {
 import { publicOrigin } from "#lib/server/auth.js";
 import { bankApplicationName, BankError } from "#lib/server/enable-banking.js";
 import { encryptSecret } from "#lib/server/secrets.js";
+import {
+	recentSignInMessage,
+	signedInRecently,
+} from "#lib/server/security-policy.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
 const homeSchema = z.object({ moneyHome: z.stringbool().default(false) });
@@ -63,6 +67,9 @@ export const actions = {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
 		}
+		if (!locals.session || !signedInRecently(locals.session)) {
+			return fail(403, { error: recentSignInMessage });
+		}
 		const parsed = parseForm(credentialsSchema, await request.formData());
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
@@ -87,6 +94,9 @@ export const actions = {
 	remove: ({ locals }) => {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
+		}
+		if (!locals.session || !signedInRecently(locals.session)) {
+			return fail(403, { error: recentSignInMessage });
 		}
 		removeBankCredentials(locals.user.id);
 		return { removed: true };

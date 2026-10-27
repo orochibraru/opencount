@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 
+import { APIError } from "better-auth/api";
 import { eq } from "drizzle-orm";
 
 import { hasLinkedProvider } from "#lib/dto/account.js";
@@ -26,6 +27,17 @@ function provider(id: string, enabled: boolean) {
 		encryptedClientSecret: encryptSecret("secret"),
 		enabled,
 	};
+}
+
+async function answered(call: Promise<Response>): Promise<Response> {
+	try {
+		return await call;
+	} catch (error) {
+		if (error instanceof APIError) {
+			return Response.json(error.body, { status: error.statusCode });
+		}
+		throw error;
+	}
 }
 
 function linkAccount(userId: string, providerId: string): void {
@@ -105,6 +117,10 @@ describe("getAuth", () => {
 		setSetting("passkeySignIn", false);
 		setSetting("ssoProviders", [provider("off", false)]);
 		const auth = getAuth();
+		const headers = new Headers({
+			host: "localhost",
+			origin: "http://localhost",
+		});
 		const call = (path: string, body?: unknown) =>
 			auth.handler(
 				new Request(`http://localhost/api/auth${path}`, {
@@ -116,18 +132,49 @@ describe("getAuth", () => {
 					body: body === undefined ? undefined : JSON.stringify(body),
 				}),
 			);
-		const password = await call("/sign-in/email", {
-			email: "ada@example.com",
-			password: "whatever-it-is",
-		});
+		const password = await answered(
+			auth.api.signInEmail({
+				body: { email: "ada@example.com", password: "whatever-it-is" },
+				headers,
+				asResponse: true,
+			}),
+		);
 		expect(password.status).toBe(403);
 		expect(await password.text()).toContain("Password sign-in is turned off");
 		const passkey = await call("/passkey/generate-authenticate-options");
 		expect(passkey.status).toBe(403);
-		const sso = await call("/sign-in/social", { provider: "off" });
+		const sso = await answered(
+			auth.api.signInSocial({
+				body: { provider: "off" },
+				headers,
+				asResponse: true,
+			}),
+		);
 		expect(sso.status).toBe(403);
 		const callback = await call("/callback/missing");
 		expect(callback.status).toBe(403);
+	});
+
+	test("answers only the endpoints a browser needs, leaving the rest to form actions", async () => {
+		const auth = getAuth();
+		for (const path of [
+			"/sign-in/email",
+			"/two-factor/verify-totp",
+			"/change-email",
+			"/update-user",
+		]) {
+			const response = await auth.handler(
+				new Request(`http://localhost/api/auth${path}`, {
+					method: "POST",
+					headers: {
+						"content-type": "application/json",
+						origin: "http://localhost",
+					},
+					body: "{}",
+				}),
+			);
+			expect(response.status).toBe(404);
+		}
 	});
 });
 
@@ -149,18 +196,32 @@ describe("signing in by email", () => {
 		});
 		setSetting("magicLinkSignIn", true);
 		setSetting("emailCodeSignIn", true);
+		setSetting("publicOrigin", "http://localhost");
 	}
 
-	function post(path: string, body: unknown): Promise<Response> {
-		return getAuth().handler(
-			new Request(`http://localhost/api/auth${path}`, {
-				method: "POST",
-				headers: {
-					"content-type": "application/json",
-					origin: "http://localhost",
-				},
-				body: JSON.stringify(body),
-			}),
+	const headers = new Headers({
+		host: "localhost",
+		origin: "http://localhost",
+	});
+
+	function sendLink(body: { email: string; callbackURL?: string }) {
+		return answered(
+			getAuth().api.signInMagicLink({ body, headers, asResponse: true }),
+		);
+	}
+
+	function sendCode(body: {
+		email: string;
+		type: "sign-in" | "forget-password";
+	}) {
+		return answered(
+			getAuth().api.sendVerificationOTP({ body, headers, asResponse: true }),
+		);
+	}
+
+	function signInWithCode(body: { email: string; otp: string }) {
+		return answered(
+			getAuth().api.signInEmailOTP({ body, headers, asResponse: true }),
 		);
 	}
 
@@ -179,11 +240,11 @@ describe("signing in by email", () => {
 			magicLink: false,
 			emailCode: false,
 		});
-		const link = await post("/sign-in/magic-link", {
+		const link = await sendLink({
 			email: "ada@example.com",
 		});
 		expect(link.status).toBe(403);
-		const code = await post("/email-otp/send-verification-otp", {
+		const code = await sendCode({
 			email: "ada@example.com",
 			type: "sign-in",
 		});
@@ -198,19 +259,19 @@ describe("signing in by email", () => {
 			emailCode: true,
 		});
 		expect(usableMethods("ada", enabledSignInMethods())).toContain("email");
-		const sent = await post("/email-otp/send-verification-otp", {
+		const sent = await sendCode({
 			email: "ada@example.com",
 			type: "sign-in",
 		});
 		expect(sent.status).toBe(200);
 		const code = /(\d{3}) (\d{3})/.exec(lastEmail()?.text ?? "");
 		expect(code).not.toBeNull();
-		const wrong = await post("/sign-in/email-otp", {
+		const wrong = await signInWithCode({
 			email: "ada@example.com",
 			otp: "000000",
 		});
 		expect(wrong.status).toBe(400);
-		const signedIn = await post("/sign-in/email-otp", {
+		const signedIn = await signInWithCode({
 			email: "ada@example.com",
 			otp: `${code?.[1]}${code?.[2]}`,
 		});
@@ -223,7 +284,7 @@ describe("signing in by email", () => {
 	test("a link by email signs an existing account in", async () => {
 		enableEmail();
 		createUser("ada");
-		const sent = await post("/sign-in/magic-link", {
+		const sent = await sendLink({
 			email: "ada@example.com",
 			callbackURL: "/",
 		});
@@ -239,9 +300,9 @@ describe("signing in by email", () => {
 		);
 	});
 
-	test("no account is created and two-factor accounts are turned away", async () => {
+	test("no account is created and two-factor accounts get no link or code", async () => {
 		enableEmail();
-		const ghost = await post("/sign-in/email-otp", {
+		const ghost = await signInWithCode({
 			email: "ghost@example.com",
 			otp: "123456",
 		});
@@ -257,26 +318,39 @@ describe("signing in by email", () => {
 		expect(usableMethods("grace", enabledSignInMethods())).not.toContain(
 			"email",
 		);
-		const refused = await post("/sign-in/magic-link", {
+		const emailsBefore = getDb().select().from(job).all().length;
+		const quiet = await sendLink({ email: "grace@example.com" });
+		expect(quiet.status).toBe(200);
+		const quietCode = await sendCode({
 			email: "grace@example.com",
+			type: "sign-in",
 		});
-		expect(refused.status).toBe(403);
-		expect(await refused.text()).toContain("authenticator app");
+		expect(quietCode.status).toBe(200);
+		expect(getDb().select().from(job).all()).toHaveLength(emailsBefore);
 	});
 
 	test("emailed codes only ever sign in", async () => {
 		enableEmail();
 		createUser("ada");
-		const reset = await post("/email-otp/send-verification-otp", {
+		const reset = await sendCode({
 			email: "ada@example.com",
 			type: "forget-password",
 		});
 		expect(reset.status).toBe(403);
-		const disabled = await post("/email-otp/reset-password", {
-			email: "ada@example.com",
-			otp: "123456",
-			password: "Another-Password-99",
-		});
+		const disabled = await getAuth().handler(
+			new Request("http://localhost/api/auth/email-otp/reset-password", {
+				method: "POST",
+				headers: {
+					"content-type": "application/json",
+					origin: "http://localhost",
+				},
+				body: JSON.stringify({
+					email: "ada@example.com",
+					otp: "123456",
+					password: "Another-Password-99",
+				}),
+			}),
+		);
 		expect(disabled.status).toBe(404);
 	});
 });

@@ -149,4 +149,5 @@ CREATE TABLE `oauth_resource` (
 	`metadata` text
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `oauth_resource_identifier_unique` ON `oauth_resource` (`identifier`);
+CREATE UNIQUE INDEX `oauth_resource_identifier_unique` ON `oauth_resource` (`identifier`);--> statement-breakpoint
+ALTER TABLE `personal_expense` ADD `note` text;

@@ -4,17 +4,42 @@ import { renderSVG } from "uqr";
 import { z } from "zod";
 
 import { hasPassword } from "#lib/dto/account.js";
+import { AppLockDTO } from "#lib/dto/app-lock.js";
 import { PasskeyDTO } from "#lib/dto/passkey.js";
+import { SessionDTO } from "#lib/dto/session.js";
+import { appLock } from "#lib/server/app-lock.js";
 import { getAuth } from "#lib/server/auth.js";
-import { missingFactors } from "#lib/server/security-policy.js";
 import {
+	missingFactors,
+	recentSignInMessage,
+	signedInRecently,
+} from "#lib/server/security-policy.js";
+import {
+	appLockDelaySchema,
+	appLockSchema,
 	changePasswordSchema,
+	currentPasscodeSchema,
 	passwordConfirmSchema,
 	totpSchema,
 } from "#lib/server/validation/auth.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
 const passkeyIdSchema = z.object({ id: z.string().min(1) });
+const sessionIdSchema = z.object({ id: z.string().min(1) });
+
+async function provesPasscode(
+	locals: App.Locals,
+	currentPasscode: string | undefined,
+): Promise<boolean> {
+	if (!locals.user || !locals.session) {
+		return false;
+	}
+	return (
+		signedInRecently(locals.session) ||
+		(currentPasscode !== undefined &&
+			(await appLock.matches(locals.user.id, currentPasscode)))
+	);
+}
 
 function apiFailure(error: unknown, fallback: string) {
 	if (error instanceof APIError) {
@@ -30,6 +55,11 @@ export const load = async ({ locals, parent }) => {
 		passkeys: PasskeyDTO.forUser(user.id).map((entry) => entry.toJSON()),
 		missing: locals.user ? missingFactors(locals.user) : [],
 		hasPassword: hasPassword(user.id),
+		appLock: AppLockDTO.forUser(user.id)?.toJSON() ?? null,
+		appLockRemovable: appLock.canRemove(),
+		signedInRecently: locals.session ? signedInRecently(locals.session) : false,
+		currentSessionId: locals.session?.id ?? "",
+		sessions: SessionDTO.forUser(user.id).map((entry) => entry.toJSON()),
 	};
 };
 
@@ -63,10 +93,14 @@ export const actions = {
 					headers: request.headers,
 				});
 			} else {
+				if (!locals.session || !signedInRecently(locals.session)) {
+					return fail(403, { error: recentSignInMessage });
+				}
 				await getAuth().api.setPassword({
 					body: { newPassword: password },
 					headers: request.headers,
 				});
+				SessionDTO.revokeOthers(locals.user.id, locals.session.id);
 			}
 			return { passwordChanged: true };
 		} catch (error) {
@@ -132,7 +166,10 @@ export const actions = {
 			return apiFailure(error, "That password isn't right.");
 		}
 	},
-	deletePasskey: async ({ request }) => {
+	deletePasskey: async ({ locals, request }) => {
+		if (!locals.session || !signedInRecently(locals.session)) {
+			return fail(403, { error: recentSignInMessage });
+		}
 		const parsed = parseForm(passkeyIdSchema, await request.formData());
 		if (!parsed.success) {
 			return fail(400, { error: "Pick a passkey to remove." });
@@ -146,5 +183,85 @@ export const actions = {
 		} catch (error) {
 			return apiFailure(error, "Could not remove that passkey.");
 		}
+	},
+	saveAppLock: async ({ locals, request }) => {
+		if (!locals.user || !locals.session) {
+			return fail(401, { error: "Sign in again to continue." });
+		}
+		const parsed = parseForm(appLockSchema, await request.formData());
+		if (!parsed.success) {
+			return fail(400, { errors: parsed.errors });
+		}
+		const { currentPasscode, passcode, lockAfterMinutes } = parsed.data;
+		if (
+			AppLockDTO.forUser(locals.user.id) &&
+			!(await provesPasscode(locals, currentPasscode))
+		) {
+			return fail(400, {
+				errors: {
+					currentPasscode: [
+						"Enter your current passcode, or sign out and back in if you forgot it.",
+					],
+				},
+			});
+		}
+		await appLock.save(
+			locals.user.id,
+			locals.session.id,
+			passcode,
+			lockAfterMinutes,
+		);
+		return { appLockSaved: true };
+	},
+	appLockDelay: async ({ locals, request }) => {
+		if (!locals.user || !AppLockDTO.forUser(locals.user.id)) {
+			return fail(400, { error: "Set a passcode first." });
+		}
+		const parsed = parseForm(appLockDelaySchema, await request.formData());
+		if (!parsed.success) {
+			return fail(400, { errors: parsed.errors });
+		}
+		AppLockDTO.saveDelay(locals.user.id, parsed.data.lockAfterMinutes);
+		return { appLockSaved: true };
+	},
+	removeAppLock: async ({ locals, request }) => {
+		if (!locals.user) {
+			return fail(401, { error: "Sign in again to continue." });
+		}
+		if (!appLock.canRemove()) {
+			return fail(403, { error: "Your admin requires an app lock." });
+		}
+		const parsed = parseForm(currentPasscodeSchema, await request.formData());
+		if (
+			!parsed.success ||
+			!(await provesPasscode(locals, parsed.data.currentPasscode))
+		) {
+			return fail(400, {
+				errors: { currentPasscode: ["That passcode isn't right."] },
+			});
+		}
+		AppLockDTO.remove(locals.user.id);
+		return { appLockRemoved: true };
+	},
+	revokeSession: async ({ locals, request }) => {
+		if (!locals.user) {
+			return fail(401, { error: "Sign in again to continue." });
+		}
+		const parsed = parseForm(sessionIdSchema, await request.formData());
+		if (
+			!parsed.success ||
+			parsed.data.id === locals.session?.id ||
+			!SessionDTO.revokeForUser(parsed.data.id, locals.user.id)
+		) {
+			return fail(400, { error: "That session is already signed out." });
+		}
+		return { revoked: true };
+	},
+	revokeOtherSessions: ({ locals }) => {
+		if (!locals.user || !locals.session) {
+			return fail(401, { error: "Sign in again to continue." });
+		}
+		SessionDTO.revokeOthers(locals.user.id, locals.session.id);
+		return { revoked: true };
 	},
 };

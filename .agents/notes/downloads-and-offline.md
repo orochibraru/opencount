@@ -161,5 +161,8 @@
 - Tools expose description, amount, currency, date, kind and category only.
   `csrfHandler` lets `/api/auth/oauth2/token`, `revoke` and `introspect`
   through: AI apps call them server to server with no `Origin`.
+- `browserPaths` in `auth.ts` lets the OAuth endpoints AI apps call
+  (`authorize`, `token`, `register`, `consent`, `revoke`, `userinfo`, `/jwks`,
+  `/.well-known/`) through the 404 every other direct better-auth call gets.
 - The root `/.well-known/oauth-*` routes hand the request to
   `getAuth().handler`, which only gets `/api/auth/*` from the hook.

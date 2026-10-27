@@ -3,6 +3,8 @@ import { fail, redirect } from "@sveltejs/kit";
 import { APIError } from "better-auth/api";
 
 import { UserDTO } from "#lib/dto/user.js";
+import { rememberPublicOrigin } from "#lib/server/auth.js";
+import { setupCodeAttempts } from "#lib/server/rate-limit.js";
 import {
 	issueSetupCode,
 	needsSetup,
@@ -22,12 +24,17 @@ import {
 } from "#lib/server/validation/auth.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
+const alreadySetUp = "This server already has an admin. Sign in instead.";
+
 export const load = ({ cookies }) => ({
 	step: hasSetupTicket(cookies) ? ("account" as const) : ("code" as const),
 });
 
 export const actions = {
 	newCode: () => {
+		if (!needsSetup()) {
+			return fail(400, { error: alreadySetUp });
+		}
 		try {
 			issueSetupCode();
 			return { sent: true };
@@ -38,11 +45,19 @@ export const actions = {
 			throw error;
 		}
 	},
-	verify: async ({ cookies, request, url }) => {
+	verify: async ({ cookies, getClientAddress, request, url }) => {
+		if (!needsSetup()) {
+			return fail(400, { error: alreadySetUp });
+		}
 		const parsed = parseForm(codeSchema, await request.formData());
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
 		}
+		const client = getClientAddress();
+		if (setupCodeAttempts.blocked(client)) {
+			return fail(429, { error: "Too many tries. Wait an hour." });
+		}
+		setupCodeAttempts.hit(client);
 		if (!verifySetupCode(parsed.data.code)) {
 			return fail(400, {
 				errors: {
@@ -53,11 +68,9 @@ export const actions = {
 		grantSetupTicket(cookies, url);
 		return { verified: true };
 	},
-	create: async ({ cookies, request }) => {
+	create: async ({ cookies, request, url }) => {
 		if (!needsSetup()) {
-			return fail(400, {
-				error: "This server already has an admin. Sign in instead.",
-			});
+			return fail(400, { error: alreadySetUp });
 		}
 		if (!hasSetupTicket(cookies)) {
 			return fail(400, { error: "Enter the setup code first." });
@@ -71,6 +84,7 @@ export const actions = {
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
 		}
+		rememberPublicOrigin(url.origin);
 		try {
 			const userId = await createVerifiedAccount({
 				email: email.data,

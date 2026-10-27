@@ -8,7 +8,7 @@ import {
 	categoryNameTaken,
 	categorySchema,
 } from "#lib/server/validation/category.js";
-import { parseForm } from "#lib/server/validation/form.js";
+import { idSchema, parseForm } from "#lib/server/validation/form.js";
 import { similarKey } from "#lib/similar-key.js";
 import { guessCategory } from "#lib/smart-category.js";
 
@@ -83,10 +83,9 @@ export const actions = {
 			return fail(401, { error: "Sign in again to continue." });
 		}
 		const { group } = groupForMember(params.groupId, locals.user.id);
-		const existing = GroupCategoryDTO.findInGroup(
-			group.id,
-			String((await request.formData()).get("id") ?? ""),
-		);
+		const parsed = parseForm(idSchema, await request.formData());
+		const existing =
+			parsed.success && GroupCategoryDTO.findInGroup(group.id, parsed.data.id);
 		if (!existing) {
 			return fail(404, { error: "That category no longer exists." });
 		}

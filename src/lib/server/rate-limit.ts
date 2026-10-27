@@ -42,3 +42,21 @@ export class RateLimiter {
 export const passwordAttempts = new RateLimiter(10, 15 * 60_000);
 export const addressAttempts = new RateLimiter(50, 15 * 60_000);
 export const resetRequests = new RateLimiter(3, 60 * 60_000);
+export const secondFactorAttempts = new RateLimiter(10, 15 * 60_000);
+export const emailsPerRecipient = new RateLimiter(3, 15 * 60_000);
+export const emailsPerClient = new RateLimiter(20, 60 * 60_000);
+export const signUpCodeAttempts = new RateLimiter(15, 24 * 60 * 60_000);
+
+/** Whether a sign-in or sign-up email may go to `recipient` for `client` now, counting it when it may. */
+export function mayEmail(recipient: string, client: string): boolean {
+	if (
+		emailsPerRecipient.blocked(recipient) ||
+		emailsPerClient.blocked(client)
+	) {
+		return false;
+	}
+	emailsPerRecipient.hit(recipient);
+	emailsPerClient.hit(client);
+	return true;
+}
+export const setupCodeAttempts = new RateLimiter(10, 60 * 60_000);

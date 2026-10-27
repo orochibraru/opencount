@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { RateLimiter } from "#lib/server/rate-limit.js";
+import { mayEmail, RateLimiter } from "#lib/server/rate-limit.js";
 
 describe("RateLimiter", () => {
 	test("blocks a key once it used its attempts, until the window slides past", () => {
@@ -25,5 +25,24 @@ describe("RateLimiter", () => {
 		limiter.hit("late", 100);
 		expect(limiter.blocked("key-1", 5)).toBe(false);
 		expect(limiter.blocked("late", 100)).toBe(true);
+	});
+});
+
+describe("mayEmail", () => {
+	test("allows three emails per recipient, then waits", () => {
+		const recipient = `limit-${crypto.randomUUID()}@example.com`;
+		const client = crypto.randomUUID();
+		expect(mayEmail(recipient, client)).toBe(true);
+		expect(mayEmail(recipient, client)).toBe(true);
+		expect(mayEmail(recipient, client)).toBe(true);
+		expect(mayEmail(recipient, client)).toBe(false);
+	});
+
+	test("caps one client across recipients", () => {
+		const client = crypto.randomUUID();
+		for (let index = 0; index < 20; index += 1) {
+			expect(mayEmail(`${client}-${index}@example.com`, client)).toBe(true);
+		}
+		expect(mayEmail(`${client}-last@example.com`, client)).toBe(false);
 	});
 });

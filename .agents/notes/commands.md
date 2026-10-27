@@ -67,7 +67,8 @@ Plain `bun install` works without mise.
   oxlint, `bun fmt`, markdownlint, agnix, tailwint, and the convention hooks (no
   hand-typed route types, no raw Drizzle in routes, no `redirect(` in hooks, no
   `href="/`, no Markdown link to a file that doesn't exist, offline, with
-  extensionless links to docs pages allowed).
+  extensionless links to docs pages allowed). That every `(protected)` load
+  calls `parent()` is a unit test, `tests/unit/routes/guarded-loads.test.ts`.
 - commit-msg: Conventional Commits.
 - pre-push: `check`, `circular`, `test-unit`.
 - post-checkout: `bun install`.

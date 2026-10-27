@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { currencies } from "#lib/currencies.js";
 import { groupForMember } from "#lib/server/group-access.js";
-import { parseForm } from "#lib/server/validation/form.js";
+import { archivedSchema, parseForm } from "#lib/server/validation/form.js";
 
 const settingsSchema = z.object({
 	name: z
@@ -63,7 +63,11 @@ export const actions = {
 			return fail(401, { error: "Sign in again to continue." });
 		}
 		const { group } = groupForMember(params.groupId, locals.user.id);
-		const archived = (await request.formData()).get("archived") === "true";
+		const parsed = parseForm(archivedSchema, await request.formData());
+		if (!parsed.success) {
+			return fail(400, { error: "Pick archived or not." });
+		}
+		const { archived } = parsed.data;
 		group.setArchived(locals.user.id, archived);
 		return { archived };
 	},

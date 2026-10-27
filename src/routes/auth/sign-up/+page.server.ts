@@ -1,8 +1,11 @@
+import { resolve } from "$app/paths";
 import { fail, redirect } from "@sveltejs/kit";
 import { APIError } from "better-auth/api";
 
 import { CodeChallengeDTO } from "#lib/dto/code-challenge.js";
+import { getSetting } from "#lib/dto/setting.js";
 import { safeRedirectTarget } from "#lib/server/guards.js";
+import { mayEmail, signUpCodeAttempts } from "#lib/server/rate-limit.js";
 import {
 	clearSignUp,
 	currentSignUpStep,
@@ -22,16 +25,25 @@ import {
 } from "#lib/server/validation/auth.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
+const tooManyEmails = "Too many emails asked for. Wait a while and try again.";
+
+function signInLink(url: URL): string {
+	return new URL(resolve("/auth/sign-in"), url).href;
+}
+
 export const load = ({ cookies }) => currentSignUpStep(cookies);
 
 export const actions = {
-	start: async ({ cookies, request, url }) => {
+	start: async ({ cookies, getClientAddress, request, url }) => {
 		const parsed = parseForm(signUpStartSchema, await request.formData());
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
 		}
+		if (!mayEmail(parsed.data.email, getClientAddress())) {
+			return fail(429, { error: tooManyEmails });
+		}
 		try {
-			startSignUp(parsed.data.email);
+			startSignUp(parsed.data.email, signInLink(url));
 			rememberPendingSignUp(cookies, url, parsed.data.email);
 			return { sent: true };
 		} catch (error) {
@@ -41,13 +53,16 @@ export const actions = {
 			throw error;
 		}
 	},
-	resend: ({ cookies, url }) => {
+	resend: ({ cookies, getClientAddress, url }) => {
 		const current = currentSignUpStep(cookies);
 		if (current.step !== "code") {
 			return fail(400, { error: "Start again with your email." });
 		}
+		if (!mayEmail(current.email, getClientAddress())) {
+			return fail(429, { error: tooManyEmails });
+		}
 		try {
-			startSignUp(current.email);
+			startSignUp(current.email, signInLink(url));
 			rememberPendingSignUp(cookies, url, current.email);
 			return { sent: true };
 		} catch (error) {
@@ -66,6 +81,12 @@ export const actions = {
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
 		}
+		if (signUpCodeAttempts.blocked(current.email)) {
+			return fail(429, {
+				error: "Too many wrong codes for this email today. Try again tomorrow.",
+			});
+		}
+		signUpCodeAttempts.hit(current.email);
 		if (
 			!CodeChallengeDTO.find(signUpIdentifier(current.email))?.verify(
 				parsed.data.code,
@@ -84,6 +105,12 @@ export const actions = {
 		const current = currentSignUpStep(cookies);
 		if (current.step !== "details") {
 			return fail(400, { error: "Verify your email first." });
+		}
+		if (!getSetting("signUpsEnabled")) {
+			clearSignUp(cookies);
+			return fail(403, {
+				error: "Sign-ups just closed. Ask an admin for an invite.",
+			});
 		}
 		const parsed = parseForm(
 			newAccountSchema(current.email),

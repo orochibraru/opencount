@@ -391,6 +391,26 @@ export const oauthClientAssertion = sqliteTable("oauth_client_assertion", {
 	expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
 });
 
+export const appLockMinutes = [1, 5, 15, 60] as const;
+
+export const appLock = sqliteTable("app_lock", {
+	userId: text("user_id")
+		.primaryKey()
+		.references(() => user.id, { onDelete: "cascade" }),
+	passcodeHash: text("passcode_hash").notNull(),
+	lockAfterMinutes: integer("lock_after_minutes").notNull().default(5),
+	updatedAt: updatedAt(),
+});
+
+export const sessionLock = sqliteTable("session_lock", {
+	sessionId: text("session_id")
+		.primaryKey()
+		.references(() => session.id, { onDelete: "cascade" }),
+	lastActiveAt: integer("last_active_at", { mode: "timestamp_ms" }).notNull(),
+	locked: integer("locked", { mode: "boolean" }).notNull().default(false),
+	failedAttempts: integer("failed_attempts").notNull().default(0),
+});
+
 export const setting = sqliteTable("setting", {
 	key: text("key").primaryKey(),
 	value: text("value", { mode: "json" }).notNull(),
