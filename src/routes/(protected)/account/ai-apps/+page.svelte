@@ -21,9 +21,10 @@
 		<div>
 			<h2 class="font-semibold">Connect an AI app</h2>
 			<p class="text-muted-foreground mt-1 text-sm">
-				Claude, ChatGPT or Gemini can read your personal expenses' descriptions,
-				amounts and dates, and file them under the right category. They never
-				see your email, banks, notes, folders or groups.
+				Claude, ChatGPT or Gemini can read the descriptions, amounts and dates
+				of your expenses and your groups', and file them under the right
+				category. They never see your email, banks, notes or folders, nor who's
+				in a group, who paid or who owes what.
 			</p>
 		</div>
 		{#if data.mcpUrl}
@@ -36,7 +37,7 @@
 					or a connected app in Gemini.
 				</li>
 				<li>Sign in here when it asks, and allow it.</li>
-				<li>Ask it to categorize your personal expenses.</li>
+				<li>Ask it to categorize your expenses, or a group's.</li>
 			</ol>
 		{:else}
 			<p class="text-sm">

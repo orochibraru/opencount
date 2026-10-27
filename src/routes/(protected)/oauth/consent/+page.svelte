@@ -41,9 +41,9 @@
 			{/if}
 		</div>
 		<p class="text-muted-foreground text-sm">
-			wants to sort your personal expenses into categories. Only say yes to an
-			app you just connected yourself. It loses access after {data.days} days, then
-			asks you to sign in again; revoke it sooner under Account, AI apps.
+			wants to sort your expenses into categories, yours and your groups'. Only
+			say yes to an app you just connected yourself. It loses access after {data.days}
+			days, then asks you to sign in again; revoke it sooner under Account, AI apps.
 		</p>
 		<div class="mt-auto flex flex-col gap-2 sm:flex-row">
 			<Button
@@ -75,9 +75,12 @@
 		<ul
 			class="text-muted-foreground flex list-disc flex-col gap-1 pl-5 text-sm"
 		>
-			<li>Each personal expense's description, amount, currency and date</li>
-			<li>Whether it's an expense or income, and its category</li>
-			<li>Your category names</li>
+			<li>Your groups' names and currencies</li>
+			<li>
+				Each expense's description, amount, currency, date and category, yours
+				and your groups'
+			</li>
+			<li>Your category names and your groups'</li>
 		</ul>
 		<h2 class="mt-2 flex items-center gap-2 font-semibold">
 			<PencilIcon class="size-4" />
@@ -86,7 +89,10 @@
 		<ul
 			class="text-muted-foreground flex list-disc flex-col gap-1 pl-5 text-sm"
 		>
-			<li>The category of your personal expenses</li>
+			<li>
+				The category of your expenses, and of your groups' expenses for everyone
+				in them
+			</li>
 		</ul>
 	</section>
 	<section class="glass flex flex-col gap-3 rounded-3xl p-5 md:p-6">
@@ -99,7 +105,8 @@
 		>
 			<li>Your email, password, or any sign-in detail</li>
 			<li>Your banks, accounts and bank keys</li>
-			<li>Notes, folders, and anything in your groups</li>
+			<li>Notes and folders</li>
+			<li>Who's in your groups, who paid, the splits and balances</li>
 		</ul>
 	</section>
 </form>

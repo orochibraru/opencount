@@ -158,7 +158,10 @@
 - `/mcp` verifies the JWT in-process against `getJwks()` (no HTTP call to
   itself), then `AiAppDTO.allowed()`: an approval older than 30 days is deleted
   with its tokens, so the app must sign in again, and a revoke bites at once.
-- Tools expose description, amount, currency, date, kind and category only.
+- Tools take an optional `groupId` (checked with `GroupDTO.findForMember`) and
+  work on the person's ledger or that group's through one `Ledger`; group
+  transfers stay out. They expose description, amount, currency, date, category
+  and the personal `kind` only, never members, payer, shares or balances.
   `csrfHandler` lets `/api/auth/oauth2/token`, `revoke` and `introspect`
   through: AI apps call them server to server with no `Origin`.
 - `browserPaths` in `auth.ts` lets the OAuth endpoints AI apps call

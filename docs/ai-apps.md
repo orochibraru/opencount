@@ -1,8 +1,9 @@
 # AI apps
 
-Claude, ChatGPT and Gemini can sort your personal expenses into categories for
-you. OpenCount runs an MCP server at `/mcp` on your instance, and each person
-connects their own AI app under **Account, AI apps**.
+Claude, ChatGPT and Gemini can sort your personal expenses, and those of the
+groups you're in, into categories for you. OpenCount runs an MCP server at
+`/mcp` on your instance, and each person connects their own AI app under
+**Account, AI apps**.
 
 ## Connecting one
 
@@ -11,7 +12,7 @@ connects their own AI app under **Account, AI apps**.
 2. Add it to your AI app: a custom connector in Claude, an app in ChatGPT, or a
    connected app in Gemini.
 3. The app sends you to OpenCount: sign in if you aren't, then allow it.
-4. Ask it to categorize your personal expenses.
+4. Ask it to categorize your expenses, or a group's.
 
 The app registers itself the first time it connects, through a Client ID
 Metadata Document when it publishes one, or Dynamic Client Registration
@@ -20,11 +21,14 @@ wants a client ID and secret typed in by hand, is not supported.
 
 ## What it can do
 
-It can list your categories, list your personal expenses (the uncategorized ones
-by default), and file them under a category. For each expense it sees the
-description, amount, currency, date, whether it's an expense or income, and its
-category. It never sees your email, password, banks, bank accounts or keys,
-notes, folders, or anything in your groups.
+It can list your groups, list the categories of your personal expenses or of a
+group, list the expenses (the uncategorized ones by default), and file them
+under a category. For each expense it sees the description, amount, currency,
+date and category, and for a personal one whether it's an expense or income. It
+only reaches groups you're in, and a category it sets in a group changes it for
+everyone there; transfers between members are left alone. It never sees your
+email, password, banks, bank accounts or keys, notes, folders, who's in a group,
+who paid, the splits or the balances.
 
 ## Staying in control
 

@@ -120,6 +120,39 @@ describe("ExpenseDTO", () => {
 		found?.delete();
 		expect(ExpenseDTO.forGroup(group.id)).toEqual([]);
 	});
+
+	test("a page can skip transfers and start further down", () => {
+		const { group, adaMember, sam } = setUp();
+		const share = [{ memberId: sam.id, amountMinor: 500, weight: 1 }];
+		for (const [description, spentOn] of [
+			["Dinner", "2026-02-03"],
+			["Taxi", "2026-02-02"],
+		]) {
+			ExpenseDTO.create(
+				group.id,
+				expenseInput(adaMember.id, share, { description, spentOn }),
+				"ada",
+			);
+		}
+		ExpenseDTO.create(
+			group.id,
+			expenseInput(adaMember.id, share, {
+				kind: "transfer",
+				description: "Paid back",
+				spentOn: "2026-02-04",
+			}),
+			"ada",
+		);
+		const expenses = ExpenseDTO.page(group.id, {
+			limit: 1,
+			offset: 1,
+			kind: "expense",
+		});
+		expect(expenses.total).toBe(2);
+		expect(expenses.entries.map((entry) => entry.toJSON().description)).toEqual(
+			["Taxi"],
+		);
+	});
 });
 
 describe("RecurringExpenseDTO", () => {

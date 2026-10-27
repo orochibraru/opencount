@@ -88,14 +88,16 @@ const columns = {
 export interface ExpenseFilter {
 	category?: string;
 	search?: string;
+	kind?: (typeof expenseKinds)[number];
 }
 
-function matching(groupId: string, { category, search }: ExpenseFilter) {
+function matching(groupId: string, { category, search, kind }: ExpenseFilter) {
 	const pattern = search
 		? `%${search.toLowerCase().replaceAll(/[\\%_]/g, (character) => `\\${character}`)}%`
 		: undefined;
 	return and(
 		eq(expense.groupId, groupId),
+		kind ? eq(expense.kind, kind) : undefined,
 		category
 			? and(eq(expense.category, category), eq(expense.kind, "expense"))
 			: undefined,
@@ -148,12 +150,17 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 	}
 
 	/**
-	 * The latest `limit` expenses and transfers of `groupId`, newest first, only those filed under `category` and whose
-	 * description or merchant contains `search` (whatever the case) when given, with how many match in all.
+	 * The latest `limit` expenses and transfers of `groupId` after the first `offset`, newest first, only those of
+	 * `kind`, filed under `category` and whose description or merchant contains `search` (whatever the case) when
+	 * given, with how many match in all.
 	 */
 	static page(
 		groupId: string,
-		{ limit, ...filter }: { limit: number } & ExpenseFilter,
+		{
+			limit,
+			offset = 0,
+			...filter
+		}: { limit: number; offset?: number } & ExpenseFilter,
 	): { entries: ExpenseDTO[]; total: number } {
 		const scope = matching(groupId, filter);
 		const database = getDb();
@@ -163,6 +170,7 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 			.where(scope)
 			.orderBy(desc(expense.spentOn), desc(expense.createdAt))
 			.limit(limit)
+			.offset(offset)
 			.all();
 		const shares = sharesFor(rows.map((row) => row.id));
 		return {

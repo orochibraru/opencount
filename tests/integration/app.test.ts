@@ -224,6 +224,13 @@ describe("setting up and using it", () => {
 		expect(await metadata.json()).toEqual(
 			expect.objectContaining({ resource: `${app.origin}/mcp` }),
 		);
+		for (const path of ["oauth-authorization-server", "openid-configuration"]) {
+			const discovery = await fetch(`${app.origin}/.well-known/${path}`);
+			expect(discovery.status).toBe(200);
+			expect(await discovery.json()).toEqual(
+				expect.objectContaining({ issuer: `${app.origin}/api/auth` }),
+			);
+		}
 	});
 
 	test("a required authenticator app sends people to Security without looping", async () => {

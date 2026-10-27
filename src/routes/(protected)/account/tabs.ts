@@ -45,7 +45,8 @@ export function accountTabs(): SectionTab[] {
 		{
 			href: resolve("/(protected)/account/ai-apps"),
 			label: "AI apps",
-			description: "Let Claude, ChatGPT or Gemini sort your personal expenses.",
+			description:
+				"Let Claude, ChatGPT or Gemini sort your expenses and your groups'.",
 			icon: BotIcon,
 		},
 	];
