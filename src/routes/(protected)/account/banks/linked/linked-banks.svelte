@@ -4,6 +4,7 @@
 	import BanknoteIcon from "@lucide/svelte/icons/banknote";
 	import HistoryIcon from "@lucide/svelte/icons/history";
 	import LandmarkIcon from "@lucide/svelte/icons/landmark";
+	import LinkIcon from "@lucide/svelte/icons/link";
 	import LoaderCircleIcon from "@lucide/svelte/icons/loader-circle";
 	import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
 	import UnlinkIcon from "@lucide/svelte/icons/unlink";
@@ -207,6 +208,16 @@
 									loading: "Asking the bank",
 									success:
 										"Fetching all the history your bank keeps. Lines already here stay as they are.",
+								},
+							},
+							{
+								label: "Relink or change accounts",
+								icon: LinkIcon,
+								form: {
+									action: "?/relinkBank",
+									fields: { id: connection.id },
+									loading: "Opening your bank",
+									success: "Confirm on your bank's screen.",
 								},
 							},
 							{

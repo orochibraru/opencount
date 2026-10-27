@@ -9,10 +9,15 @@ import {
 } from "#lib/dto/bank-credential.js";
 import { JobDTO } from "#lib/dto/job.js";
 import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
-import { bankExpense, queueBankSync, syncBank } from "#lib/server/bank-sync.js";
+import {
+	bankExpense,
+	queueBankSync,
+	relinkBank,
+	syncBank,
+} from "#lib/server/bank-sync.js";
+import type { Transaction } from "#lib/server/enable-banking-api.js";
 import {
 	bankApplicationName,
-	type BankTransaction,
 	closeBankSession,
 	listBanks,
 	openBankSession,
@@ -36,7 +41,15 @@ function credentials() {
 	};
 }
 
-function card(fields: Partial<BankTransaction> = {}): BankTransaction {
+function sent(fetched: { mock: { calls: unknown[][] } }, index: number) {
+	const request = fetched.mock.calls[index]?.[0];
+	if (!(request instanceof Request)) {
+		throw new TypeError(`Request ${index} wasn't sent.`);
+	}
+	return request;
+}
+
+function card(fields: Partial<Transaction> = {}): Transaction {
 	return {
 		transaction_id: "t1",
 		transaction_amount: { amount: "12.30", currency: "EUR" },
@@ -77,7 +90,7 @@ describe("Enable Banking client", () => {
 			Response.json({ name: "OpenCount" }),
 		);
 		expect(await bankApplicationName(credentials())).toBe("OpenCount");
-		const headers = new Headers(fetched.mock.calls[0]?.[1]?.headers);
+		const { headers } = sent(fetched, 0);
 		const [header = "", body = "", signature = ""] = (
 			headers.get("Authorization") ?? ""
 		)
@@ -120,7 +133,12 @@ describe("Enable Banking client", () => {
 					aspsp: { name: "Revolut", country: "FR" },
 					access: { valid_until: "2027-01-20T00:00:00Z" },
 					accounts: [
-						{ uid: "a-1", details: "Main", currency: "EUR" },
+						{
+							uid: "a-1",
+							details: "Main",
+							currency: "EUR",
+							identification_hash: "hash-1",
+						},
 						{ uid: "a-2", account_id: { iban: "FR7600001111" } },
 						{ uid: null, details: "Card that can't be read" },
 					],
@@ -139,7 +157,7 @@ describe("Enable Banking client", () => {
 				"state",
 			),
 		).toBe("https://bank.test/consent");
-		const body = JSON.parse(String(fetched.mock.calls[1]?.[1]?.body)) as {
+		const body = (await sent(fetched, 1).json()) as {
 			psu_type: string;
 			redirect_url: string;
 		};
@@ -147,11 +165,22 @@ describe("Enable Banking client", () => {
 		const session = await openBankSession(credentials(), "code");
 		expect(session.sessionId).toBe("s-1");
 		expect(session.accounts).toEqual([
-			{ uid: "a-1", name: "Main", currency: "EUR" },
-			{ uid: "a-2", name: "…1111", currency: "EUR" },
+			{
+				uid: "a-1",
+				name: "Main",
+				currency: "EUR",
+				identificationHash: "hash-1",
+			},
+			{
+				uid: "a-2",
+				name: "…1111",
+				currency: "EUR",
+				identificationHash: undefined,
+			},
 		]);
+		expect(session.listedAccounts).toBe(3);
 		await closeBankSession(credentials(), "s-1");
-		expect(String(fetched.mock.calls[3]?.[0])).toEndWith("/sessions/s-1");
+		expect(sent(fetched, 3).url).toEndWith("/sessions/s-1");
 	});
 
 	test("reports the service's own message when it refuses", async () => {
@@ -188,7 +217,7 @@ describe("bank sync", () => {
 				"acc",
 				card({
 					credit_debit_indicator: "CRDT",
-					creditor: null,
+					creditor: undefined,
 					debtor: { name: "ACME Payroll" },
 				}),
 			),
@@ -219,8 +248,8 @@ describe("bank sync", () => {
 			bankExpense(
 				"acc",
 				card({
-					transaction_id: null,
-					creditor: null,
+					transaction_id: undefined,
+					creditor: undefined,
 					remittance_information: ["", " Netflix "],
 				}),
 			)?.bankRef,
@@ -255,7 +284,7 @@ describe("bank sync", () => {
 			)
 			.mockResolvedValueOnce(Response.json({ transactions: [card()] }));
 		await jobHandlers["bank.sync"]({ connectionId: connection.id });
-		expect(String(fetched.mock.calls[1]?.[0])).toContain("strategy=longest");
+		expect(sent(fetched, 1).url).toContain("strategy=longest");
 		expect(PersonalExpenseDTO.page(ada.id, { limit: 50 }).entries).toHaveLength(
 			2,
 		);
@@ -272,7 +301,7 @@ describe("bank sync", () => {
 		);
 		expect(again?.syncing()).toBe(false);
 		expect(await syncBank(again!)).toBe(0);
-		expect(String(fetched.mock.calls[3]?.[0])).toContain(
+		expect(sent(fetched, 3).url).toContain(
 			`date_from=${new Date(Date.now() - 3 * 86_400_000).toISOString().slice(0, 10)}`,
 		);
 		expect(PersonalExpenseDTO.historyFromBank(ada.id)).toEqual({
@@ -301,8 +330,98 @@ describe("bank sync", () => {
 			validUntil: new Date(Date.now() + 86_400_000),
 		});
 		connection.setLogo("https://logos.example/cm.png");
-		await expect(syncBank(connection)).rejects.toThrow("shared no account");
-		expect(connection.toJSON().lastError).toContain("tick your accounts");
+		await expect(syncBank(connection)).rejects.toThrow(
+			"can't read any account",
+		);
+		expect(connection.toJSON().lastError).toContain("relink the bank");
+	});
+
+	test("relinking carries each account's lines over to its new uid", async () => {
+		const ada = createUser("ada");
+		saveBankCredentials(ada.id, credentials());
+		const connection = BankConnectionDTO.create(ada.id, {
+			sessionId: "session-1",
+			bankName: "Revolut",
+			bankCountry: "FR",
+			accounts: [
+				{ uid: "old-1", name: "…9040", currency: "EUR" },
+				{ uid: "old-3", name: "…9040", currency: "EUR" },
+				{ uid: "old-4", name: "Pocket", currency: "EUR" },
+				{
+					uid: "old-2",
+					name: "Savings",
+					currency: "EUR",
+					identificationHash: "hash-2",
+				},
+			],
+			validUntil: new Date(Date.now() + 86_400_000),
+		});
+		PersonalExpenseDTO.importFromBank(ada.id, connection.id, [
+			bankExpense("old-1", card())!,
+			bankExpense("old-2", card({ transaction_id: "t9" }))!,
+			bankExpense("old-4", card({ transaction_id: "t4" }))!,
+		]);
+		connection.markSynced(3);
+		const fetched = spyOn(globalThis, "fetch").mockResolvedValueOnce(
+			Response.json({
+				accounts_data: [
+					{ uid: "old-1", identification_hash: "hash-1" },
+					{ uid: "old-3", identification_hash: "hash-3" },
+				],
+			}),
+		);
+		const accounts = [
+			{
+				uid: "new-1",
+				name: "…9040",
+				currency: "EUR",
+				identificationHash: "hash-1",
+			},
+			{
+				uid: "new-2",
+				name: "Renamed",
+				currency: "EUR",
+				identificationHash: "hash-2",
+			},
+			{ uid: "new-4", name: "Pocket", currency: "EUR" },
+		];
+		const relink = {
+			sessionId: "session-2",
+			bankName: "Revolut",
+			bankCountry: "FR",
+			listedAccounts: 3,
+			validUntil: new Date(Date.now() + 2 * 86_400_000),
+			accounts,
+		};
+		await relinkBank(connection, relink, credentials());
+		expect(sent(fetched, 0).url).toEndWith("/sessions/session-1");
+		const again = BankConnectionDTO.find(connection.id);
+		expect(again?.sessionId).toBe("session-2");
+		expect(again?.fetchFrom()).toBeUndefined();
+		expect(again?.accounts.map((account) => account.uid)).toEqual([
+			"new-1",
+			"new-2",
+			"new-4",
+		]);
+		expect(
+			PersonalExpenseDTO.importFromBank(ada.id, connection.id, [
+				bankExpense("new-1", card())!,
+				bankExpense("new-2", card({ transaction_id: "t9" }))!,
+				bankExpense("new-4", card({ transaction_id: "t4" }))!,
+			]),
+		).toBe(0);
+		expect(
+			PersonalExpenseDTO.page(ada.id, { limit: 50, accountUid: "new-2" })
+				.entries,
+		).toHaveLength(1);
+		fetched.mockRejectedValueOnce(new Error("offline"));
+		await relinkBank(
+			again!,
+			{ ...relink, sessionId: "session-3", accounts: [accounts[2]!] },
+			credentials(),
+		);
+		expect(fetched).toHaveBeenCalledTimes(2);
+		expect(BankConnectionDTO.find(connection.id)?.sessionId).toBe("session-3");
 	});
 
 	test("a link without keys fails and says why", async () => {

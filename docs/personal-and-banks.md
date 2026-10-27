@@ -86,8 +86,15 @@ when new ones arrive.
 last synced and how many lines were new, how far back its history goes, until
 when the link lasts, or why the last sync failed. Its menu has **Sync now**,
 **Fetch full history** (asks again for everything the bank keeps; many banks
-only hand it over shortly after you confirm the link) and **Unlink**, which
-stops the sync.
+only hand it over shortly after you confirm the link), **Relink or change
+accounts** and **Unlink**, which stops the sync.
+
+**Relink or change accounts** sends you through the bank's consent screen again
+for the same bank: use it when the 90 days run out or to add or drop accounts
+(some banks let you pick them there, others share every account). The lines you
+already have stay put, and the bank's full history comes in again without
+doubling anything. A link where Enable Banking can read no account is refused
+with the reason, and nothing is linked.
 
 Delete an expense that came from your bank and it is hidden, so the next sync
 doesn't bring it back. A line from your bank keeps its amount, currency and
@@ -126,6 +133,7 @@ imported stay.
 
 Enable Banking's free "restricted" use only works for accounts you linked to
 your application in its control panel, so your own bank accounts must be linked
-there first. A contract with Enable Banking lifts that. The server calls
-`api.enablebanking.com` for this, and only then. See
+there first; if you forget, the link is refused with that message. Link them,
+then press **Relink or change accounts**. A contract with Enable Banking lifts
+that. The server calls `api.enablebanking.com` for this, and only then. See
 [Configuration](configuration).

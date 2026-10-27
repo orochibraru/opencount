@@ -107,7 +107,19 @@
   `bank.sync` use the link owner's keys; a link whose owner removed them fails
   with a message. Personal links to Account > Bank sync when the account has
   none. Without a contract the application is "restricted": the owner's accounts
-  must be linked to it in Enable Banking's control panel.
+  must be linked to it in Enable Banking's control panel, or the session lists
+  them with no `uid`. The callback refuses a link with no readable account
+  (`?link=empty` or `unreadable` on Linked banks) instead of saving it.
+- The client is `openapi-fetch` over types `bun run bank:types` generates from
+  Enable Banking's published spec into `enable-banking-api.d.ts` (generated,
+  excluded from lint and typos, regenerate rather than edit). The spec says
+  nothing is nullable, but the API does send `null`: keep the `??` and `?.`.
+- An account's `uid` only lives as long as its consent and `bankRef` is
+  `uid:transaction`, so relinking (`relinkBank`) moves each account's lines to
+  its new uid, matched on `identification_hash` (stable across consents). Links
+  saved before the hash was kept read it from the old session, else fall back to
+  a unique name and currency. Then `syncedAt` is cleared so the next sync
+  fetches the full history without doubles.
 - A person links a bank under Account > Bank sync (country, bank, the bank's
   consent screen, 90 days of consent); Personal only shows a filter pill per
   link. `bank.syncAll` runs daily (queued at worker start if absent) and queues

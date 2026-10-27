@@ -1,6 +1,9 @@
 import { createSign } from "node:crypto";
 
+import createClient from "openapi-fetch";
+
 import type { BankCredentials } from "#lib/dto/bank-credential.js";
+import type { paths, Transaction } from "#lib/server/enable-banking-api.js";
 import { decryptSecret } from "#lib/server/secrets.js";
 import { withSpan } from "#lib/server/telemetry.js";
 
@@ -8,6 +11,9 @@ const apiBase = "https://api.enablebanking.com";
 const consentDays = 90;
 
 export const bankLinkPurpose = "bank-link";
+
+export const noReadableAccount =
+	"Enable Banking can't read any account at this bank. If your app was activated by linking your own accounts, add these accounts in the Enable Banking control panel, then relink the bank.";
 
 export class BankError extends Error {}
 
@@ -21,6 +27,7 @@ export interface BankAccount {
 	uid: string;
 	name: string;
 	currency: string;
+	identificationHash?: string;
 }
 
 export interface BankLink {
@@ -28,21 +35,8 @@ export interface BankLink {
 	bankName: string;
 	bankCountry: string;
 	accounts: BankAccount[];
+	listedAccounts: number;
 	validUntil: Date;
-}
-
-export interface BankTransaction {
-	transaction_id?: string | null;
-	entry_reference?: string | null;
-	transaction_amount: { amount: string; currency: string };
-	credit_debit_indicator: "CRDT" | "DBIT";
-	status?: string | null;
-	booking_date?: string | null;
-	value_date?: string | null;
-	transaction_date?: string | null;
-	remittance_information?: string[] | null;
-	creditor?: { name?: string | null } | null;
-	debtor?: { name?: string | null } | null;
 }
 
 function base64url(value: string | Buffer): string {
@@ -71,34 +65,36 @@ function bearerToken(credentials: BankCredentials): string {
 	return `${unsigned}.${base64url(signature)}`;
 }
 
-function call<Result>(
-	credentials: BankCredentials,
+function client(credentials: BankCredentials) {
+	return createClient<paths>({
+		baseUrl: apiBase,
+		headers: { Authorization: `Bearer ${bearerToken(credentials)}` },
+		fetch: (request) => fetch(request, { signal: AbortSignal.timeout(20_000) }),
+	});
+}
+
+function refusal(error: unknown): string | undefined {
+	return typeof error === "object" &&
+		error !== null &&
+		"message" in error &&
+		typeof error.message === "string"
+		? error.message
+		: undefined;
+}
+
+function call<Data>(
 	path: string,
-	init: RequestInit = {},
-): Promise<Result> {
-	return withSpan(
-		"enable banking",
-		{ "bank.path": path.split("?")[0] ?? "" },
-		async () => {
-			const headers = new Headers(init.headers);
-			headers.set("Authorization", `Bearer ${bearerToken(credentials)}`);
-			headers.set("Content-Type", "application/json");
-			const response = await fetch(`${apiBase}${path}`, {
-				...init,
-				headers,
-				signal: AbortSignal.timeout(20_000),
-			});
-			const body = (await response.json().catch(() => ({}))) as Result & {
-				message?: string;
-			};
-			if (!response.ok) {
-				throw new BankError(
-					body.message ?? `The bank service answered ${response.status}.`,
-				);
-			}
-			return body;
-		},
-	);
+	send: () => Promise<{ data?: Data; error?: unknown; response: Response }>,
+): Promise<Data> {
+	return withSpan("enable banking", { "bank.path": path }, async () => {
+		const { data, error, response } = await send();
+		if (data === undefined) {
+			throw new BankError(
+				refusal(error) ?? `The bank service answered ${response.status}.`,
+			);
+		}
+		return data;
+	});
 }
 
 /**
@@ -109,7 +105,9 @@ function call<Result>(
 export async function bankApplicationName(
 	credentials: BankCredentials,
 ): Promise<string> {
-	return (await call<{ name: string }>(credentials, "/application")).name;
+	return (
+		await call("/application", () => client(credentials).GET("/application"))
+	).name;
 }
 
 /** The banks personal accounts can be linked at in `country`. */
@@ -117,11 +115,10 @@ export async function listBanks(
 	credentials: BankCredentials,
 	country: string,
 ): Promise<Bank[]> {
-	const { aspsps } = await call<{
-		aspsps: { name: string; country: string; logo?: string | null }[];
-	}>(
-		credentials,
-		`/aspsps?country=${encodeURIComponent(country)}&psu_type=personal&service=AIS`,
+	const { aspsps } = await call("/aspsps", () =>
+		client(credentials).GET("/aspsps", {
+			params: { query: { country, psu_type: "personal", service: "AIS" } },
+		}),
 	);
 	return aspsps.map((aspsp) => ({
 		name: aspsp.name,
@@ -143,21 +140,22 @@ export async function startBankLink(
 	state: string,
 ): Promise<string> {
 	const validUntil = new Date(Date.now() + consentDays * 24 * 60 * 60 * 1000);
-	const { url } = await call<{ url: string }>(credentials, "/auth", {
-		method: "POST",
-		body: JSON.stringify({
-			access: { valid_until: validUntil.toISOString() },
-			aspsp: bank,
-			state,
-			redirect_url: redirectUrl,
-			psu_type: "personal",
+	const { url } = await call("/auth", () =>
+		client(credentials).POST("/auth", {
+			body: {
+				access: { valid_until: validUntil.toISOString() },
+				aspsp: bank,
+				state,
+				redirect_url: redirectUrl,
+				psu_type: "personal",
+			},
 		}),
-	});
+	);
 	return url;
 }
 
 /**
- * Turns the code the bank sent back into a session with its accounts.
+ * Turns the code the bank sent back into a session with the accounts it can read, and how many the bank listed.
  *
  * @throws BankError when the code is refused or expired.
  */
@@ -165,44 +163,56 @@ export async function openBankSession(
 	credentials: BankCredentials,
 	code: string,
 ): Promise<BankLink> {
-	const session = await call<{
-		session_id: string;
-		aspsp: { name: string; country: string };
-		access: { valid_until: string };
-		accounts: {
-			uid?: string | null;
-			name?: string | null;
-			details?: string | null;
-			product?: string | null;
-			currency?: string | null;
-			account_id?: { iban?: string | null } | null;
-		}[];
-	}>(credentials, "/sessions", {
-		method: "POST",
-		body: JSON.stringify({ code }),
-	});
+	const session = await call("/sessions", () =>
+		client(credentials).POST("/sessions", { body: { code } }),
+	);
 	return {
 		sessionId: session.session_id,
 		bankName: session.aspsp.name,
 		bankCountry: session.aspsp.country,
 		validUntil: new Date(session.access.valid_until),
-		accounts: session.accounts
-			.flatMap((account) =>
-				account.uid ? [{ ...account, uid: account.uid }] : [],
-			)
-			.map((account) => ({
-				uid: account.uid,
-				name:
-					account.details ??
-					account.product ??
-					(account.account_id?.iban
-						? `…${account.account_id.iban.slice(-4)}`
-						: null) ??
-					account.name ??
-					"Account",
-				currency: account.currency ?? "EUR",
-			})),
+		listedAccounts: session.accounts.length,
+		accounts: session.accounts.flatMap((account) =>
+			account.uid
+				? [
+						{
+							uid: account.uid,
+							name:
+								account.details ??
+								account.product ??
+								(account.account_id?.iban
+									? `…${account.account_id.iban.slice(-4)}`
+									: null) ??
+								account.name ??
+								"Account",
+							currency: account.currency ?? "EUR",
+							identificationHash: account.identification_hash,
+						},
+					]
+				: [],
+		),
 	};
+}
+
+/**
+ * The identification hash of each account of session `sessionId` by uid, empty when the session can't be read
+ * anymore.
+ */
+export async function sessionAccountHashes(
+	credentials: BankCredentials,
+	sessionId: string,
+): Promise<Map<string, string>> {
+	const session = await call("/sessions/{session_id}", () =>
+		client(credentials).GET("/sessions/{session_id}", {
+			params: { path: { session_id: sessionId } },
+		}),
+	).catch(() => undefined);
+	return new Map(
+		session?.accounts_data.map((account) => [
+			account.uid,
+			account.identification_hash,
+		]) ?? [],
+	);
 }
 
 /**
@@ -229,22 +239,22 @@ export async function bankTransactions(
 	credentials: BankCredentials,
 	uid: string,
 	dateFrom: string | undefined,
-): Promise<BankTransaction[]> {
-	const transactions: BankTransaction[] = [];
+): Promise<Transaction[]> {
+	const api = client(credentials);
+	const transactions: Transaction[] = [];
 	let continuationKey: string | undefined;
 	do {
-		const query = new URLSearchParams(
-			dateFrom ? { date_from: dateFrom } : { strategy: "longest" },
-		);
-		if (continuationKey) {
-			query.set("continuation_key", continuationKey);
-		}
-		const page = await call<{
-			transactions: BankTransaction[];
-			continuation_key?: string | null;
-		}>(
-			credentials,
-			`/accounts/${encodeURIComponent(uid)}/transactions?${query}`,
+		const key = continuationKey;
+		const page = await call("/accounts/{account_id}/transactions", () =>
+			api.GET("/accounts/{account_id}/transactions", {
+				params: {
+					path: { account_id: uid },
+					query: {
+						...(dateFrom ? { date_from: dateFrom } : { strategy: "longest" }),
+						...(key ? { continuation_key: key } : {}),
+					},
+				},
+			}),
 		);
 		transactions.push(...page.transactions);
 		continuationKey = page.continuation_key ?? undefined;
@@ -257,7 +267,9 @@ export async function closeBankSession(
 	credentials: BankCredentials,
 	sessionId: string,
 ): Promise<void> {
-	await call(credentials, `/sessions/${encodeURIComponent(sessionId)}`, {
-		method: "DELETE",
-	}).catch(() => undefined);
+	await client(credentials)
+		.DELETE("/sessions/{session_id}", {
+			params: { path: { session_id: sessionId } },
+		})
+		.catch(() => undefined);
 }

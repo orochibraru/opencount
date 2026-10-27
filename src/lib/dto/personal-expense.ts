@@ -504,6 +504,23 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 			.all().length;
 	}
 
+	/** Moves `userId`'s lines of bank account `fromUid` to `toUid`, its uid under a new consent, references included. */
+	static moveBankAccount(userId: string, fromUid: string, toUid: string): void {
+		getDb()
+			.update(personalExpense)
+			.set({
+				bankAccountUid: toUid,
+				bankRef: sql`${toUid} || substr(${personalExpense.bankRef}, ${fromUid.length + 1})`,
+			})
+			.where(
+				and(
+					eq(personalExpense.userId, userId),
+					eq(personalExpense.bankAccountUid, fromUid),
+				),
+			)
+			.run();
+	}
+
 	get id(): string {
 		return this.row.id;
 	}

@@ -19,7 +19,8 @@
 		"drizzle/**",
 		"static/**",
 		"coverage/**",
-		"src/lib/components/ui/**"
+		"src/lib/components/ui/**",
+		"src/lib/server/enable-banking-api.d.ts"
 	],
 	"rules": {
 		"complexity": ["error", 25],

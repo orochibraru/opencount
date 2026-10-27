@@ -38,7 +38,8 @@
   `desktop` and `phone` projects run on it. CI runs both suites in the
   `app-tests` job.
 - `bun run db:generate`: writes a migration to `drizzle/` from `schema.ts`.
-  Migrations apply at boot, never by hand.
+- `bun run bank:types`: regenerates the Enable Banking API types from its
+  published OpenAPI spec. Migrations apply at boot, never by hand.
 
 `bunfig.toml` sets `[run] bun = true`, so every script and binary runs on Bun,
 never Node.

@@ -739,7 +739,14 @@ export const bankConnection = sqliteTable(
 		bankName: text("bank_name").notNull(),
 		bankCountry: text("bank_country").notNull(),
 		accounts: text("accounts", { mode: "json" })
-			.$type<{ uid: string; name: string; currency: string }[]>()
+			.$type<
+				{
+					uid: string;
+					name: string;
+					currency: string;
+					identificationHash?: string;
+				}[]
+			>()
 			.notNull(),
 		validUntil: integer("valid_until", { mode: "timestamp_ms" }).notNull(),
 		syncedAt: integer("synced_at", { mode: "timestamp_ms" }),

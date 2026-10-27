@@ -22,6 +22,36 @@ const bankSchema = z.object({
 });
 const syncSchema = idSchema.extend({ full: z.stringbool().default(false) });
 
+async function openBank(
+	userId: string,
+	bank: { name: string; country: string },
+	url: URL,
+	connectionId?: string,
+) {
+	const credentials = bankCredentialsFor(userId);
+	if (!credentials) {
+		return fail(400, { error: "Set up bank sync first." });
+	}
+	let target: string;
+	try {
+		target = await startBankLink(
+			credentials,
+			bank,
+			new URL(
+				resolve("/(protected)/personal/bank"),
+				publicOrigin() ?? url.origin,
+			).href,
+			signPayload({ userId, connectionId }, bankLinkPurpose, 30 * 60 * 1000),
+		);
+	} catch (error) {
+		if (error instanceof BankError) {
+			return fail(400, { error: error.message });
+		}
+		throw error;
+	}
+	redirect(303, target, { external: true });
+}
+
 export const load = async ({ parent }) => {
 	const { user } = await parent();
 	const historyFrom = PersonalExpenseDTO.historyFromBank(user.id);
@@ -39,36 +69,30 @@ export const actions = {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
 		}
-		const credentials = bankCredentialsFor(locals.user.id);
-		if (!credentials) {
-			return fail(400, { error: "Set up bank sync first." });
-		}
 		const parsed = parseForm(bankSchema, await request.formData());
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
 		}
-		let target: string;
-		try {
-			target = await startBankLink(
-				credentials,
-				parsed.data,
-				new URL(
-					resolve("/(protected)/personal/bank"),
-					publicOrigin() ?? url.origin,
-				).href,
-				signPayload(
-					{ userId: locals.user.id },
-					bankLinkPurpose,
-					30 * 60 * 1000,
-				),
-			);
-		} catch (error) {
-			if (error instanceof BankError) {
-				return fail(400, { error: error.message });
-			}
-			throw error;
+		return openBank(locals.user.id, parsed.data, url);
+	},
+	relinkBank: async ({ locals, request, url }) => {
+		if (!locals.user) {
+			return fail(401, { error: "Sign in again to continue." });
 		}
-		redirect(303, target, { external: true });
+		const parsed = parseForm(idSchema, await request.formData());
+		const connection = parsed.success
+			? BankConnectionDTO.findForUser(parsed.data.id, locals.user.id)
+			: undefined;
+		if (!connection) {
+			return fail(404, { error: "That bank isn't linked anymore." });
+		}
+		const { bankName, bankCountry } = connection.toJSON();
+		return openBank(
+			locals.user.id,
+			{ name: bankName, country: bankCountry },
+			url,
+			connection.id,
+		);
 	},
 	syncBank: async ({ locals, request }) => {
 		if (!locals.user) {

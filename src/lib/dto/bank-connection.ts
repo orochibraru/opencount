@@ -9,7 +9,7 @@ type ConnectionRow = typeof bankConnection.$inferSelect;
 export type BankConnectionRow = Omit<ConnectionRow, "sessionId" | "userId">;
 
 export class BankConnectionDTO extends BaseDTO<BankConnectionRow> {
-	readonly #sessionId: string;
+	#sessionId: string;
 	readonly #userId: string;
 
 	/** Wraps one link, keeping its session id and owner out of `toJSON()`. */
@@ -30,7 +30,14 @@ export class BankConnectionDTO extends BaseDTO<BankConnectionRow> {
 		return new BankConnectionDTO(
 			getDb()
 				.insert(bankConnection)
-				.values({ ...link, userId })
+				.values({
+					userId,
+					sessionId: link.sessionId,
+					bankName: link.bankName,
+					bankCountry: link.bankCountry,
+					accounts: link.accounts,
+					validUntil: link.validUntil,
+				})
 				.returning()
 				.get(),
 		);
@@ -155,6 +162,26 @@ export class BankConnectionDTO extends BaseDTO<BankConnectionRow> {
 	/** Records why the last sync failed. */
 	markFailed(message: string, at = new Date()): void {
 		this.#update({ lastError: message, syncState: "idle", syncStateAt: at });
+	}
+
+	/** Moves the link onto a new consent, whose first sync fetches all the history the bank keeps. */
+	replaceSession(
+		link: Pick<ConnectionRow, "sessionId" | "accounts" | "validUntil">,
+	): void {
+		const values = {
+			accounts: link.accounts,
+			validUntil: link.validUntil,
+			syncedAt: null,
+			lastError: null,
+			lastReport: [],
+		};
+		getDb()
+			.update(bankConnection)
+			.set({ ...values, sessionId: link.sessionId })
+			.where(eq(bankConnection.id, this.row.id))
+			.run();
+		Object.assign(this.row, values);
+		this.#sessionId = link.sessionId;
 	}
 
 	/** Remembers the bank's logo, an https address. */

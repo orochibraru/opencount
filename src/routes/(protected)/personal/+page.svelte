@@ -2,7 +2,6 @@
 	import { enhance } from "$app/forms";
 	import { goto } from "$app/navigation";
 	import { resolve } from "$app/paths";
-	import { page } from "$app/state";
 	import CalendarRangeIcon from "@lucide/svelte/icons/calendar-range";
 	import ChartColumnIcon from "@lucide/svelte/icons/chart-column";
 	import CheckIcon from "@lucide/svelte/icons/check";
@@ -11,8 +10,6 @@
 	import LandmarkIcon from "@lucide/svelte/icons/landmark";
 	import PlusIcon from "@lucide/svelte/icons/plus";
 	import TagsIcon from "@lucide/svelte/icons/tags";
-	import { onMount } from "svelte";
-	import { toast } from "svelte-sonner";
 
 	import Picker from "#lib/components/picker.svelte";
 	import ResponsiveSheet from "#lib/components/responsive-sheet.svelte";
@@ -77,17 +74,6 @@
 			primary: true,
 		},
 	]);
-
-	onMount(() => {
-		const outcome = page.url.searchParams.get("bank");
-		if (outcome === "connected") {
-			toast.success("Bank linked. Its payments show up in a moment.");
-		} else if (outcome === "failed") {
-			toast.error("The bank refused the link. Try again.");
-		} else if (outcome === "cancelled") {
-			toast.error("The bank link was cancelled.");
-		}
-	});
 </script>
 
 <PersonalView

@@ -1,5 +1,8 @@
 import type { BankConnectionDTO } from "#lib/dto/bank-connection.js";
-import { bankCredentialsFor } from "#lib/dto/bank-credential.js";
+import {
+	type BankCredentials,
+	bankCredentialsFor,
+} from "#lib/dto/bank-credential.js";
 import { JobDTO } from "#lib/dto/job.js";
 import { PersonalCategoryDTO } from "#lib/dto/personal-category.js";
 import {
@@ -8,11 +11,14 @@ import {
 } from "#lib/dto/personal-expense.js";
 import { currencyDigits } from "#lib/money.js";
 import type { BankSyncReport } from "#lib/server/db/schema.js";
+import type { Transaction } from "#lib/server/enable-banking-api.js";
 import {
 	BankError,
+	type BankLink,
 	bankLogo,
-	type BankTransaction,
 	bankTransactions,
+	noReadableAccount,
+	sessionAccountHashes,
 } from "#lib/server/enable-banking.js";
 import { similarKey } from "#lib/similar-key.js";
 import { guessCategory, isMoneyAside } from "#lib/smart-category.js";
@@ -35,7 +41,7 @@ export function personalGuess(
  */
 export function bankExpense(
 	accountUid: string,
-	transaction: BankTransaction,
+	transaction: Transaction,
 	guess: (description: string) => string | undefined = guessCategory,
 ): BankExpense | undefined {
 	const spentOn =
@@ -129,9 +135,7 @@ export async function syncBank(
 			}
 		}
 		if (connection.accounts.length === 0) {
-			throw new BankError(
-				"Your bank shared no account. Unlink it, link it again and tick your accounts on the bank's screen.",
-			);
+			throw new BankError(noReadableAccount);
 		}
 		const from = full ? undefined : connection.fetchFrom();
 		const guess = personalGuess(connection.userId);
@@ -167,4 +171,56 @@ export async function syncBank(
 		);
 		throw error;
 	}
+}
+
+function sameAccount(
+	previous: BankConnectionDTO["accounts"][number],
+	next: BankLink["accounts"][number],
+	previousAccounts: BankConnectionDTO["accounts"],
+): boolean {
+	if (previous.identificationHash && next.identificationHash) {
+		return previous.identificationHash === next.identificationHash;
+	}
+	return (
+		previous.name === next.name &&
+		previous.currency === next.currency &&
+		previousAccounts.filter(
+			(account) =>
+				account.name === next.name && account.currency === next.currency,
+		).length === 1
+	);
+}
+
+/**
+ * Moves `connection` onto the new consent `link`. The bank gives each account a new uid per consent, so the lines of
+ * an account it lists again follow it to its new uid, and the full sync that follows adds nothing twice. Accounts saved
+ * without their hash get it from the old session while it can still be read.
+ */
+export async function relinkBank(
+	connection: BankConnectionDTO,
+	link: BankLink,
+	credentials: BankCredentials,
+): Promise<void> {
+	const hashes = connection.accounts.every(
+		(account) => account.identificationHash,
+	)
+		? new Map<string, string>()
+		: await sessionAccountHashes(credentials, connection.sessionId);
+	const previousAccounts = connection.accounts.map((account) => ({
+		...account,
+		identificationHash: account.identificationHash ?? hashes.get(account.uid),
+	}));
+	for (const account of link.accounts) {
+		const previous = previousAccounts.find((candidate) =>
+			sameAccount(candidate, account, previousAccounts),
+		);
+		if (previous && previous.uid !== account.uid) {
+			PersonalExpenseDTO.moveBankAccount(
+				connection.userId,
+				previous.uid,
+				account.uid,
+			);
+		}
+	}
+	connection.replaceSession(link);
 }
