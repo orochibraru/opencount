@@ -1,4 +1,4 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 
 import { BaseDTO } from "#lib/dto/base-dto.js";
 import { getDb } from "#lib/server/db/lib.js";
@@ -27,6 +27,31 @@ export class MerchantDTO extends BaseDTO<MerchantRow> {
 			.limit(500)
 			.all()
 			.map((row) => new MerchantDTO(row));
+	}
+
+	/** Merchant `id`, only when it belongs to `groupId`. */
+	static findInGroup(groupId: string, id: string): MerchantDTO | undefined {
+		const row = getDb()
+			.select(columns)
+			.from(merchant)
+			.where(and(eq(merchant.groupId, groupId), eq(merchant.id, id)))
+			.get();
+		return row ? new MerchantDTO(row) : undefined;
+	}
+
+	/** The merchant of `groupId` saved under `name`, whatever its case. */
+	static findByName(groupId: string, name: string): MerchantDTO | undefined {
+		const row = getDb()
+			.select(columns)
+			.from(merchant)
+			.where(
+				and(
+					eq(merchant.groupId, groupId),
+					eq(merchant.nameKey, name.trim().toLocaleLowerCase()),
+				),
+			)
+			.get();
+		return row ? new MerchantDTO(row) : undefined;
 	}
 
 	/**

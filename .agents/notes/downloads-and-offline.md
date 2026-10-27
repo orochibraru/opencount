@@ -66,6 +66,11 @@
   `note`; the actions enforce it, not only the sheet. Syncs insert with
   `onConflictDoNothing`, so a note is never overwritten; search matches the
   description or the note.
+- Each account has `appearance.monthStartDay` (1 to 28,
+  `AppearanceDTO.monthStartFor`): `#lib/pay-month.ts` turns a day into its
+  month's start, and Personal stats (`byMonth` keyed by that start date), the
+  list headings, `moneyOverview` and the personal `periodRange` all take it.
+  Groups stay on calendar months.
 - The money overview is the Home tab at `/home`, first in the navigation when
   `AppearanceDTO.homeFor` is `money` (`groups`, the stored "no", or null by
   default; asked once on Groups after a first bank link, switch under Account >
@@ -103,15 +108,21 @@
   with a message. Personal links to Account > Bank sync when the account has
   none. Without a contract the application is "restricted": the owner's accounts
   must be linked to it in Enable Banking's control panel.
-- A person links a bank from Personal (country, bank, the bank's consent screen,
-  90 days of consent). `bank.syncAll` runs daily (queued at worker start if
-  absent) and queues a `bank.sync` per link (`maxAttempts: 1`): 90 days back the
-  first time, then from 3 days before the last sync. Booked transactions, debits
-  as `expense` and credits as `income`, each with its `bankAccountUid`,
-  categorized by what the account filed the same description under, then the
-  description guess, deduplicated per bank transaction. Deleting a bank-imported
-  expense hides it so a sync doesn't bring it back. New ones trigger a push
-  notification.
+- A person links a bank under Account > Bank sync (country, bank, the bank's
+  consent screen, 90 days of consent); Personal only shows a filter pill per
+  link. `bank.syncAll` runs daily (queued at worker start if absent) and queues
+  a `bank.sync` per link through `queueBankSync` (`maxAttempts: 1`): Enable
+  Banking's `strategy=longest` the first time or with `full`, then from 3 days
+  before the last sync. The link carries `syncState` (`queued`, `running`,
+  `idle`) with `syncStateAt`, `lastAdded`, `lastError` and the bank's logo;
+  `syncing()` ignores a state older than 15 minutes so a dead worker doesn't
+  spin forever, and the UI polls while one syncs. Only `BankError` messages
+  reach `lastError`; anything else is stored as a generic retry message. Booked
+  transactions, debits as `expense` and credits as `income`, each with its
+  `bankAccountUid`, categorized by what the account filed the same description
+  under, then the description guess, deduplicated per bank transaction. Deleting
+  a bank-imported expense hides it so a sync doesn't bring it back. New ones
+  trigger a push notification.
 
 ## Group invite link
 
@@ -162,6 +173,8 @@
   work on the person's ledger or that group's through one `Ledger`; group
   transfers stay out. They expose description, amount, currency, date, category
   and the personal `kind` only, never members, payer, shares or balances.
+  `create_category` and `create_merchant` return the existing entry for a name
+  already taken (built-ins included), never rename it; merchants are group-only.
   `csrfHandler` lets `/api/auth/oauth2/token`, `revoke` and `introspect`
   through: AI apps call them server to server with no `Origin`.
 - `browserPaths` in `auth.ts` lets the OAuth endpoints AI apps call

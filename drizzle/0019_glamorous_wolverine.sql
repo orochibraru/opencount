@@ -1,0 +1,1 @@
+ALTER TABLE `appearance` ADD `month_start_day` integer DEFAULT 1 NOT NULL;

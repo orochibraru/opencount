@@ -38,7 +38,9 @@
 	} from "#lib/dto/personal-expense.js";
 	import { listBlocks } from "#lib/list-blocks.js";
 	import { formatMoney } from "#lib/money.js";
+	import { monthLabel, monthStartOn } from "#lib/pay-month.js";
 
+	import BankPills from "./bank-pills.svelte";
 	import MoveSheet from "./move-sheet.svelte";
 	import PersonalSheet, {
 		type EditablePersonalExpense,
@@ -51,6 +53,7 @@
 		matching: number;
 		pageSize: number;
 		stats: PersonalStats;
+		monthStartDay: number;
 		categories: CustomCategory[];
 		category: string | null;
 		search: string;
@@ -58,6 +61,13 @@
 		bank: string | null;
 		account: string | null;
 		folders: { id: string; name: string }[];
+		banks?: {
+			id: string;
+			bankName: string;
+			bankLogo: string | null;
+			failed: boolean;
+			syncing: boolean;
+		}[];
 		shareGroups: { id: string; name: string; currency: string }[];
 		defaultCurrency: string;
 		folder?: { id: string; name: string };
@@ -72,6 +82,7 @@
 		matching,
 		pageSize,
 		stats,
+		monthStartDay,
 		categories,
 		category,
 		search,
@@ -79,6 +90,7 @@
 		bank,
 		account,
 		folders,
+		banks = [],
 		shareGroups,
 		defaultCurrency,
 		folder,
@@ -184,7 +196,11 @@
 	}
 
 	const months = $derived(
-		listBlocks(expenses, (entry) => entry.spentOn.slice(0, 7), leftOff),
+		listBlocks(
+			expenses,
+			(entry) => monthStartOn(entry.spentOn, monthStartDay),
+			leftOff,
+		),
 	);
 
 	const topCategories = $derived(
@@ -204,13 +220,6 @@
 
 	function monthTotal(month: string): string {
 		return totals(stats.byMonth.filter((row) => row.month === month));
-	}
-
-	function monthLabel(month: string): string {
-		return new Date(`${month}-01T12:00:00`).toLocaleDateString(undefined, {
-			month: "long",
-			year: "numeric",
-		});
 	}
 
 	function reviewSimilar(result: Record<string, unknown> | undefined) {
@@ -301,6 +310,14 @@
 			.join(" · ");
 	}
 </script>
+
+{#if banks.length > 0}
+	<BankPills
+		{banks}
+		active={account ? null : bank}
+		href={(bankId) => listHref({ source: bankId ? `bank:${bankId}` : null })}
+	/>
+{/if}
 
 <div
 	class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(20rem,26rem)_minmax(0,1fr)] xl:items-start"

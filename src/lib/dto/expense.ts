@@ -244,6 +244,29 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 		);
 	}
 
+	/** Puts merchant `merchantId` (or none) on the expenses `ids` of `groupId`, transfers left alone; returns how many changed. */
+	static assignMerchant(
+		groupId: string,
+		ids: string[],
+		merchantId: string | null,
+	): number {
+		if (ids.length === 0) {
+			return 0;
+		}
+		return getDb()
+			.update(expense)
+			.set({ merchantId })
+			.where(
+				and(
+					eq(expense.groupId, groupId),
+					eq(expense.kind, "expense"),
+					inArray(expense.id, ids),
+				),
+			)
+			.returning({ id: expense.id })
+			.all().length;
+	}
+
 	/** Files the expenses `ids` of `groupId` under `category`; returns how many moved. */
 	static recategorize(
 		groupId: string,

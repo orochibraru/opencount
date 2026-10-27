@@ -3,6 +3,7 @@ import { z } from "zod";
 import { currencies } from "#lib/currencies.js";
 import type { PersonalExpenseInput } from "#lib/dto/personal-expense.js";
 import { parseMoney } from "#lib/money.js";
+import { monthStartDays } from "#lib/pay-month.js";
 import { type ParsedForm, parseForm } from "#lib/server/validation/form.js";
 
 const personalSchema = z.object({
@@ -22,6 +23,14 @@ const personalSchema = z.object({
 		.trim()
 		.max(500, "Keep the note under 500 characters.")
 		.default(""),
+});
+
+export const monthStartSchema = z.object({
+	monthStartDay: z.coerce
+		.number()
+		.int()
+		.min(1, "Pick a day.")
+		.max(monthStartDays, "Pick a day."),
 });
 
 /** Validates the add or edit form of a personal expense. */

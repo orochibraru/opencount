@@ -47,9 +47,10 @@ open-source alternative to Tricount that installs on your phone like an app.
   you're doing: this month against the last, a month-end forecast, yesterday's
   spending, your habits and what repeats every month.
 - **AI apps**, optional: connect Claude, ChatGPT or Gemini over MCP and let them
-  sort your expenses and your groups' into categories. They see descriptions,
-  amounts, dates and categories, never who's in a group or who owes what, and
-  must sign in again every 30 days.
+  sort your expenses and your groups' into categories, add categories and attach
+  merchants to group expenses. They see descriptions, amounts, dates and
+  categories, never who's in a group or who owes what, and must sign in again
+  every 30 days.
 - **Search and filter**: find an expense by description or merchant, or filter a
   list by category, and Personal by bank and account. Lists load 50 at a time.
 - **Insights** by period, category, merchant and payer, and over time.

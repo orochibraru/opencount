@@ -1,3 +1,5 @@
+import { monthStartOn, shiftMonth } from "#lib/pay-month.js";
+
 export const periods = [
 	"month",
 	"last-month",
@@ -63,23 +65,28 @@ function monthStart(day: string, monthsBack = 0): string {
 	);
 }
 
-/** The first and last day (inclusive, YYYY-MM-DD) of `period` as seen on `today`, and how to bucket it over time. */
+/**
+ * The first and last day (inclusive, YYYY-MM-DD) of `period` as seen on `today`, with months starting on day
+ * `startDay`, and how to bucket it over time.
+ */
 export function periodRange(
 	period: Period,
 	today: string,
 	earliest: string | undefined,
+	startDay = 1,
 ): { from: string; to: string; bucket: Bucket } {
+	const thisMonth = monthStartOn(today, startDay);
 	switch (period) {
 		case "month":
-			return { from: monthStart(today), to: today, bucket: "day" };
+			return { from: thisMonth, to: today, bucket: "day" };
 		case "last-month":
 			return {
-				from: monthStart(today, 1),
-				to: addDays(monthStart(today), -1),
+				from: shiftMonth(thisMonth, -1),
+				to: addDays(thisMonth, -1),
 				bucket: "day",
 			};
 		case "quarter":
-			return { from: monthStart(today, 2), to: today, bucket: "week" };
+			return { from: shiftMonth(thisMonth, -2), to: today, bucket: "week" };
 		case "year":
 			return { from: `${today.slice(0, 4)}-01-01`, to: today, bucket: "month" };
 		case "all":

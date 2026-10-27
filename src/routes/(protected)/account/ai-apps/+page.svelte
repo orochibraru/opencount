@@ -22,9 +22,10 @@
 			<h2 class="font-semibold">Connect an AI app</h2>
 			<p class="text-muted-foreground mt-1 text-sm">
 				Claude, ChatGPT or Gemini can read the descriptions, amounts and dates
-				of your expenses and your groups', and file them under the right
-				category. They never see your email, banks, notes or folders, nor who's
-				in a group, who paid or who owes what.
+				of your expenses and your groups', file them under the right category,
+				add categories and put merchants on group expenses. They never see your
+				email, banks, notes or folders, nor who's in a group, who paid or who
+				owes what.
 			</p>
 		</div>
 		{#if data.mcpUrl}

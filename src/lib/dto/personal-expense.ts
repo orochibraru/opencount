@@ -1,6 +1,20 @@
-import { and, count, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
+import {
+	and,
+	count,
+	desc,
+	eq,
+	gte,
+	inArray,
+	isNotNull,
+	isNull,
+	lt,
+	ne,
+	type SQL,
+	sql,
+} from "drizzle-orm";
 
 import { BaseDTO } from "#lib/dto/base-dto.js";
+import { monthStartOn, shiftMonth } from "#lib/pay-month.js";
 import { getDb } from "#lib/server/db/lib.js";
 import {
 	bankConnection,
@@ -178,12 +192,15 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 
 	/**
 	 * Totals of `userId`'s expenses matching `filter`: spent in all, this month, by category and by month, and what was
-	 * set aside, in all and this month, apart.
+	 * set aside or came in, in all and this month, apart. Months start on day `startDay`, payday to payday when not 1.
 	 */
 	static stats(
 		userId: string,
 		filter: PersonalFilter = {},
-		month = new Date().toISOString().slice(0, 7),
+		{
+			startDay = 1,
+			today = new Date().toISOString().slice(0, 10),
+		}: { startDay?: number; today?: string } = {},
 	): PersonalStats {
 		const database = getDb();
 		const matching = visible(userId, filter);
@@ -195,50 +212,47 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 			eq(personalExpense.kind, "income"),
 			eq(personalExpense.aside, false),
 		);
-		const monthOf = sql<string>`substr(${personalExpense.spentOn}, 1, 7)`;
+		const monthStart = monthStartOn(today, startDay);
+		const thisMonth = and(
+			gte(personalExpense.spentOn, monthStart),
+			lt(personalExpense.spentOn, shiftMonth(monthStart, 1)),
+		);
+		const totalsOf = (where: SQL | undefined) =>
+			database
+				.select({ currency: personalExpense.currency, minor })
+				.from(personalExpense)
+				.where(where)
+				.groupBy(personalExpense.currency)
+				.orderBy(desc(minor))
+				.all();
+		const byMonth = new Map<string, MoneyTotal & { month: string }>();
+		for (const row of database
+			.select({
+				day: personalExpense.spentOn,
+				currency: personalExpense.currency,
+				minor,
+			})
+			.from(personalExpense)
+			.where(scope)
+			.groupBy(personalExpense.spentOn, personalExpense.currency)
+			.all()) {
+			const month = monthStartOn(row.day, startDay);
+			const key = `${month}:${row.currency}`;
+			const entry = byMonth.get(key) ?? {
+				month,
+				currency: row.currency,
+				minor: 0,
+			};
+			entry.minor += row.minor;
+			byMonth.set(key, entry);
+		}
 		return {
-			income: database
-				.select({ currency: personalExpense.currency, minor })
-				.from(personalExpense)
-				.where(earned)
-				.groupBy(personalExpense.currency)
-				.orderBy(desc(minor))
-				.all(),
-			incomeThisMonth: database
-				.select({ currency: personalExpense.currency, minor })
-				.from(personalExpense)
-				.where(and(earned, sql`${monthOf} = ${month}`))
-				.groupBy(personalExpense.currency)
-				.orderBy(desc(minor))
-				.all(),
-			aside: database
-				.select({ currency: personalExpense.currency, minor })
-				.from(personalExpense)
-				.where(setAside)
-				.groupBy(personalExpense.currency)
-				.orderBy(desc(minor))
-				.all(),
-			asideThisMonth: database
-				.select({ currency: personalExpense.currency, minor })
-				.from(personalExpense)
-				.where(and(setAside, sql`${monthOf} = ${month}`))
-				.groupBy(personalExpense.currency)
-				.orderBy(desc(minor))
-				.all(),
-			totals: database
-				.select({ currency: personalExpense.currency, minor })
-				.from(personalExpense)
-				.where(scope)
-				.groupBy(personalExpense.currency)
-				.orderBy(desc(minor))
-				.all(),
-			thisMonth: database
-				.select({ currency: personalExpense.currency, minor })
-				.from(personalExpense)
-				.where(and(scope, sql`${monthOf} = ${month}`))
-				.groupBy(personalExpense.currency)
-				.orderBy(desc(minor))
-				.all(),
+			income: totalsOf(earned),
+			incomeThisMonth: totalsOf(and(earned, thisMonth)),
+			aside: totalsOf(setAside),
+			asideThisMonth: totalsOf(and(setAside, thisMonth)),
+			totals: totalsOf(scope),
+			thisMonth: totalsOf(and(scope, thisMonth)),
 			byCategory: database
 				.select({
 					category: personalExpense.category,
@@ -250,14 +264,32 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 				.groupBy(personalExpense.category, personalExpense.currency)
 				.orderBy(desc(minor))
 				.all(),
-			byMonth: database
-				.select({ month: monthOf, currency: personalExpense.currency, minor })
-				.from(personalExpense)
-				.where(scope)
-				.groupBy(monthOf, personalExpense.currency)
-				.orderBy(desc(monthOf))
-				.all(),
+			byMonth: [...byMonth.values()].toSorted(
+				(left, right) =>
+					right.month.localeCompare(left.month) || right.minor - left.minor,
+			),
 		};
+	}
+
+	/** The oldest day each of `userId`'s bank links brought a line for, keyed by link id: how far back its history goes. */
+	static historyFromBank(userId: string): Record<string, string> {
+		return Object.fromEntries(
+			getDb()
+				.select({
+					connectionId: personalExpense.bankConnectionId,
+					oldest: sql<string>`min(${personalExpense.spentOn})`,
+				})
+				.from(personalExpense)
+				.where(
+					and(
+						eq(personalExpense.userId, userId),
+						isNotNull(personalExpense.bankConnectionId),
+					),
+				)
+				.groupBy(personalExpense.bankConnectionId)
+				.all()
+				.map((row) => [row.connectionId ?? "", row.oldest]),
+		);
 	}
 
 	/** Every expense of `userId`, oldest first, reduced to what spending charts need. */

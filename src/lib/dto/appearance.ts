@@ -6,7 +6,7 @@ import { appearance, type homePages } from "#lib/server/db/schema.js";
 
 export type Appearance = Omit<
 	typeof appearance.$inferSelect,
-	"userId" | "updatedAt" | "home"
+	"userId" | "updatedAt" | "home" | "monthStartDay"
 >;
 
 export type HomePage = (typeof homePages)[number];
@@ -55,6 +55,29 @@ export class AppearanceDTO extends BaseDTO<Appearance> {
 			.onConflictDoUpdate({
 				target: appearance.userId,
 				set: { home, updatedAt: new Date() },
+			})
+			.run();
+	}
+
+	/** The day `userId`'s month starts on, 1 for calendar months or their payday for pay-to-pay months. */
+	static monthStartFor(userId: string): number {
+		return (
+			getDb()
+				.select({ monthStartDay: appearance.monthStartDay })
+				.from(appearance)
+				.where(eq(appearance.userId, userId))
+				.get()?.monthStartDay ?? 1
+		);
+	}
+
+	/** Stores the day `userId`'s month starts on, keeping the rest of their appearance. */
+	static saveMonthStart(userId: string, monthStartDay: number): void {
+		getDb()
+			.insert(appearance)
+			.values({ userId, ...defaultAppearance, monthStartDay })
+			.onConflictDoUpdate({
+				target: appearance.userId,
+				set: { monthStartDay, updatedAt: new Date() },
 			})
 			.run();
 	}

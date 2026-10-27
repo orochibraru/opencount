@@ -72,7 +72,9 @@
 	<div class="grid gap-4 lg:grid-cols-3">
 		<article class="glass rounded-3xl p-5 md:p-6 lg:col-span-2">
 			<p class="text-muted-foreground text-sm">
-				Spent in {day(overview.today, { month: "long" })}
+				{overview.monthStart.endsWith("-01")
+					? `Spent in ${day(overview.today, { month: "long" })}`
+					: `Spent since ${day(overview.monthStart, { day: "numeric", month: "long" })}`}
 			</p>
 			<p
 				class="font-display mt-1 text-5xl font-semibold tracking-tight tabular"

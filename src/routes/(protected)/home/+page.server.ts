@@ -21,6 +21,7 @@ export const load = async ({ parent }) => {
 			...moneyOverview(
 				PersonalExpenseDTO.spending(user.id),
 				new Date().toISOString().slice(0, 10),
+				AppearanceDTO.monthStartFor(user.id),
 			),
 			syncedAt: syncedAt ?? null,
 			categories: PersonalCategoryDTO.forUser(user.id).map((entry) =>

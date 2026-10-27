@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { categoryOptions } from "#lib/categories.js";
+import { AppearanceDTO } from "#lib/dto/appearance.js";
 import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
 import { PersonalCategoryDTO } from "#lib/dto/personal-category.js";
 import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
@@ -51,7 +52,10 @@ export function personalPage(userId: string, url: URL, folderId?: string) {
 		limit: limitSchema.parse(url.searchParams.get("limit") ?? pageSize),
 		...filter,
 	});
-	const stats = PersonalExpenseDTO.stats(userId, filter);
+	const monthStartDay = AppearanceDTO.monthStartFor(userId);
+	const stats = PersonalExpenseDTO.stats(userId, filter, {
+		startDay: monthStartDay,
+	});
 	return {
 		expenses: page.entries.map((entry) => entry.toJSON()),
 		hasMore: page.total > page.entries.length,
@@ -64,6 +68,7 @@ export function personalPage(userId: string, url: URL, folderId?: string) {
 		account: accountUid ?? null,
 		search: search ?? "",
 		stats,
+		monthStartDay,
 		folders: PersonalFolderDTO.forUser(userId).map((entry) => entry.toJSON()),
 		defaultCurrency:
 			stats.totals[0]?.currency ?? page.entries[0]?.toJSON().currency ?? "EUR",

@@ -1,9 +1,11 @@
 import type { SpendingRow } from "#lib/dto/personal-expense.js";
+import { monthEndFrom, monthStartOn, shiftMonth } from "#lib/pay-month.js";
 import { similarKey } from "#lib/similar-key.js";
 
 export interface MoneyOverview {
 	currency: string;
 	today: string;
+	monthStart: string;
 	spentMinor: number;
 	incomeMinor: number;
 	asideMinor: number;
@@ -142,23 +144,25 @@ function topCategory(
 }
 
 /**
- * Where someone's money stands on `today`, from their personal ledger `rows` (oldest first) in their main currency:
+ * Where someone's money stands on `today`, from their personal ledger `rows` (oldest first) in their main currency, with
+ * months starting on day `startDay` (payday to payday when not 1):
  * this month's spending, income and savings, a forecast for the month's end, yesterday's report, their biggest habit,
  * their top category, the payments that repeat every month, and spending day by day.
  */
 export function moneyOverview(
 	rows: SpendingRow[],
 	today: string,
+	startDay = 1,
 ): MoneyOverview {
 	const currency = mainCurrency(rows);
 	const own = rows.filter(
 		(row) => row.currency === currency && row.spentOn <= today,
 	);
 	const spent = own.filter((row) => row.kind === "expense" && !row.aside);
-	const monthStart = `${today.slice(0, 7)}-01`;
-	const dayOfMonth = Number(today.slice(8, 10));
-	const monthEnd = shift(shift(monthStart, 32).slice(0, 8) + "01", -1);
-	const lastMonthStart = `${shift(monthStart, -1).slice(0, 7)}-01`;
+	const monthStart = monthStartOn(today, startDay);
+	const elapsedDays = daysBetween(monthStart, today);
+	const monthEnd = monthEndFrom(monthStart);
+	const lastMonthStart = shiftMonth(monthStart, -1);
 	const lastMonthEnd = shift(monthStart, -1);
 	const thisMonth = spent.filter((row) => row.spentOn >= monthStart);
 	const lastMonth = spent.filter(
@@ -195,6 +199,7 @@ export function moneyOverview(
 	return {
 		currency,
 		today,
+		monthStart,
 		spentMinor,
 		incomeMinor: sum(
 			own.filter(
@@ -209,7 +214,9 @@ export function moneyOverview(
 			),
 		),
 		lastMonthSoFarMinor: sum(
-			lastMonth.filter((row) => Number(row.spentOn.slice(8, 10)) <= dayOfMonth),
+			lastMonth.filter(
+				(row) => daysBetween(lastMonthStart, row.spentOn) <= elapsedDays,
+			),
 		),
 		forecastMinor,
 		lastMonthMinor: sum(lastMonth),

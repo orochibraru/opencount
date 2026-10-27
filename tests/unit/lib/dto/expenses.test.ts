@@ -69,6 +69,19 @@ describe("MerchantDTO", () => {
 			expect.objectContaining({ name: "Bakery" }),
 		]);
 	});
+
+	test("finds a merchant by id or name only within its own group", () => {
+		const { group } = setUp();
+		const id = MerchantDTO.remember(group.id, "Pingo Doce", "groceries");
+		expect(MerchantDTO.findInGroup(group.id, id)?.toJSON().name).toBe(
+			"Pingo Doce",
+		);
+		expect(MerchantDTO.findByName(group.id, " pingo DOCE ")?.toJSON().id).toBe(
+			id,
+		);
+		expect(MerchantDTO.findInGroup("elsewhere", id)).toBeUndefined();
+		expect(MerchantDTO.findByName(group.id, "Lidl")).toBeUndefined();
+	});
 });
 
 describe("ExpenseDTO", () => {
@@ -152,6 +165,34 @@ describe("ExpenseDTO", () => {
 		expect(expenses.entries.map((entry) => entry.toJSON().description)).toEqual(
 			["Taxi"],
 		);
+	});
+
+	test("a merchant goes on expenses of its group, never on transfers", () => {
+		const { group, adaMember, sam } = setUp();
+		const share = [{ memberId: sam.id, amountMinor: 500, weight: 1 }];
+		const dinner = ExpenseDTO.create(
+			group.id,
+			expenseInput(adaMember.id, share),
+			"ada",
+		);
+		const transfer = ExpenseDTO.create(
+			group.id,
+			expenseInput(adaMember.id, share, { kind: "transfer" }),
+			"ada",
+		);
+		const merchantId = MerchantDTO.remember(group.id, "Bistro", "food");
+		expect(
+			ExpenseDTO.assignMerchant(group.id, [dinner.id, transfer.id], merchantId),
+		).toBe(1);
+		expect(ExpenseDTO.assignMerchant("elsewhere", [dinner.id], null)).toBe(0);
+		expect(ExpenseDTO.assignMerchant(group.id, [], null)).toBe(0);
+		expect(
+			ExpenseDTO.findInGroup(group.id, dinner.id)?.toJSON().merchantId,
+		).toBe(merchantId);
+		ExpenseDTO.assignMerchant(group.id, [dinner.id], null);
+		expect(
+			ExpenseDTO.findInGroup(group.id, dinner.id)?.toJSON().merchantId,
+		).toBeNull();
 	});
 });
 

@@ -105,30 +105,66 @@ export class BankConnectionDTO extends BaseDTO<BankConnectionRow> {
 		return this.row.validUntil.getTime() <= now.getTime();
 	}
 
-	/** The first day to fetch: a few days before the last sync to catch late bookings, or 90 days back the first time. */
-	fetchFrom(now = new Date()): string {
-		const from = this.row.syncedAt
+	/**
+	 * The first day to fetch: a few days before the last sync to catch late bookings, or none the first time, so the
+	 * bank hands over as much history as it keeps.
+	 */
+	fetchFrom(): string | undefined {
+		return this.row.syncedAt
 			? new Date(this.row.syncedAt.getTime() - 3 * 24 * 60 * 60 * 1000)
-			: new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-		return from.toISOString().slice(0, 10);
+					.toISOString()
+					.slice(0, 10)
+			: undefined;
 	}
 
-	/** Records a sync that worked. */
-	markSynced(at = new Date()): void {
-		getDb()
-			.update(bankConnection)
-			.set({ syncedAt: at, lastError: null })
-			.where(eq(bankConnection.id, this.row.id))
-			.run();
+	/** Whether a sync was asked for or is running, less than 15 minutes ago, so a worker that died doesn't spin forever. */
+	syncing(now = new Date()): boolean {
+		return (
+			this.row.syncState !== "idle" &&
+			this.row.syncStateAt !== null &&
+			now.getTime() - this.row.syncStateAt.getTime() < 15 * 60 * 1000
+		);
+	}
+
+	/** Records that a sync is waiting for the worker. */
+	markQueued(at = new Date()): void {
+		this.#update({ syncState: "queued", syncStateAt: at });
+	}
+
+	/** Records that the worker started syncing. */
+	markRunning(at = new Date()): void {
+		this.#update({ syncState: "running", syncStateAt: at });
+	}
+
+	/** Records a sync that worked and brought `added` new lines. */
+	markSynced(added: number, at = new Date()): void {
+		this.#update({
+			syncedAt: at,
+			lastError: null,
+			lastAdded: added,
+			syncState: "idle",
+			syncStateAt: at,
+		});
 	}
 
 	/** Records why the last sync failed. */
-	markFailed(message: string): void {
+	markFailed(message: string, at = new Date()): void {
+		this.#update({ lastError: message, syncState: "idle", syncStateAt: at });
+	}
+
+	/** Remembers the bank's logo, an https address. */
+	setLogo(logo: string): void {
+		this.#update({ bankLogo: logo });
+	}
+
+	/** Writes `values` to the link and to this copy of it. */
+	#update(values: Partial<BankConnectionRow>): void {
 		getDb()
 			.update(bankConnection)
-			.set({ lastError: message })
+			.set(values)
 			.where(eq(bankConnection.id, this.row.id))
 			.run();
+		Object.assign(this.row, values);
 	}
 
 	/** Forgets the link; the expenses it brought stay. */

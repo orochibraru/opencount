@@ -8,10 +8,11 @@ Every expense has a category, and can have a merchant. Both feed
 Food & drinks, Groceries, Transport, Lodging, Activities, Shopping, Bills, Home
 & DIY (hardware stores, furniture, repairs), Health, Pets, Subscriptions
 (streaming and apps), Personal care, Education, Culture (books, shows, concerts,
-instruments), Taxes & fines (taxes, speeding and parking tickets, the tax
-office), Finance (bank fees, loans, savings, investing, cash withdrawals,
-transfers), Income (salary, refunds, top-ups), and Other for the rest. Every
-group, and Personal, has them.
+instruments), Friends & family (birthdays, weddings, pocket money, babysitting),
+Taxes & fines (taxes, speeding and parking tickets, the tax office), Finance
+(bank fees, loans, savings, investing, cash withdrawals, transfers), Income
+(salary, refunds, top-ups), and Other for the rest. Every group, and Personal,
+has them.
 
 ## Your own categories
 

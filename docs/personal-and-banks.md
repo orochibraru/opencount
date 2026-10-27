@@ -37,6 +37,14 @@ expense sheet sets or clears it by hand.
 period, what you spent, what you set aside, a chart by day, week or month, and
 the breakdown by category and by folder. It only counts your main currency.
 
+## Month start
+
+Paid on the 25th? Pick **Month start** in Personal's menu and choose the day
+your month starts, from 1 (calendar months, the default) to 28. Personal's "this
+month", its month headings ("25 Oct – 24 Nov"), the Home tab and Personal
+Insights then count each month from that day to the day before it comes back.
+Groups keep calendar months.
+
 ## Folders
 
 A folder is a project inside Personal: a trip, a renovation. Create one with
@@ -54,21 +62,31 @@ group's name.
 
 ## Bank sync
 
-Once you have set it up in **Account, Bank sync** (see below), you can link your
-own bank from **Personal**: pick a country and a bank, then confirm on the
-bank's own screen. Until then, Personal shows a pointer to that page. OpenCount
-never sees your bank credentials. The consent lasts 90 days, after which you
-link again.
+Once you have set it up in **Account, Bank sync** (see below), link your own
+bank there with **Link a bank**: pick a country and a bank, then confirm on the
+bank's own screen. OpenCount never sees your bank credentials. The consent lasts
+90 days, after which you link again.
+
+**Personal** shows a pill per linked bank at the top, with its logo: tap one to
+see only that bank's lines, tap it again to see everything. A spinning pill is
+syncing, a red dot means its last sync failed.
 
 Once a day the server fetches your booked transactions and adds them to your
 personal ledger, categorized like any expense, reusing how you filed the same
 description before. Money coming in (salary, top-ups, refunds) is imported as
 income: shown with a + in green and counted as **came in**, not as spending.
 Each line records its bank account, and rows show the bank and account when you
-have more than one. The first sync goes back 90 days, later ones start 3 days
-before the previous one, and a transaction is never added twice. You get a
-notification when new ones arrive. **Sync now** fetches right away and
-**Unlink** stops the sync.
+have more than one. The first sync asks for all the history your bank keeps
+(often a year or more, sometimes only 90 days), later ones start 3 days before
+the previous one, and a transaction is never added twice. You get a notification
+when new ones arrive.
+
+**Account, Bank sync** lists each linked bank with where its sync stands:
+syncing, when it last synced and how many lines were new, how far back its
+history goes, until when the link lasts, or why the last sync failed. Its menu
+has **Sync now**, **Fetch full history** (asks again for everything the bank
+keeps; many banks only hand it over shortly after you confirm the link) and
+**Unlink**, which stops the sync.
 
 Delete an expense that came from your bank and it is hidden, so the next sync
 doesn't bring it back. A line from your bank keeps its amount, currency and

@@ -80,7 +80,7 @@
 				Each expense's description, amount, currency, date and category, yours
 				and your groups'
 			</li>
-			<li>Your category names and your groups'</li>
+			<li>Your category names, your groups' and their merchants</li>
 		</ul>
 		<h2 class="mt-2 flex items-center gap-2 font-semibold">
 			<PencilIcon class="size-4" />
@@ -93,6 +93,8 @@
 				The category of your expenses, and of your groups' expenses for everyone
 				in them
 			</li>
+			<li>Add categories, yours or a group's</li>
+			<li>Add a group's merchants and put them on its expenses</li>
 		</ul>
 	</section>
 	<section class="glass flex flex-col gap-3 rounded-3xl p-5 md:p-6">

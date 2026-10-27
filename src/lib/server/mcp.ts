@@ -11,11 +11,13 @@ import {
 import { verifyJwsAccessToken } from "better-auth/oauth2";
 import { z } from "zod";
 
+import { customCategoryIcons } from "#lib/categories.js";
 import { categoryLabels } from "#lib/category-labels.js";
 import { AiAppDTO } from "#lib/dto/ai-app.js";
 import { ExpenseDTO } from "#lib/dto/expense.js";
 import { GroupCategoryDTO } from "#lib/dto/group-category.js";
 import { GroupDTO } from "#lib/dto/group.js";
+import { MerchantDTO } from "#lib/dto/merchant.js";
 import { PersonalCategoryDTO } from "#lib/dto/personal-category.js";
 import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
 import { minorToDecimal } from "#lib/money.js";
@@ -32,6 +34,7 @@ interface LedgerEntry {
 	date: string;
 	kind?: string;
 	category: string;
+	merchant?: string | null;
 }
 
 interface Ledger {
@@ -42,25 +45,29 @@ interface Ledger {
 		uncategorizedOnly: boolean,
 	): { total: number; expenses: LedgerEntry[] };
 	recategorize(ids: string[], category: string): number;
+	addCategory(name: string, icon: string): { id: string; name: string };
 }
+
+const categoryIconNames = Object.keys(customCategoryIcons) as [
+	string,
+	...string[],
+];
 
 const builtInCategories = Object.entries(categoryLabels).map(([id, name]) => ({
 	id,
 	name,
 }));
 
-function named(entries: { toJSON(): { id: string; name: string } }[]) {
-	return entries.map((entry) => {
-		const { id, name } = entry.toJSON();
-		return { id, name };
-	});
+function idAndName(entry: { toJSON(): { id: string; name: string } }) {
+	const { id, name } = entry.toJSON();
+	return { id, name };
 }
 
 function personalLedger(userId: string): Ledger {
 	return {
 		categories: [
 			...builtInCategories,
-			...named(PersonalCategoryDTO.forUser(userId)),
+			...PersonalCategoryDTO.forUser(userId).map(idAndName),
 		],
 		page: (limit, offset, uncategorizedOnly) => {
 			const page = PersonalExpenseDTO.page(userId, {
@@ -86,6 +93,8 @@ function personalLedger(userId: string): Ledger {
 		},
 		recategorize: (ids, category) =>
 			PersonalExpenseDTO.recategorize(userId, ids, category),
+		addCategory: (name, icon) =>
+			idAndName(PersonalCategoryDTO.create(userId, name, icon)),
 	};
 }
 
@@ -98,7 +107,7 @@ function groupLedger(userId: string, groupId: string): Ledger | undefined {
 	return {
 		categories: [
 			...builtInCategories,
-			...named(GroupCategoryDTO.forGroup(groupId)),
+			...GroupCategoryDTO.forGroup(groupId).map(idAndName),
 		],
 		page: (limit, offset, uncategorizedOnly) => {
 			const page = ExpenseDTO.page(groupId, {
@@ -107,6 +116,11 @@ function groupLedger(userId: string, groupId: string): Ledger | undefined {
 				kind: "expense",
 				category: uncategorizedOnly ? "other" : undefined,
 			});
+			const merchantName = (merchantId: string | null) =>
+				merchantId
+					? (MerchantDTO.findInGroup(groupId, merchantId)?.toJSON().name ??
+						null)
+					: null;
 			return {
 				total: page.total,
 				expenses: page.entries.map((entry) => {
@@ -118,12 +132,15 @@ function groupLedger(userId: string, groupId: string): Ledger | undefined {
 						currency,
 						date: row.spentOn,
 						category: row.category,
+						merchant: merchantName(row.merchantId),
 					};
 				}),
 			};
 		},
 		recategorize: (ids, category) =>
 			ExpenseDTO.recategorize(groupId, ids, category),
+		addCategory: (name, icon) =>
+			idAndName(GroupCategoryDTO.create(groupId, name, icon)),
 	};
 }
 
@@ -145,7 +162,115 @@ function withLedger(
 			isError: true,
 		};
 	}
-	return reply(use(ledger));
+	const value = use(ledger);
+	return {
+		...reply(value),
+		isError: typeof value === "object" && value !== null && "error" in value,
+	};
+}
+
+const merchantGroupField = z
+	.string()
+	.min(1)
+	.describe(
+		"A group id from list_groups: merchants belong to a shared group, personal expenses have none.",
+	);
+
+function merchantJson(entry: MerchantDTO) {
+	const { id, name, category } = entry.toJSON();
+	return { id, name, category };
+}
+
+function registerMerchantTools(server: McpServer, userId: string): void {
+	server.registerTool(
+		"list_merchants",
+		{
+			title: "List merchants",
+			description:
+				"The merchants a group has paid, most used first, each with its id and the category it was last filed under.",
+			inputSchema: z.object({ groupId: merchantGroupField }),
+			annotations: { readOnlyHint: true },
+		},
+		({ groupId }) =>
+			withLedger(userId, groupId, () => ({
+				merchants: MerchantDTO.forGroup(groupId).map(merchantJson),
+			})),
+	);
+	server.registerTool(
+		"create_merchant",
+		{
+			title: "Create a merchant",
+			description:
+				"Adds a merchant to a group, filed under a category id from list_categories for that group. A merchant already saved under that name, whatever its case, is returned as it is instead of doubled. Returns its id for set_merchants.",
+			inputSchema: z.object({
+				groupId: merchantGroupField,
+				name: z.string().trim().min(1).max(80),
+				category: z.string().min(1),
+			}),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+			},
+		},
+		({ groupId, name, category }) =>
+			withLedger(userId, groupId, (ledger) => {
+				if (!ledger.categories.some((entry) => entry.id === category)) {
+					return {
+						error: `Unknown category ${category}. Call list_categories.`,
+					};
+				}
+				const existing = MerchantDTO.findByName(groupId, name);
+				if (existing) {
+					return { merchant: merchantJson(existing), existed: true };
+				}
+				const id = MerchantDTO.remember(groupId, name, category);
+				return { merchant: { id, name, category }, existed: false };
+			}),
+	);
+	server.registerTool(
+		"set_merchants",
+		{
+			title: "Assign merchants",
+			description:
+				"Puts a merchant on a group's expenses, up to 200 at once: each change names an expense id from list_expenses and a merchant id from list_merchants or create_merchant, or null to clear it. Transfers are left alone; an unknown merchant is skipped and named back.",
+			inputSchema: z.object({
+				groupId: merchantGroupField,
+				changes: z
+					.array(
+						z.object({
+							id: z.string().min(1),
+							merchantId: z.string().min(1).nullable(),
+						}),
+					)
+					.min(1)
+					.max(200),
+			}),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+			},
+		},
+		({ groupId, changes }) =>
+			withLedger(userId, groupId, () => {
+				const byMerchant = Map.groupBy(changes, (change) => change.merchantId);
+				const unknownMerchants: string[] = [];
+				let updated = 0;
+				for (const [merchantId, entries] of byMerchant) {
+					if (merchantId && !MerchantDTO.findInGroup(groupId, merchantId)) {
+						unknownMerchants.push(merchantId);
+						continue;
+					}
+					updated += ExpenseDTO.assignMerchant(
+						groupId,
+						entries.map((entry) => entry.id),
+						merchantId,
+					);
+				}
+				return { updated, unknownMerchants };
+			}),
+	);
 }
 
 const groupIdField = z
@@ -155,6 +280,37 @@ const groupIdField = z
 	.describe(
 		"A group id from list_groups to work on that shared group; leave it out for the person's own expenses.",
 	);
+
+function registerCreateCategory(server: McpServer, userId: string): void {
+	server.registerTool(
+		"create_category",
+		{
+			title: "Create a category",
+			description:
+				"Adds a category to the person's own expenses, or to a group's with groupId, with an icon from the listed names. A category already named that way, whatever its case, built-in or not, is returned instead of doubled. Use its id with set_categories.",
+			inputSchema: z.object({
+				groupId: groupIdField,
+				name: z.string().trim().min(1).max(40),
+				icon: z.enum(categoryIconNames),
+			}),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+			},
+		},
+		({ groupId, name, icon }) =>
+			withLedger(userId, groupId, (ledger) => {
+				const existing = ledger.categories.find(
+					(entry) =>
+						entry.name.toLocaleLowerCase() === name.toLocaleLowerCase(),
+				);
+				return existing
+					? { category: existing, existed: true }
+					: { category: ledger.addCategory(name, icon), existed: false };
+			}),
+	);
+}
 
 function serverFor(userId: string): McpServer {
 	const server = new McpServer({
@@ -252,6 +408,8 @@ function serverFor(userId: string): McpServer {
 				};
 			}),
 	);
+	registerCreateCategory(server, userId);
+	registerMerchantTools(server, userId);
 	return server;
 }
 

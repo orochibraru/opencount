@@ -62,6 +62,7 @@
 	matching={data.matching}
 	pageSize={data.pageSize}
 	stats={data.stats}
+	monthStartDay={data.monthStartDay}
 	categories={data.categories}
 	category={data.category}
 	search={data.search}

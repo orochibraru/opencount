@@ -3,7 +3,7 @@ import { error, redirect } from "@sveltejs/kit";
 
 import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
 import { bankCredentialsFor } from "#lib/dto/bank-credential.js";
-import { JobDTO } from "#lib/dto/job.js";
+import { queueBankSync } from "#lib/server/bank-sync.js";
 import {
 	BankError,
 	bankLinkPurpose,
@@ -28,10 +28,10 @@ export const GET = async ({ locals, url }) => {
 	if (!code || !credentials || state?.userId !== locals.user.id) {
 		redirect(303, `${personal}?bank=cancelled`);
 	}
-	let connectionId: string;
+	let connection: BankConnectionDTO;
 	try {
 		const link = await openBankSession(credentials, code);
-		connectionId = BankConnectionDTO.create(locals.user.id, link).id;
+		connection = BankConnectionDTO.create(locals.user.id, link);
 	} catch (caught) {
 		if (caught instanceof BankError) {
 			logger.warn("Bank link refused", { message: caught.message });
@@ -39,6 +39,6 @@ export const GET = async ({ locals, url }) => {
 		}
 		throw caught;
 	}
-	JobDTO.enqueue("bank.sync", { connectionId }, { maxAttempts: 1 });
+	queueBankSync(connection);
 	redirect(303, `${personal}?bank=connected`);
 };

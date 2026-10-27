@@ -14,6 +14,7 @@ export const categoryLabels = {
 	care: "Personal care",
 	education: "Education",
 	culture: "Culture",
+	family: "Friends & family",
 	finance: "Finance",
 	taxes: "Taxes & fines",
 	income: "Income",

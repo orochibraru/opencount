@@ -4,6 +4,7 @@ import {
 	periods,
 	summarize,
 } from "#lib/analytics.js";
+import { AppearanceDTO } from "#lib/dto/appearance.js";
 import { PersonalCategoryDTO } from "#lib/dto/personal-category.js";
 import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
 import { PersonalFolderDTO } from "#lib/dto/personal-folder.js";
@@ -30,6 +31,7 @@ export const load = async ({ parent, url }) => {
 		period,
 		new Date().toISOString().slice(0, 10),
 		inCurrency[0]?.spentOn,
+		AppearanceDTO.monthStartFor(user.id),
 	);
 	const summary = summarize(
 		inCurrency

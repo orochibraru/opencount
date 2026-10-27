@@ -9,7 +9,7 @@ import {
 } from "#lib/dto/bank-credential.js";
 import { JobDTO } from "#lib/dto/job.js";
 import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
-import { bankExpense, syncBank } from "#lib/server/bank-sync.js";
+import { bankExpense, queueBankSync, syncBank } from "#lib/server/bank-sync.js";
 import {
 	bankApplicationName,
 	type BankTransaction,
@@ -230,7 +230,18 @@ describe("bank sync", () => {
 		const ada = createUser("ada");
 		saveBankCredentials(ada.id, credentials());
 		const connection = link(ada.id);
-		spyOn(globalThis, "fetch")
+		const fetched = spyOn(globalThis, "fetch")
+			.mockResolvedValueOnce(
+				Response.json({
+					aspsps: [
+						{
+							name: "Revolut",
+							country: "FR",
+							logo: "https://logos.example/revolut.png",
+						},
+					],
+				}),
+			)
 			.mockResolvedValueOnce(
 				Response.json({ transactions: [card()], continuation_key: "next" }),
 			)
@@ -243,15 +254,38 @@ describe("bank sync", () => {
 			)
 			.mockResolvedValueOnce(Response.json({ transactions: [card()] }));
 		await jobHandlers["bank.sync"]({ connectionId: connection.id });
+		expect(String(fetched.mock.calls[1]?.[0])).toContain("strategy=longest");
 		expect(PersonalExpenseDTO.page(ada.id, { limit: 50 }).entries).toHaveLength(
 			2,
 		);
 		expect(JobDTO.counts().pending).toBe(1);
 		const again = BankConnectionDTO.find(connection.id);
-		expect(await syncBank(again!)).toBe(0);
-		expect(again?.fetchFrom()).toBe(
-			new Date(Date.now() - 3 * 86_400_000).toISOString().slice(0, 10),
+		expect(again?.toJSON()).toEqual(
+			expect.objectContaining({
+				bankLogo: "https://logos.example/revolut.png",
+				syncState: "idle",
+				lastAdded: 2,
+				lastError: null,
+			}),
 		);
+		expect(again?.syncing()).toBe(false);
+		expect(await syncBank(again!)).toBe(0);
+		expect(String(fetched.mock.calls[3]?.[0])).toContain(
+			`date_from=${new Date(Date.now() - 3 * 86_400_000).toISOString().slice(0, 10)}`,
+		);
+		expect(PersonalExpenseDTO.historyFromBank(ada.id)).toEqual({
+			[connection.id]: "2026-10-20",
+		});
+	});
+
+	test("a queued sync shows as syncing until the worker runs or it goes stale", () => {
+		const ada = createUser("ada");
+		const connection = link(ada.id);
+		expect(connection.fetchFrom()).toBeUndefined();
+		queueBankSync(connection, true);
+		expect(connection.syncing()).toBe(true);
+		expect(JobDTO.counts().pending).toBe(1);
+		expect(connection.syncing(new Date(Date.now() + 16 * 60_000))).toBe(false);
 	});
 
 	test("a link without keys fails and says why", async () => {

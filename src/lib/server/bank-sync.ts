@@ -1,5 +1,6 @@
 import type { BankConnectionDTO } from "#lib/dto/bank-connection.js";
 import { bankCredentialsFor } from "#lib/dto/bank-credential.js";
+import { JobDTO } from "#lib/dto/job.js";
 import { PersonalCategoryDTO } from "#lib/dto/personal-category.js";
 import {
 	type BankExpense,
@@ -7,6 +8,8 @@ import {
 } from "#lib/dto/personal-expense.js";
 import { currencyDigits } from "#lib/money.js";
 import {
+	BankError,
+	bankLogo,
 	type BankTransaction,
 	bankTransactions,
 } from "#lib/server/enable-banking.js";
@@ -79,25 +82,53 @@ export function bankExpense(
 	};
 }
 
+/** Asks the worker to sync `connection`, its whole history when `full`, and shows it as waiting meanwhile. */
+export function queueBankSync(
+	connection: BankConnectionDTO,
+	full = false,
+): void {
+	connection.markQueued();
+	JobDTO.enqueue(
+		"bank.sync",
+		{ connectionId: connection.id, full },
+		{ maxAttempts: 1 },
+	);
+}
+
 /**
- * Fetches every account of linked bank `connection` since its last sync, with its owner's Enable Banking keys, and
- * records the new spending as personal expenses; returns how many are new.
+ * Fetches every account of linked bank `connection`, with its owner's Enable Banking keys, since its last sync or as
+ * far back as the bank allows on the first one or when `full`, records the new lines as personal expenses, and keeps
+ * the link's sync state and logo current; returns how many are new.
  *
- * @throws When the bank refuses or the link expired; the link records why.
+ * @throws When the bank refuses, the link expired or anything else breaks; the link records why, in words for people.
  */
-export async function syncBank(connection: BankConnectionDTO): Promise<number> {
+export async function syncBank(
+	connection: BankConnectionDTO,
+	full = false,
+): Promise<number> {
+	connection.markRunning();
 	try {
 		if (connection.expired()) {
-			throw new Error("The bank link expired. Connect the bank again.");
+			throw new BankError("The bank link expired. Connect the bank again.");
 		}
 		const credentials = bankCredentialsFor(connection.userId);
 		if (!credentials) {
-			throw new Error(
+			throw new BankError(
 				"Bank sync is off for this account. Set it up again in your account.",
 			);
 		}
+		if (!connection.toJSON().bankLogo) {
+			const logo = await bankLogo(
+				credentials,
+				connection.bankName,
+				connection.toJSON().bankCountry,
+			).catch(() => undefined);
+			if (logo) {
+				connection.setLogo(logo);
+			}
+		}
 		let added = 0;
-		const from = connection.fetchFrom();
+		const from = full ? undefined : connection.fetchFrom();
 		const guess = personalGuess(connection.userId);
 		for (const account of connection.accounts) {
 			const expenses = (await bankTransactions(credentials, account.uid, from))
@@ -109,11 +140,13 @@ export async function syncBank(connection: BankConnectionDTO): Promise<number> {
 				expenses,
 			);
 		}
-		connection.markSynced();
+		connection.markSynced(added);
 		return added;
 	} catch (error) {
 		connection.markFailed(
-			error instanceof Error ? error.message : String(error),
+			error instanceof BankError
+				? error.message
+				: "The sync failed on our side. Try again in a while.",
 		);
 		throw error;
 	}

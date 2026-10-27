@@ -14,6 +14,8 @@
 	import { Textarea } from "#lib/components/ui/textarea/index.js";
 	import { enhanceToast, saveToast } from "#lib/toast.js";
 
+	import LinkedBanks from "./linked-banks.svelte";
+
 	const { data } = $props();
 
 	const enableBankingApplications = "https://enablebanking.com/cp/applications";
@@ -23,6 +25,9 @@
 </script>
 
 <div class="grid gap-6 lg:grid-cols-2 lg:items-start">
+	{#if data.applicationId}
+		<LinkedBanks connections={data.connections} />
+	{/if}
 	<form
 		method="POST"
 		action="?/save"

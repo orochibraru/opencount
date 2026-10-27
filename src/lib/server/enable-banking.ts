@@ -201,16 +201,37 @@ export async function openBankSession(
 	};
 }
 
-/** Every transaction of account `uid` from `dateFrom` on, following the pages. */
+/**
+ * The logo of bank `name` in `country`, an https address, or `undefined` when the bank lists none.
+ *
+ * @throws BankError when the application is refused.
+ */
+export async function bankLogo(
+	credentials: BankCredentials,
+	name: string,
+	country: string,
+): Promise<string | undefined> {
+	return (
+		(await listBanks(credentials, country)).find((bank) => bank.name === name)
+			?.logo ?? undefined
+	);
+}
+
+/**
+ * Every transaction of account `uid` from `dateFrom` on, following the pages; with no `dateFrom`, as far back as the
+ * bank lets Enable Banking go.
+ */
 export async function bankTransactions(
 	credentials: BankCredentials,
 	uid: string,
-	dateFrom: string,
+	dateFrom: string | undefined,
 ): Promise<BankTransaction[]> {
 	const transactions: BankTransaction[] = [];
 	let continuationKey: string | undefined;
 	do {
-		const query = new URLSearchParams({ date_from: dateFrom });
+		const query = new URLSearchParams(
+			dateFrom ? { date_from: dateFrom } : { strategy: "longest" },
+		);
 		if (continuationKey) {
 			query.set("continuation_key", continuationKey);
 		}

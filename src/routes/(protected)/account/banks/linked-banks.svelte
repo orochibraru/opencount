@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { enhance } from "$app/forms";
+	import { invalidateAll } from "$app/navigation";
 	import BanknoteIcon from "@lucide/svelte/icons/banknote";
+	import HistoryIcon from "@lucide/svelte/icons/history";
 	import LandmarkIcon from "@lucide/svelte/icons/landmark";
+	import LoaderCircleIcon from "@lucide/svelte/icons/loader-circle";
 	import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
 	import UnlinkIcon from "@lucide/svelte/icons/unlink";
 
@@ -16,13 +19,29 @@
 	interface Connection {
 		id: string;
 		bankName: string;
+		bankLogo: string | null;
 		accounts: { uid: string; name: string; currency: string }[];
 		validUntil: Date;
 		syncedAt: Date | null;
 		lastError: string | null;
+		lastAdded: number | null;
+		syncing: boolean;
+		historyFrom: string | null;
 	}
 
 	const { connections }: { connections: Connection[] } = $props();
+
+	const anySyncing = $derived(
+		connections.some((connection) => connection.syncing),
+	);
+
+	$effect(() => {
+		if (!anySyncing) {
+			return;
+		}
+		const timer = setInterval(() => void invalidateAll(), 3000);
+		return () => clearInterval(timer);
+	});
 
 	const countryCodes = [
 		"AT",
@@ -84,21 +103,45 @@
 		);
 	}
 
+	function day(value: Date | string): string {
+		return new Date(
+			typeof value === "string" ? `${value}T12:00:00` : value,
+		).toLocaleDateString(undefined, {
+			day: "numeric",
+			month: "short",
+			year: "numeric",
+		});
+	}
+
 	function status(connection: Connection): string {
+		if (connection.syncing) {
+			return connection.syncedAt
+				? "Syncing…"
+				: "Fetching all the history your bank keeps…";
+		}
 		if (connection.lastError) {
 			return connection.lastError;
 		}
-		const synced = connection.syncedAt
-			? `Synced ${connection.syncedAt.toLocaleString()}`
-			: "Syncing for the first time…";
-		return `${synced} · until ${connection.validUntil.toLocaleDateString()}`;
+		if (!connection.syncedAt) {
+			return "Waiting for the first sync";
+		}
+		return [
+			`Synced ${connection.syncedAt.toLocaleString(undefined, {
+				dateStyle: "short",
+				timeStyle: "short",
+			})}`,
+			connection.lastAdded !== null ? `${connection.lastAdded} new` : null,
+			connection.historyFrom
+				? `history since ${day(connection.historyFrom)}`
+				: null,
+			`linked until ${day(connection.validUntil)}`,
+		]
+			.filter(Boolean)
+			.join(" · ");
 	}
 </script>
 
-<section
-	id="bank-accounts"
-	class="glass flex scroll-mt-24 flex-col gap-4 rounded-2xl p-4 md:p-6"
->
+<section class="glass flex min-w-0 flex-col gap-4 rounded-2xl p-4 md:p-6">
 	<div class="flex items-start gap-3">
 		<span
 			class="bg-accent text-accent-foreground flex size-10 shrink-0 items-center justify-center rounded-xl"
@@ -106,10 +149,11 @@
 			<LandmarkIcon class="size-5" />
 		</span>
 		<div>
-			<h2 class="font-semibold">Banks</h2>
+			<h2 class="font-semibold">Linked banks</h2>
 			<p class="text-muted-foreground mt-1 text-sm">
-				Card payments from a linked bank land here every day. Your bank asks you
-				to confirm again every 90 days.
+				Each syncs every day into Personal. The first sync fetches all the
+				history your bank keeps; your bank asks you to confirm again every 90
+				days.
 			</p>
 		</div>
 	</div>
@@ -132,6 +176,17 @@
 								},
 							},
 							{
+								label: "Fetch full history",
+								icon: HistoryIcon,
+								form: {
+									action: "?/syncBank",
+									fields: { id: connection.id, full: "true" },
+									loading: "Asking the bank",
+									success:
+										"Fetching all the history your bank keeps. Lines already here stay as they are.",
+								},
+							},
+							{
 								label: "Unlink",
 								icon: UnlinkIcon,
 								destructive: true,
@@ -150,15 +205,39 @@
 							},
 						]}
 					>
+						<span
+							class="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl {connection.bankLogo
+								? 'bg-white'
+								: 'bg-accent text-accent-foreground'}"
+						>
+							{#if connection.bankLogo}
+								<img
+									src={connection.bankLogo}
+									alt=""
+									class="size-8 object-contain"
+									loading="lazy"
+								/>
+							{:else}
+								<LandmarkIcon class="size-5" />
+							{/if}
+						</span>
 						<span class="min-w-0 flex-1">
 							<span class="block truncate font-medium"
 								>{connection.bankName}</span
 							>
 							<span
-								class="block truncate text-sm {connection.lastError
+								class="flex items-start gap-1.5 text-sm {connection.lastError &&
+								!connection.syncing
 									? 'text-destructive'
-									: 'text-muted-foreground'}">{status(connection)}</span
+									: 'text-muted-foreground'}"
 							>
+								{#if connection.syncing}
+									<LoaderCircleIcon
+										class="mt-0.5 size-3.5 shrink-0 animate-spin"
+									/>
+								{/if}
+								<span class="min-w-0">{status(connection)}</span>
+							</span>
 						</span>
 					</ItemMenu>
 				</li>

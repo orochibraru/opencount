@@ -321,12 +321,22 @@ describe("personal folders, stats and similar expenses", () => {
 			expect.objectContaining({ total: 3 }),
 		);
 
-		const stats = PersonalExpenseDTO.stats(ada.id, {}, "2026-10");
+		const stats = PersonalExpenseDTO.stats(ada.id, {}, { today: "2026-10-15" });
 		expect(stats.totals).toEqual([{ currency: "EUR", minor: 16_500 }]);
 		expect(stats.thisMonth).toEqual([{ currency: "EUR", minor: 15_000 }]);
 		expect(stats.byMonth.map((row) => row.month)).toEqual([
-			"2026-10",
-			"2026-09",
+			"2026-10-01",
+			"2026-09-01",
+		]);
+		const payday = PersonalExpenseDTO.stats(
+			ada.id,
+			{},
+			{ startDay: 3, today: "2026-10-04" },
+		);
+		expect(payday.thisMonth).toEqual([{ currency: "EUR", minor: 15_000 }]);
+		expect(payday.byMonth).toEqual([
+			{ month: "2026-10-03", currency: "EUR", minor: 15_000 },
+			{ month: "2026-08-03", currency: "EUR", minor: 1_500 },
 		]);
 		expect(stats.byCategory[0]).toEqual({
 			category: "shopping",
@@ -465,7 +475,7 @@ describe("personal folders, stats and similar expenses", () => {
 		add("To robo portfolio", "other", "2026-10-05");
 		expect(PersonalExpenseDTO.markAside(ada.id, isMoneyAside)).toBe(1);
 		expect(PersonalExpenseDTO.markAside(ada.id, isMoneyAside)).toBe(0);
-		const stats = PersonalExpenseDTO.stats(ada.id, {}, "2026-10");
+		const stats = PersonalExpenseDTO.stats(ada.id, {}, { today: "2026-10-15" });
 		expect(stats.asideThisMonth).toEqual([{ currency: "EUR", minor: 1_000 }]);
 		expect(stats.thisMonth).toEqual([{ currency: "EUR", minor: 4_000 }]);
 		expect(

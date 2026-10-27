@@ -166,6 +166,19 @@ describe("AppearanceDTO", () => {
 		AppearanceDTO.save(ada.id, defaultAppearance);
 		expect(AppearanceDTO.homeFor(ada.id)).toBe("groups");
 	});
+
+	test("the month starts on the 1st until someone picks their payday", () => {
+		const ada = createUser("ada");
+		const grace = createUser("grace");
+		expect(AppearanceDTO.monthStartFor(ada.id)).toBe(1);
+		AppearanceDTO.saveMonthStart(grace.id, 25);
+		expect(AppearanceDTO.monthStartFor(grace.id)).toBe(25);
+		const custom = { ...defaultAppearance, accent: "rose" as const };
+		AppearanceDTO.save(ada.id, custom);
+		AppearanceDTO.saveMonthStart(ada.id, 3);
+		expect(AppearanceDTO.monthStartFor(ada.id)).toBe(3);
+		expect(AppearanceDTO.forUser(ada.id).toJSON()).toEqual(custom);
+	});
 });
 
 describe("PasskeyDTO", () => {

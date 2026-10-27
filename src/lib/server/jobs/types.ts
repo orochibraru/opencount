@@ -8,7 +8,7 @@ export interface JobPayloads {
 	"recurring.run": Record<string, never>;
 	"push.send": PushNotification & { userIds: string[] };
 	"download.build": { downloadId: string };
-	"bank.sync": { connectionId: string };
+	"bank.sync": { connectionId: string; full?: boolean };
 	"bank.syncAll": Record<string, never>;
 	"import.tricount": {
 		groupId: string;

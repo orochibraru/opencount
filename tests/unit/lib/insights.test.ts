@@ -168,6 +168,9 @@ describe("guessCategory", () => {
 		expect(guessCategory("Impôts DGFIP")).toBe("taxes");
 		expect(guessCategory("Bußgeld")).toBe("taxes");
 		expect(guessCategory("Taxi Paris")).toBe("transport");
+		expect(guessCategory("Cadeau anniversaire Léa")).toBe("family");
+		expect(guessCategory("Argent de poche")).toBe("family");
+		expect(guessCategory("Gift card")).toBe("shopping");
 		expect(guessCategory("Something else")).toBeUndefined();
 	});
 
@@ -212,6 +215,7 @@ describe("categories", () => {
 			"care",
 			"education",
 			"culture",
+			"family",
 			"finance",
 			"taxes",
 			"income",

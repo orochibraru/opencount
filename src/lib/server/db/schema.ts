@@ -465,6 +465,7 @@ export const appearance = sqliteTable("appearance", {
 	font: text("font", { enum: fonts }).notNull().default("default"),
 	corners: text("corners", { enum: cornerStyles }).notNull().default("rounded"),
 	home: text("home", { enum: homePages }),
+	monthStartDay: integer("month_start_day").notNull().default(1),
 	updatedAt: updatedAt(),
 });
 
@@ -483,6 +484,7 @@ export const expenseCategories = [
 	"care",
 	"education",
 	"culture",
+	"family",
 	"finance",
 	"taxes",
 	"income",
@@ -715,6 +717,8 @@ export const personalCategory = sqliteTable(
 	(table) => [index("personal_category_user_id_idx").on(table.userId)],
 );
 
+export const bankSyncStates = ["idle", "queued", "running"] as const;
+
 export const bankConnection = sqliteTable(
 	"bank_connection",
 	{
@@ -733,6 +737,12 @@ export const bankConnection = sqliteTable(
 		validUntil: integer("valid_until", { mode: "timestamp_ms" }).notNull(),
 		syncedAt: integer("synced_at", { mode: "timestamp_ms" }),
 		lastError: text("last_error"),
+		bankLogo: text("bank_logo"),
+		syncState: text("sync_state", { enum: bankSyncStates })
+			.notNull()
+			.default("idle"),
+		syncStateAt: integer("sync_state_at", { mode: "timestamp_ms" }),
+		lastAdded: integer("last_added"),
 		createdAt: createdAt(),
 	},
 	(table) => [index("bank_connection_user_id_idx").on(table.userId)],

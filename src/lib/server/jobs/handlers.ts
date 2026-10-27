@@ -4,7 +4,7 @@ import { ExpenseDTO } from "#lib/dto/expense.js";
 import { GroupDTO } from "#lib/dto/group.js";
 import { JobDTO } from "#lib/dto/job.js";
 import { RecurringExpenseDTO } from "#lib/dto/recurring-expense.js";
-import { syncBank } from "#lib/server/bank-sync.js";
+import { queueBankSync, syncBank } from "#lib/server/bank-sync.js";
 import { buildDownload, pruneDownloads } from "#lib/server/downloads.js";
 import type { JobPayloads, JobType } from "#lib/server/jobs/types.js";
 import { Logger } from "#lib/server/logger.js";
@@ -40,13 +40,13 @@ export const jobHandlers: JobHandlers = {
 		tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
 		JobDTO.enqueue("recurring.run", {}, { runAt: tomorrow });
 	},
-	"bank.sync": async ({ connectionId }) => {
+	"bank.sync": async ({ connectionId, full }) => {
 		const connection = BankConnectionDTO.find(connectionId);
 		if (!connection) {
 			logger.warn("Bank link gone before it was synced", { connectionId });
 			return;
 		}
-		const added = await syncBank(connection);
+		const added = await syncBank(connection, full);
 		logger.info("Bank synced", { added });
 		if (added > 0) {
 			JobDTO.enqueue("push.send", {
@@ -60,7 +60,10 @@ export const jobHandlers: JobHandlers = {
 	"bank.syncAll": () => {
 		const ids = BankConnectionDTO.activeIds();
 		for (const connectionId of ids) {
-			JobDTO.enqueue("bank.sync", { connectionId }, { maxAttempts: 1 });
+			const connection = BankConnectionDTO.find(connectionId);
+			if (connection) {
+				queueBankSync(connection);
+			}
 		}
 		logger.info("Queued bank syncs", { links: ids.length });
 		JobDTO.enqueue("bank.syncAll", {}, { runAt: new Date(Date.now() + dayMs) });

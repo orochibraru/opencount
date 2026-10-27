@@ -3,8 +3,8 @@ import { fail, redirect } from "@sveltejs/kit";
 import { z } from "zod";
 
 import { categories } from "#lib/categories.js";
+import { AppearanceDTO } from "#lib/dto/appearance.js";
 import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
-import { bankCredentialsFor } from "#lib/dto/bank-credential.js";
 import { ExpenseDTO } from "#lib/dto/expense.js";
 import { GroupDTO } from "#lib/dto/group.js";
 import { JobDTO } from "#lib/dto/job.js";
@@ -12,19 +12,14 @@ import { PersonalCategoryDTO } from "#lib/dto/personal-category.js";
 import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
 import { PersonalFolderDTO } from "#lib/dto/personal-folder.js";
 import { convertMinor, formatMoney } from "#lib/money.js";
-import { publicOrigin } from "#lib/server/auth.js";
-import {
-	BankError,
-	bankLinkPurpose,
-	closeBankSession,
-	startBankLink,
-} from "#lib/server/enable-banking.js";
 import { exchangeRate } from "#lib/server/exchange-rates.js";
 import { groupForMember } from "#lib/server/group-access.js";
 import { personalPage } from "#lib/server/personal-page.js";
-import { signPayload } from "#lib/server/secrets.js";
 import { idSchema, parseForm } from "#lib/server/validation/form.js";
-import { parsePersonalForm } from "#lib/server/validation/personal.js";
+import {
+	monthStartSchema,
+	parsePersonalForm,
+} from "#lib/server/validation/personal.js";
 import { splitByWeight } from "#lib/split.js";
 
 const folderSchema = z.object({
@@ -60,19 +55,21 @@ const shareSchema = z.object({
 	id: z.string().min(1),
 	groupId: z.string().min(1, "Pick a group."),
 });
-const bankSchema = z.object({
-	name: z.string().min(1, "Pick a bank."),
-	country: z.string().regex(/^[A-Z]{2}$/, "Pick a country."),
-});
 
 export const load = async ({ parent, url }) => {
 	const { user } = await parent();
 	return {
 		...personalPage(user.id, url),
-		connections: BankConnectionDTO.forUser(user.id).map((entry) =>
-			entry.toJSON(),
-		),
-		bankSyncAvailable: bankCredentialsFor(user.id) !== undefined,
+		banks: BankConnectionDTO.forUser(user.id).map((entry) => {
+			const { id, bankName, bankLogo, lastError } = entry.toJSON();
+			return {
+				id,
+				bankName,
+				bankLogo,
+				failed: lastError !== null,
+				syncing: entry.syncing(),
+			};
+		}),
 		shareGroups: GroupDTO.forMember(user.id).map((entry) => {
 			const { id, name, currency } = entry.toJSON();
 			return { id, name, currency };
@@ -162,6 +159,17 @@ export const actions = {
 		}
 		existing.delete();
 		return { deleted: true };
+	},
+	monthStart: async ({ locals, request }) => {
+		if (!locals.user) {
+			return fail(401, { error: "Sign in again to continue." });
+		}
+		const parsed = parseForm(monthStartSchema, await request.formData());
+		if (!parsed.success) {
+			return fail(400, { errors: parsed.errors });
+		}
+		AppearanceDTO.saveMonthStart(locals.user.id, parsed.data.monthStartDay);
+		return { monthStartDay: parsed.data.monthStartDay };
 	},
 	moveToFolder: async ({ locals, request }) => {
 		if (!locals.user) {
@@ -325,76 +333,5 @@ export const actions = {
 			});
 		}
 		return { sharedIn: group.toJSON().name };
-	},
-	connectBank: async ({ locals, request, url }) => {
-		if (!locals.user) {
-			return fail(401, { error: "Sign in again to continue." });
-		}
-		const credentials = bankCredentialsFor(locals.user.id);
-		if (!credentials) {
-			return fail(400, { error: "Set up bank sync in your account first." });
-		}
-		const parsed = parseForm(bankSchema, await request.formData());
-		if (!parsed.success) {
-			return fail(400, { errors: parsed.errors });
-		}
-		let target: string;
-		try {
-			target = await startBankLink(
-				credentials,
-				parsed.data,
-				new URL(
-					resolve("/(protected)/personal/bank"),
-					publicOrigin() ?? url.origin,
-				).href,
-				signPayload(
-					{ userId: locals.user.id },
-					bankLinkPurpose,
-					30 * 60 * 1000,
-				),
-			);
-		} catch (error) {
-			if (error instanceof BankError) {
-				return fail(400, { error: error.message });
-			}
-			throw error;
-		}
-		redirect(303, target, { external: true });
-	},
-	syncBank: async ({ locals, request }) => {
-		if (!locals.user) {
-			return fail(401, { error: "Sign in again to continue." });
-		}
-		const parsed = parseForm(idSchema, await request.formData());
-		const connection = parsed.success
-			? BankConnectionDTO.findForUser(parsed.data.id, locals.user.id)
-			: undefined;
-		if (!connection) {
-			return fail(404, { error: "That bank isn't linked anymore." });
-		}
-		JobDTO.enqueue(
-			"bank.sync",
-			{ connectionId: connection.id },
-			{ maxAttempts: 1 },
-		);
-		return { syncing: true };
-	},
-	disconnectBank: async ({ locals, request }) => {
-		if (!locals.user) {
-			return fail(401, { error: "Sign in again to continue." });
-		}
-		const parsed = parseForm(idSchema, await request.formData());
-		const connection = parsed.success
-			? BankConnectionDTO.findForUser(parsed.data.id, locals.user.id)
-			: undefined;
-		if (!connection) {
-			return fail(404, { error: "That bank isn't linked anymore." });
-		}
-		const credentials = bankCredentialsFor(locals.user.id);
-		if (credentials) {
-			await closeBankSession(credentials, connection.sessionId);
-		}
-		connection.delete();
-		return { disconnected: true };
 	},
 };

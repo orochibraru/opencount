@@ -93,6 +93,29 @@ describe("moneyOverview", () => {
 		]);
 	});
 
+	test("a payday month runs from payday, and so does last month's pace", () => {
+		const payday = moneyOverview(
+			[
+				row("2026-09-24", "Before payday", 9_000),
+				row("2026-09-26", "Groceries", 3_000),
+				row("2026-10-24", "Dinner", 2_000),
+				row("2026-10-26", "Bakery", 500),
+			],
+			"2026-10-27",
+			25,
+		);
+		expect(payday.monthStart).toBe("2026-10-25");
+		expect(payday.monthEnd).toBe("2026-11-24");
+		expect(payday.spentMinor).toBe(500);
+		expect(payday.lastMonthMinor).toBe(3_000 + 2_000);
+		expect(payday.lastMonthSoFarMinor).toBe(3_000);
+		expect(payday.daily.map((entry) => entry.key)).toEqual([
+			"2026-10-25",
+			"2026-10-26",
+			"2026-10-27",
+		]);
+	});
+
 	test("has nothing to say about an empty ledger", () => {
 		const empty = moneyOverview([], "2026-02-10");
 		expect(empty.spentMinor).toBe(0);

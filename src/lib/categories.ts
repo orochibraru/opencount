@@ -106,6 +106,12 @@ export const categories = [
 		hue: 158,
 	},
 	{
+		value: "family",
+		label: categoryLabels.family,
+		icon: HeartIcon,
+		hue: 90,
+	},
+	{
 		value: "finance",
 		label: categoryLabels.finance,
 		icon: PiggyBankIcon,
