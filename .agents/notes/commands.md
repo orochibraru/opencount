@@ -15,10 +15,12 @@
   Output: `build/server` (client assets embedded) and `build/worker`.
 - `bun run start`: runs `build/server`, which spawns `build/worker` from the
   same folder.
-- `bun run check`: svelte-check over the app and tests (fails on warnings), tsc
-  over the service worker, tsc over `scripts/`.
-- `bun run lint`: `prek run --all-files`. Every check is a prek hook; there are
-  no `lint:*` scripts.
+- `bun run check`: svelte-check over the app and tests (fails on warnings), then
+  Bun's own `bun check` (tsc's errors, far faster) over the service worker and
+  `scripts/`. It needs `--no-script`, or `bun check` runs this `check` script
+  and calls itself. `.svelte` files stay with svelte-check.
+- `bunx prek run --all-files`: every check, each a prek hook (`bun lint` alone
+  runs only Bun's linter); there are no `lint:*` scripts.
 - `bun run format`: `bun fmt` over the repo (code and Markdown).
 - `bun run circular`: madge over `src/`, fails when an import cycle exists or a
   `#lib` import couldn't be resolved.
@@ -64,11 +66,12 @@ Plain `bun install` works without mise.
 `bun install` wires them through prek once the repo is a git repository.
 
 - pre-commit: hygiene, gitleaks, typos, actionlint, zizmor, pinact, hadolint,
-  oxlint, `bun fmt`, markdownlint, agnix, tailwint, and the convention hooks (no
-  hand-typed route types, no raw Drizzle in routes, no `redirect(` in hooks, no
-  `href="/`, no Markdown link to a file that doesn't exist, offline, with
-  extensionless links to docs pages allowed). That every `(protected)` load
-  calls `parent()` is a unit test, `tests/unit/routes/guarded-loads.test.ts`.
+  `bun lint` (Bun's linter, reading `.oxlintrc.json`), `bun fmt`, markdownlint,
+  agnix, tailwint, and the convention hooks (no hand-typed route types, no raw
+  Drizzle in routes, no `redirect(` in hooks, no `href="/`, no Markdown link to
+  a file that doesn't exist, offline, with extensionless links to docs pages
+  allowed). That every `(protected)` load calls `parent()` is a unit test,
+  `tests/unit/routes/guarded-loads.test.ts`.
 - commit-msg: Conventional Commits.
 - pre-push: `check`, `circular`, `test-unit`.
 - post-checkout: `bun install`.

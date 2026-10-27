@@ -5,7 +5,7 @@ export const handleError: HandleClientError = ({ error, kind }) => {
 		return;
 	}
 	const errorId = crypto.randomUUID();
-	// oxlint-disable-next-line no-console -- the server Logger is not available in the browser
+	// eslint-disable-next-line no-console -- the server Logger is not available in the browser
 	console.error(errorId, error);
 	return { errorId, message: "Something went wrong." };
 };

@@ -27,7 +27,7 @@ what `TODO.md` already has.
 1. **Commands are real.** Every `package.json` script and mise task is in
    `.agents/notes/commands.md` with a true description, and every command listed
    there exists (`jq -r '.scripts|keys[]' package.json`, `mise tasks`). Run the
-   cheap ones (`bun run check`, `bun run lint`, `bun run circular`,
+   cheap ones (`bun run check`, `bunx prek run --all-files`, `bun run circular`,
    `bun run test`) and read the output: warnings, deprecations and noise count.
 2. **Fresh clone works.** `.env.example` matches what `#lib/server/config.ts`
    and the worker read, no more, no less (compare key names only, never print
@@ -39,7 +39,7 @@ what `TODO.md` already has.
    `.github/workflows/*.yaml`: a CI step with no local equivalent, or a local
    gate CI skips, is a finding. The Bun version agrees between `mise.toml`,
    `packageManager`, the Dockerfile and CI.
-4. **Tooling isn't fighting itself.** oxlint, `bun fmt` (also the
+4. **Tooling isn't fighting itself.** `bun lint`, `bun fmt` (also the
    `.claude/settings.json` PostToolUse hook), markdownlint and tailwint agree on
    the files they share; nothing still references Biome or prettier.
    Dependencies nothing imports, scripts nothing calls (grep configs and CI
@@ -49,10 +49,10 @@ what `TODO.md` already has.
    skill under `.agents/skills/` has its `.claude/skills/` symlink, every agent
    and skill points at real files and sibling agents, and `CLAUDE.md` lists
    every agent and skill.
-6. **Inner loop is fast.** Time `bun run check`, `bun run lint`, `bun run test`
-   and the Stop hook (`.claude/hooks/gate.sh`). A test with a real sleep, a gate
-   run twice, a sequential chain that could be parallel: findings. Run
-   `bun run test` twice and compare for flakes.
+6. **Inner loop is fast.** Time `bun run check`, `bunx prek run --all-files`,
+   `bun run test` and the Stop hook (`.claude/hooks/gate.sh`). A test with a
+   real sleep, a gate run twice, a sequential chain that could be parallel:
+   findings. Run `bun run test` twice and compare for flakes.
 7. **No Svelte file is too long.** Every `.svelte` file over 400 lines outside
    `src/lib/components/ui/` is a finding, with the seams to split it along (a
    drawer, a tab panel, a repeated row editor):

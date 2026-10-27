@@ -100,7 +100,7 @@ What needs a block:
 ## Verify
 
 - Re-run the inventory: zero missing in scope (or in the given files).
-- `bun run check` and `bun run lint` still pass.
+- `bun run check` and `bunx prek run --all-files` still pass.
 
 ## Report
 

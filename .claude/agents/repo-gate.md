@@ -4,10 +4,10 @@ description: >-
   Use PROACTIVELY as the final gate before declaring any change to this repo
   complete, or when asked to review or verify a diff against this repo's own
   conventions. Runs bun run check (svelte-check --fail-on-warnings, 0 errors and
-  0 warnings, whole tree), bun run lint (prek over every file), bun run circular
-  and bun run test, then scans the diff for violations of the hard rules:
-  hand-typed route files, raw Drizzle in routes, redirects or auth logic in
-  hooks, signed-in pages outside (protected)/, nested loads re-checking
+  0 warnings, whole tree), bunx prek run --all-files (prek over every file), bun
+  run circular and bun run test, then scans the diff for violations of the hard
+  rules: hand-typed route files, raw Drizzle in routes, redirects or auth logic
+  in hooks, signed-in pages outside (protected)/, nested loads re-checking
   locals.user, slow work awaited in a request instead of enqueued for the
   worker, group data read without a membership check, bare toasts on async
   actions, screens that break at 375px, comments, abbreviated names, em dashes.
@@ -29,8 +29,8 @@ soften a gate failure into a suggestion.
 1. `bun run check`: zero errors and zero warnings across the whole tree. The
    scope is always the full repo; a failure that looks pre-existing is still in
    scope, read the file before dismissing it.
-2. `bun run lint` (`prek run --all-files`): oxlint, `bun fmt`, markdownlint,
-   tailwint, agnix, typos, gitleaks and the convention hooks, all clean.
+2. `bunx prek run --all-files`: `bun lint`, `bun fmt`, markdownlint, tailwint,
+   agnix, typos, gitleaks and the convention hooks, all clean.
 3. `bun run circular`: no import cycles, no skipped `#lib` import.
 4. `bun run test`: the unit suite, coverage threshold included.
 5. `git status` and `git diff` (plus untracked files) to see what the change
@@ -118,7 +118,7 @@ Read the changed files, don't just grep: these rules have narrow triggers.
   exception is the required JSDoc block above every class method and exported
   function (what it does, side effects, throws, never the types); a missing or
   stale one is a finding. Tool directives with a reason
-  (`oxlint-disable-next-line <rule> -- why`) are fine. Comments already in
+  (`eslint-disable-next-line <rule> -- why`) are fine. Comments already in
   untouched code aren't findings.
 - **Abbreviated names** (`svc`, `usr`, `cfg`, `res`, `e`, `idx`, `amt`): spell
   them out.

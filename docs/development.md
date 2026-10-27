@@ -43,8 +43,8 @@ docker compose up --build
 bun run dev          # Vite dev server on :5173, with the worker
 bun run build        # build/server and build/worker
 bun run start        # run build/server, which spawns build/worker
-bun run check        # svelte-check (fails on warnings) and tsc
-bun run lint         # every prek hook over every file
+bun run check        # svelte-check (fails on warnings) and bun check
+bunx prek run --all-files  # every hook over every file, bun lint included
 bun run format       # bun fmt over the repo, Markdown included
 bun run circular     # fails on an import cycle
 bun run test         # unit tests
@@ -76,8 +76,9 @@ as a dev dependency. They are the same set CI runs, so a green commit locally is
 a green quality job.
 
 - **pre-commit**: file hygiene, gitleaks, typos, actionlint, zizmor, pinact,
-  hadolint, oxlint, `bun fmt`, markdownlint, agnix, tailwint, the append-only
-  migration check, and grep guards for the conventions no linter knows.
+  hadolint, `bun lint`, `bun fmt`, markdownlint, agnix, tailwint, the
+  append-only migration check, and grep guards for the conventions no linter
+  knows.
 - **commit-msg**: Conventional Commits. releaser computes versions from commit
   subjects, so a malformed one silently costs a release.
 - **pre-push**: `check`, `circular` and the unit tests.

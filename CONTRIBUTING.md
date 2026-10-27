@@ -44,8 +44,8 @@ the type check, the import-cycle check and the unit tests.
 bun run dev          # Vite dev server on :5173, with the worker
 bun run build        # build/server and build/worker
 bun run start        # run the compiled server, which spawns the worker
-bun run check        # svelte-check (fails on warnings) and tsc
-bun run lint         # every prek hook over every file
+bun run check        # svelte-check (fails on warnings) and bun check
+bunx prek run --all-files  # every hook over every file, bun lint included
 bun run format       # bun fmt, Markdown included
 bun run circular     # fails on an import cycle
 bun run test         # unit tests
@@ -81,8 +81,8 @@ by 844. Rerun them when a change moves a screen, and commit the images with it.
 
 ## Before you open a PR
 
-- `bun run check`, `bun run lint` and `bun run test` pass on the whole repo,
-  with zero warnings.
+- `bun run check`, `bunx prek run --all-files` and `bun run test` pass on the
+  whole repo, with zero warnings.
 - A schema change comes with its generated migration. Committed migrations are
   append-only: fix a bad one with a new one.
 - A new environment variable is declared in `src/env.ts` with a schema and a

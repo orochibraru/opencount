@@ -68,5 +68,5 @@ improvise a different shape.
 6. Unit tests under `tests/unit/` for the DTO's logic and any balance or
    settle-up arithmetic: that's where money bugs hide.
 7. Run the `check-repo` skill (or the `repo-gate` agent) before reporting the
-   work complete: `bun run check`, `bun run lint` and `bun run test` clean,
-   whole repo.
+   work complete: `bun run check`, `bunx prek run --all-files` and
+   `bun run test` clean, whole repo.

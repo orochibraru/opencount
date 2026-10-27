@@ -74,9 +74,9 @@ repos:
           - github.com/suzuki-shunsuke/pinact/v5/cmd/pinact@v5.0.2
         files: ^\.github/(workflows|actions)/.*\.ya?ml$
 
-      - id: oxlint
-        name: Lint (oxlint)
-        entry: node_modules/.bin/oxlint --type-aware --deny-warnings --fix --no-error-on-unmatched-pattern
+      - id: lint
+        name: Lint (bun lint)
+        entry: bun lint --type-aware --max-warnings 0 --fix --no-error-on-unmatched-pattern
         language: system
         require_serial: true
         files: \.(ts|js|mjs|cjs|svelte)$

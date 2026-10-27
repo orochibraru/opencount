@@ -21,8 +21,8 @@ kept encrypted in the settings; receipt reading is optional and local: Tesseract
 in the image, run by the worker, its text parsed by `#lib/server/ocr.ts`; AI
 apps reach personal expenses over MCP at `/mcp`, behind better-auth's OAuth.
 Tailwind v4 and shadcn-svelte (vega, per-account accent, theme, font and
-corners), oxlint lints, `bun fmt` formats, prek runs every check as a git hook,
-mise pins the toolchain.
+corners), `bun lint` lints, `bun fmt` formats, prek runs every check as a git
+hook, mise pins the toolchain.
 
 ## How to work here
 
@@ -150,11 +150,11 @@ Each is a hard rule.
   `SENTRY_DSN` is set); slow units of work get a `withSpan`.
 - CSS-only packages are devDependencies.
 - Logging through `Logger`, structured context as a plain object; `console.*` is
-  an oxlint error.
+  a lint error.
 - A periodic job or fire-and-forget promise always catches: Bun exits on an
   unhandled rejection.
-- No unused code; `bun run check` (fails on warnings) and `bun run lint` clean,
-  whole repo, after every change.
+- No unused code; `bun run check` (fails on warnings) and
+  `bunx prek run --all-files` clean, whole repo, after every change.
 - No comments in any code file, YAML or shell included. The exception is a
   required JSDoc block above every class method and exported function (what it
   does, side effects, throws, never the types), one or two lines. Tool

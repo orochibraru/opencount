@@ -6,5 +6,5 @@ one for the area you touch.
 
 `TODO.md` is the backlog.
 
-A change is done when `bun run check`, `bun run lint` and `bun run test` all
-pass on the whole repo.
+A change is done when `bun run check`, `bunx prek run --all-files` and
+`bun run test` all pass on the whole repo.
