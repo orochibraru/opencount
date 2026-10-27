@@ -62,10 +62,11 @@ group's name.
 
 ## Bank sync
 
-Once you have set it up in **Account, Bank sync** (see below), link your own
-bank there with **Link a bank**: pick a country and a bank, then confirm on the
-bank's own screen. OpenCount never sees your bank credentials. The consent lasts
-90 days, after which you link again.
+**Account, Bank sync** has four tabs, cards on a phone: **Linked banks**, **Bank
+sync** (your keys), **Home tab** and **Turn off**. Once your keys are in (see
+below), link your own bank under **Linked banks** with **Link a bank**: pick a
+country and a bank, then confirm on the bank's own screen. OpenCount never sees
+your bank credentials. The consent lasts 90 days, after which you link again.
 
 **Personal** shows a pill per linked bank at the top, with its logo: tap one to
 see only that bank's lines, tap it again to see everything. A spinning pill is
@@ -81,12 +82,12 @@ have more than one. The first sync asks for all the history your bank keeps
 the previous one, and a transaction is never added twice. You get a notification
 when new ones arrive.
 
-**Account, Bank sync** lists each linked bank with where its sync stands:
-syncing, when it last synced and how many lines were new, how far back its
-history goes, until when the link lasts, or why the last sync failed. Its menu
-has **Sync now**, **Fetch full history** (asks again for everything the bank
-keeps; many banks only hand it over shortly after you confirm the link) and
-**Unlink**, which stops the sync.
+**Linked banks** lists each bank with where its sync stands: syncing, when it
+last synced and how many lines were new, how far back its history goes, until
+when the link lasts, or why the last sync failed. Its menu has **Sync now**,
+**Fetch full history** (asks again for everything the bank keeps; many banks
+only hand it over shortly after you confirm the link) and **Unlink**, which
+stops the sync.
 
 Delete an expense that came from your bank and it is hidden, so the next sync
 doesn't bring it back. A line from your bank keeps its amount, currency and

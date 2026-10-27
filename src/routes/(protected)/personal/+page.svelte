@@ -68,7 +68,7 @@
 		{
 			label: "Bank accounts",
 			icon: LandmarkIcon,
-			href: resolve("/(protected)/account/banks"),
+			href: resolve("/(protected)/account/banks/linked"),
 		},
 		{
 			label: "Add expense",
