@@ -61,10 +61,11 @@ open-source alternative to Tricount that installs on your phone like an app.
   device and sync once you're back, never twice. Per-account accent colour,
   light, dark or AMOLED theme, font and corners.
 - **Invite-only by default**, administered from the app: invites, sign-ups once
-  email works, required authenticator apps or passkeys, password and passkey
-  sign-in on or off, and single sign-on through any OpenID Connect provider.
-  Password reset by email, accounts that change their own email and password or
-  delete themselves, and database backups and restores from the admin area.
+  email works, required authenticator apps, passkeys or app lock, password and
+  passkey sign-in on or off, and single sign-on through any OpenID Connect
+  provider. Password reset by email, accounts that change their own email and
+  password or delete themselves, and database backups and restores from the
+  admin area.
 
 ## Documentation
 

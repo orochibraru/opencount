@@ -11,6 +11,8 @@ import { getAuth, publicOrigin } from "#lib/server/auth.js";
 import { csrfHandler } from "#lib/server/csrf.js";
 import { closeDb, migrateDb } from "#lib/server/db/lib.js";
 import { Logger } from "#lib/server/logger.js";
+import { securityHeaders } from "#lib/server/security-headers.js";
+import { sessionGate } from "#lib/server/security-policy.js";
 import { announceSetup } from "#lib/server/setup.js";
 import { flushTelemetry, reportError } from "#lib/server/telemetry.js";
 import { workerCommand, WorkerSupervisor } from "#lib/server/worker-process.js";
@@ -85,13 +87,16 @@ const requestLog: Handle = async ({ event, resolve }) => {
 const authentication: Handle = async ({ event, resolve }) => {
 	const auth = getAuth();
 	const current = await auth.api.getSession({ headers: event.request.headers });
-	event.locals.session = current?.session ?? null;
-	event.locals.user = current?.user ?? null;
+	const gate = current ? sessionGate(current, event.route.id) : undefined;
+	event.locals.gate = gate ?? null;
+	event.locals.session = gate ? null : (current?.session ?? null);
+	event.locals.user = gate ? null : (current?.user ?? null);
 	return svelteKitHandler({ event, resolve, auth, building });
 };
 
 export const handle = sequence(
 	requestLog,
+	securityHeaders,
 	csrfHandler(publicOrigin),
 	authentication,
 );

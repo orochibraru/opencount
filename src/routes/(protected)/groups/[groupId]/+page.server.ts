@@ -14,6 +14,7 @@ import { groupForMember } from "#lib/server/group-access.js";
 import { isOcrConfigured } from "#lib/server/ocr.js";
 import { readUploadedReceipt } from "#lib/server/receipt-upload.js";
 import { parseExpenseForm } from "#lib/server/validation/expense.js";
+import { parseForm } from "#lib/server/validation/form.js";
 
 const expenseIdSchema = z.object({ id: z.string().min(1) });
 const applyCategorySchema = z.object({
@@ -136,10 +137,9 @@ export const actions = {
 		}
 		const { group, members } = groupForMember(params.groupId, locals.user.id);
 		const formData = await request.formData();
-		const existing = ExpenseDTO.findInGroup(
-			group.id,
-			String(formData.get("id") ?? ""),
-		);
+		const target = parseForm(expenseIdSchema, formData);
+		const existing =
+			target.success && ExpenseDTO.findInGroup(group.id, target.data.id);
 		if (!existing) {
 			return fail(404, { error: "That expense no longer exists." });
 		}

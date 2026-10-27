@@ -1,21 +1,11 @@
-import { resolve } from "$app/paths";
-import { redirect } from "@sveltejs/kit";
-
+import { AppLockDTO } from "#lib/dto/app-lock.js";
 import { GroupDTO } from "#lib/dto/group.js";
 import { isAdmin } from "#lib/server/admin.js";
 import { redirectToSignIn } from "#lib/server/guards.js";
-import { missingFactors } from "#lib/server/security-policy.js";
 
-export const load = ({ locals, route, url }) => {
+export const load = ({ locals, url }) => {
 	if (!locals.user) {
 		redirectToSignIn(url);
-	}
-	const missing = missingFactors(locals.user);
-	if (missing.length > 0 && route.id !== "/(protected)/account/security") {
-		redirect(
-			303,
-			`${resolve("/(protected)/account/security")}?required=${missing.join(",")}`,
-		);
 	}
 	return {
 		user: {
@@ -24,6 +14,8 @@ export const load = ({ locals, route, url }) => {
 			email: locals.user.email,
 		},
 		isAdmin: isAdmin(locals.user),
+		lockAfterMinutes:
+			AppLockDTO.forUser(locals.user.id)?.lockAfterMinutes ?? null,
 		groups: GroupDTO.forMember(locals.user.id).map((entry) => {
 			const { id, name } = entry.toJSON();
 			return { id, name };

@@ -19,6 +19,8 @@ describe("settings", () => {
 			signUpsEnabled: false,
 			requireTwoFactor: false,
 			requirePasskey: false,
+			requireAppLock: false,
+			sessionDays: 7,
 			smtp: null,
 			ocr: null,
 			passwordSignIn: true,
@@ -27,6 +29,7 @@ describe("settings", () => {
 			emailCodeSignIn: false,
 			ssoProviders: [],
 			vapid: null,
+			publicOrigin: null,
 		});
 		setSetting("signUpsEnabled", true);
 		setSetting("signUpsEnabled", false);

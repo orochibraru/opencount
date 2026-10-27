@@ -59,12 +59,20 @@ Scans run one at a time, and a request body is capped at 32 MB.
 ## Requests
 
 `hooks.server.ts` does four things and nothing else: log the request, check the
-origin of form posts, resolve the session into `locals`, and hand better-auth
-its own API paths. Redirects and access rules live in layouts and form actions:
+origin of form posts, resolve the session into `locals` (with its gate: locked,
+or missing a required factor), set the security headers, and hand better-auth
+the few API paths the browser needs. Redirects and access rules live in layouts
+and form actions:
 
 - Every signed-in page sits under one route group whose layout sends signed-out
-  visitors to sign-in, and anyone missing a required factor to their security
-  page.
+  visitors to sign-in. Every load under it awaits the layout's `parent()`, which
+  a unit test enforces, because a load can be fetched alone as `__data.json`.
+- A required factor is enforced by the hook gate for every request, form
+  actions, endpoints and remote functions included, not only page loads.
+- The app lock is per session: a `session_lock` row holds the last activity,
+  whether it is locked and the failed attempts, and an `app_lock` row holds the
+  argon2 hash. A locked session has no user in `locals`, better-auth refuses
+  every call from it but sign-out, and pages send it to `/auth/unlock`.
 - The admin layout 404s non-admins, and every admin action re-checks the role.
 - Every group route resolves the group through a membership check before reading
   anything.
@@ -108,19 +116,28 @@ instantly. Pages and their data are fetched from the server first and each
 answer is kept per app version (never `/api/`, `/auth/` or `/downloads/`), so a
 page already visited reopens with no connection; an unvisited one gets a static
 offline page. Signing out wipes that cache and the offline queue, and so does
-any visit to a sign-in page, which means the session ended or someone else is
-signing in. A new expense submitted offline is kept in IndexedDB with a client
-id and posted when the connection returns, so a retry never adds it twice.
+any fetch sent to `/auth/`, which means the session ended, locked or someone
+else is signing in. A new expense submitted offline is kept in IndexedDB with a
+client id and posted when the connection returns, so a retry never adds it
+twice.
 
 ## Hardening
 
 Every response carries a Content-Security-Policy with `frame-ancestors 'none'`,
 `object-src 'none'` and `base-uri 'self'`. A `redirectTo` is resolved against a
 dummy origin, so tricks like `/\evil` fall back to the home page. Push
-subscriptions must point at a known browser push service. Sign-up checks that
-sign-ups are open before saying an email is taken, and CSV exports neutralise
-cells that start like a spreadsheet formula. Password sign-in and reset emails
-are rate limited in memory, see [Sign-in and single sign-on](sign-in-and-sso).
+subscriptions must point at a known browser push service. Sign-up never says
+whether an email has an account: that address gets a "sign in" email instead of
+a code. CSV exports neutralise cells that start like a spreadsheet formula.
+Every response also sets `nosniff`, `Referrer-Policy: same-origin`, a
+`Permissions-Policy`, `Cross-Origin-Opener-Policy: same-origin` and, over HTTPS,
+HSTS. Cookies are `Secure` and better-auth's rate limiter is on outside dev.
+Sensitive changes need a sign-in from the last 15 minutes. Sign-in, codes and
+setup are rate limited in memory, see
+[Sign-in and single sign-on](sign-in-and-sso).
+
+The public origin used in emails and passkeys is `ORIGIN`, else a setting
+recorded at setup, never the `Host` header.
 
 ## Telemetry
 

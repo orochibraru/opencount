@@ -21,9 +21,10 @@ Passwords and passkeys are on by default; the two email methods are off until an
 admin turns them on, and need [email delivery](email). Both only sign in
 existing accounts: they never create one, so the instance stays invite-only. An
 account with an authenticator app can't use them, since they would skip its
-code: the sign-in sheet tells it to use the password instead. The codes are only
-ever for signing in: OpenCount refuses to send one to reset a password or change
-an email, which have their own links and codes.
+code: no link or code is sent to it, with no hint why, and neither these nor
+single sign-on can start a session for it. It signs in with its password. The
+codes are only ever for signing in: OpenCount refuses to send one to reset a
+password or change an email, which have their own links and codes.
 
 An admin can turn any method off. Turned off means refused on the server, not
 only hidden: the sign-in endpoints answer 403 whatever calls them.
@@ -42,11 +43,22 @@ their session still lets them.
 
 ## Guessing protection
 
-Password sign-in is rate limited in memory: 10 failures per email and 50 per IP
-address in 15 minutes. Reset emails are capped at 3 per address per hour; the
-page still says the link was sent. The counters reset when the server restarts.
-Set `ADDRESS_HEADER` behind a proxy so the IP limit sees the visitor, see
-[Configuration](configuration).
+Everything is rate limited in memory, and the counters reset when the server
+restarts:
+
+- Password sign-in: 10 failures per email and 50 per IP address in 15 minutes.
+- Reset emails: 3 per address per hour; the page still says the link was sent.
+- Sign-in links and codes, and sign-up codes: 3 per address per 15 minutes and
+  20 per client per hour.
+- Two-factor codes: 10 tries per client per 15 minutes.
+- Sign-up code guesses: 15 per address per day.
+- Setup code: 10 tries per client per hour.
+
+better-auth's own limiter is on too, and its endpoints are cut down to what the
+browser needs: OAuth callbacks, the email link, the reset link, passkeys,
+reading the session and signing out. Everything else goes through the app's
+forms and their limits. Set `ADDRESS_HEADER` behind a proxy so the IP limit sees
+the visitor, see [Configuration](configuration).
 
 ## Forgotten password
 
@@ -61,7 +73,7 @@ passwords off or no email, the page doesn't exist.
 An account with an authenticator app is asked for its 6-digit code after the
 password, or for one of its backup codes. **Trust this device for 30 days**
 skips the code on that browser for a month. Admins can make an authenticator
-app, a passkey, or both mandatory from **Admin, Access**; see
+app, a passkey or an app lock mandatory from **Admin, Access**; see
 [The admin area](admin).
 
 ## Single sign-on
@@ -85,9 +97,9 @@ Register the **redirect URI** the page shows with the provider, of the form:
 https://opencount.example.com/api/auth/callback/<id>
 ```
 
-It is built from `ORIGIN` when set, otherwise from the address you opened the
-admin page with. OpenCount asks for the `openid`, `email` and `profile` scopes,
-with PKCE.
+It is built from the public address: `ORIGIN` when set, otherwise the one
+recorded in **Admin, Access**. OpenCount asks for the `openid`, `email` and
+`profile` scopes, with PKCE.
 
 ### Who gets in
 

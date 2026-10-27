@@ -15,6 +15,8 @@ import {
 
 import { createUser, resetDatabase } from "../../database.js";
 
+const signInLink = "https://app.test/auth/sign-in";
+
 const smtp = {
 	host: "smtp.example.com",
 	port: 587,
@@ -29,28 +31,38 @@ describe("startSignUp", () => {
 	beforeEach(resetDatabase);
 
 	test("is closed while sign-ups are off", () => {
-		expect(() => startSignUp("someone@example.com")).toThrow(SignUpError);
-		expect(() => startSignUp("someone@example.com")).toThrow("invite");
+		expect(() => startSignUp("someone@example.com", signInLink)).toThrow(
+			SignUpError,
+		);
+		expect(() => startSignUp("someone@example.com", signInLink)).toThrow(
+			"invite",
+		);
 	});
 
 	test("open sign-ups still need SMTP, then email the code", () => {
 		setSetting("signUpsEnabled", true);
-		expect(() => startSignUp("someone@example.com")).toThrow("email delivery");
+		expect(() => startSignUp("someone@example.com", signInLink)).toThrow(
+			"email delivery",
+		);
 		setSetting("smtp", smtp);
-		startSignUp("someone@example.com");
+		startSignUp("someone@example.com", signInLink);
 		expect(getDb().select({ type: job.type }).from(job).all()).toEqual([
 			{ type: "email.send" },
 		]);
-		expect(() => startSignUp("someone@example.com")).toThrow("Wait a minute");
+		expect(() => startSignUp("someone@example.com", signInLink)).toThrow(
+			"Wait a minute",
+		);
 	});
 
-	test("refuses an address that already has an account, but only once sign-ups are open", () => {
+	test("answers a taken address like a new one, mailing its owner a sign-in link instead of a code", () => {
 		createUser("ada");
-		expect(() => startSignUp("ada@example.com")).toThrow("invite");
+		expect(() => startSignUp("ada@example.com", signInLink)).toThrow("invite");
 		setSetting("signUpsEnabled", true);
 		setSetting("smtp", smtp);
-		expect(() => startSignUp("ada@example.com")).toThrow(
-			"already uses this email",
+		startSignUp("ada@example.com", signInLink);
+		const [queued] = getDb().select({ payload: job.payload }).from(job).all();
+		expect(JSON.stringify(queued?.payload)).toContain(
+			"You already have an OpenCount account",
 		);
 	});
 });

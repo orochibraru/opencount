@@ -2,7 +2,7 @@ import { fail } from "@sveltejs/kit";
 import { z } from "zod";
 
 import { UserDTO } from "#lib/dto/user.js";
-import { adminFrom } from "#lib/server/admin.js";
+import { adminFrom, recentAdminFrom } from "#lib/server/admin.js";
 import { emailSchema } from "#lib/server/validation/auth.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
@@ -12,13 +12,16 @@ const changeEmailSchema = z.object({
 	email: emailSchema,
 });
 
-export const load = () => ({
-	users: UserDTO.list().map((entry) => entry.toJSON()),
-});
+export const load = async ({ parent }) => {
+	await parent();
+	return {
+		users: UserDTO.list().map((entry) => entry.toJSON()),
+	};
+};
 
 export const actions = {
 	promote: async ({ locals, request }) => {
-		const admin = adminFrom(locals);
+		const admin = recentAdminFrom(locals);
 		if (!("id" in admin)) {
 			return admin;
 		}
@@ -59,7 +62,7 @@ export const actions = {
 		return { revoked: true };
 	},
 	changeEmail: async ({ locals, request }) => {
-		const admin = adminFrom(locals);
+		const admin = recentAdminFrom(locals);
 		if (!("id" in admin)) {
 			return admin;
 		}
@@ -77,7 +80,7 @@ export const actions = {
 		return { emailChanged: true };
 	},
 	resetFactors: async ({ locals, request }) => {
-		const admin = adminFrom(locals);
+		const admin = recentAdminFrom(locals);
 		if (!("id" in admin)) {
 			return admin;
 		}
@@ -94,7 +97,7 @@ export const actions = {
 		return { factorsReset: true };
 	},
 	delete: async ({ locals, request }) => {
-		const admin = adminFrom(locals);
+		const admin = recentAdminFrom(locals);
 		if (!("id" in admin)) {
 			return admin;
 		}

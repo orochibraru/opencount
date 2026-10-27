@@ -14,10 +14,13 @@ import { parseForm } from "#lib/server/validation/form.js";
 const inviteSchema = z.object({ email: emailSchema });
 const inviteIdSchema = z.object({ id: z.string().min(1) });
 
-export const load = () => ({
-	invites: InviteDTO.list().map((invite) => invite.toJSON()),
-	emailConfigured: isEmailConfigured(),
-});
+export const load = async ({ parent }) => {
+	await parent();
+	return {
+		invites: InviteDTO.list().map((invite) => invite.toJSON()),
+		emailConfigured: isEmailConfigured(),
+	};
+};
 
 export const actions = {
 	create: async ({ locals, request, url }) => {

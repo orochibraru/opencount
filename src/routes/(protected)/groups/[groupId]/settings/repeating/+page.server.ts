@@ -3,6 +3,11 @@ import { fail } from "@sveltejs/kit";
 import { MerchantDTO } from "#lib/dto/merchant.js";
 import { RecurringExpenseDTO } from "#lib/dto/recurring-expense.js";
 import { groupForMember } from "#lib/server/group-access.js";
+import {
+	activeRuleSchema,
+	idSchema,
+	parseForm,
+} from "#lib/server/validation/form.js";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -20,16 +25,14 @@ export const actions = {
 			return fail(401, { error: "Sign in again to continue." });
 		}
 		const { group } = groupForMember(params.groupId, locals.user.id);
-		const formData = await request.formData();
-		const rule = RecurringExpenseDTO.findInGroup(
-			group.id,
-			String(formData.get("id") ?? ""),
-		);
-		if (!rule) {
+		const parsed = parseForm(activeRuleSchema, await request.formData());
+		const rule =
+			parsed.success &&
+			RecurringExpenseDTO.findInGroup(group.id, parsed.data.id);
+		if (!parsed.success || !rule) {
 			return fail(404, { error: "That repeating expense no longer exists." });
 		}
-		const active = formData.get("active") === "true";
-		rule.setActive(active, today());
+		rule.setActive(parsed.data.active, today());
 		rule.materialize(today());
 		return { saved: true };
 	},
@@ -38,10 +41,10 @@ export const actions = {
 			return fail(401, { error: "Sign in again to continue." });
 		}
 		const { group } = groupForMember(params.groupId, locals.user.id);
-		const rule = RecurringExpenseDTO.findInGroup(
-			group.id,
-			String((await request.formData()).get("id") ?? ""),
-		);
+		const parsed = parseForm(idSchema, await request.formData());
+		const rule =
+			parsed.success &&
+			RecurringExpenseDTO.findInGroup(group.id, parsed.data.id);
 		if (!rule) {
 			return fail(404, { error: "That repeating expense no longer exists." });
 		}

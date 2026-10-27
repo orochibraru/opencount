@@ -46,6 +46,11 @@ included, like `http://192.168.1.10:3000`; the check then accepts it too.
 Setting `ORIGIN` behind a proxy does no harm, and it also fixes the base URL of
 invite links and single sign-on callbacks.
 
+Emails and passkeys need a public address they can trust, so they never use a
+request's `Host` header. They use `ORIGIN` when set, otherwise the **Public
+address** recorded at setup (or on an admin's first visit to an admin page) and
+editable in **Admin, Access**.
+
 `PROTOCOL_HEADER`, `HOST_HEADER`, `ADDRESS_HEADER`, `XFF_DEPTH`, `PORT` and
 `BODY_SIZE_LIMIT` belong to the Bun adapter (uploads are capped at 32 MB unless
 you raise it, which restoring a bigger backup needs); its

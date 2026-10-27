@@ -50,11 +50,11 @@ Each is a hard rule.
   `redirectToSignIn()`. Sign-in and sign-up live under `src/routes/auth/`.
 - Redirects are thrown from `+layout.server.ts`, `+page.server.ts` and form
   actions, never from hooks. `hooks.server.ts` only populates `locals`, runs
-  migrations and starts the worker in `init`, logs requests, and hands
-  better-auth its own API paths.
-- Nested loads under `(protected)/` use `await parent()` instead of re-checking
-  `locals.user`; form actions keep their own guard. Remote functions call
-  `requireUser()`.
+  migrations and starts the worker in `init`, logs requests, sets the security
+  headers, and hands better-auth its own API paths.
+- Loads under `(protected)/` start with `await parent()`
+  (`guarded-loads.test.ts`), never re-check `locals.user`. Actions keep their
+  own guard; remote functions call `requireUser()`.
 - Admin is the `role` column on `user` (`admin` or `member`), declared to
   better-auth with `input: false` so no sign-up can set it. The first account,
   made by the setup flow, is the admin; admins promote and demote others from
@@ -70,8 +70,10 @@ Each is a hard rule.
   from the server log (printed at boot, reprintable), then the first account,
   which becomes the admin. Once an account exists the route sends visitors to
   sign-in and its actions refuse.
-- Admin-required factors (authenticator app, passkey) are enforced by the
-  `(protected)` layout, which sends anyone missing one to `/account/security`.
+- Missing factors and a locked session are `locals.gate` (`sessionGate()`):
+  `locals.user` stays null and `redirectToSignIn()` picks security or unlock.
+  better-auth answers HTTP only on `browserPaths`. Handing out access (passkeys,
+  passwords, emails, bank keys, roles) needs `signedInRecently()`.
 - Instance settings (sign-ups, required factors, SMTP, OCR) live in the
   `setting` table through `getSetting`/`setSetting`; secrets in them are
   encrypted with `encryptSecret`, never sent back. Bank keys are per account.
@@ -130,12 +132,10 @@ Each is a hard rule.
   pathname without the leading slash.
 - `handleError` handles `kind === "unknown"` only and never returns the real
   message.
-- The public origin comes from the request (adapter-bun reads `PROTOCOL_HEADER`
-  and `HOST_HEADER`) unless `ORIGIN` is set, which a plain-HTTP instance with no
-  proxy needs: adapter-bun otherwise assumes https and every form post fails the
-  origin check. Kit's own check is off (`csrf.trustedOrigins: ["*"]`) and
-  `csrfHandler` accepts the request's origin or `ORIGIN`. `ORIGIN` is ignored in
-  dev.
+- `publicOrigin()` is `ORIGIN`, else the setting recorded at setup (Admin >
+  Access); auth, emails and passkeys use it, never a request's Host. Plain HTTP
+  without a proxy needs `ORIGIN`. `csrfHandler` accepts the request's origin or
+  `publicOrigin()`, Kit's check is off. Ignored in dev.
 - Environment variables are declared once in `src/env.ts` (`defineEnvVars`, a
   zod schema and a description each), typed by Kit's generated declaration and
   read only from `$app/env/private` in `#lib/server/env.ts`, which builds the
