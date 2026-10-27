@@ -5,3 +5,7 @@ extend-exclude = [
 	"drizzle/",
 	"src/lib/category-keywords.json",
 ]
+
+[default.extend-words]
+ba = "ba"
+impot = "impot"

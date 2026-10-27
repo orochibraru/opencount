@@ -39,11 +39,12 @@ the breakdown by category and by folder. It only counts your main currency.
 
 ## Folders
 
-A folder is a project inside Personal: a trip, a renovation. Create one from
-**Personal**, and pick it in the expense sheet's **Folder** field to file an
-expense there. Each folder has its own page with its total, this month, its top
-categories and its last 6 months. Rename or delete it from that page. Deleting a
-folder keeps its expenses: they stay in Personal, out of any folder.
+A folder is a project inside Personal: a trip, a renovation. Create one with
+**New folder** in Personal's menu, then file an expense there with the expense
+sheet's **Folder** field or **Move to folder** in the expense's menu. Open a
+folder from **Filter**: its page has its total, this month, its top categories
+and its last 6 months, and its menu renames or deletes it. Deleting a folder
+keeps its expenses: they stay in Personal, out of any folder.
 
 **Split in a group** takes a personal expense and adds it to one of your groups,
 paid by you and split equally between everyone. When its currency differs from
@@ -71,18 +72,19 @@ notification when new ones arrive. **Sync now** fetches right away and
 
 Delete an expense that came from your bank and it is hidden, so the next sync
 doesn't bring it back. A line from your bank keeps its amount, currency and
-description as the bank gave them: only its category, date, folder and set aside
-can change.
+description as the bank gave them: only its category, date, folder, set aside
+and note can change. A note shows under the line and search finds it, so "CB
+AMZN MKTP" can say what it was for. A sync never overwrites it.
 
 ## Money overview
 
-Off by default. Once a bank is linked, the home page asks once whether to open
-on your money; you can change it later with **Open on my money** under
-**Account, Bank sync**. The home page then starts with this month's spent, came
-in, set aside and left over, your pace against last month and a forecast for the
-month's end, yesterday's report, your biggest habit (something you pay for more
-than once a month), the top category against last month, payments that repeat
-every month and spending day by day. Your groups stay below.
+Off by default. Once a bank is linked, Groups asks once whether to add a
+**Home** tab; you can change it later with **Home tab** under **Account, Bank
+sync**. Home shows this month's spent, came in, set aside and left over, your
+pace against last month and a forecast for the month's end, yesterday's report,
+your biggest habit (something you pay for more than once a month), the top
+category against last month, payments that repeat every month and spending day
+by day.
 
 ## Setting it up
 
@@ -91,8 +93,10 @@ open-banking provider covering most European banks, Revolut included. It is per
 account: everyone uses their own Enable Banking application, and the admin
 configures nothing. In **Account, Bank sync**:
 
-1. Create an application in the Enable Banking control panel, in the production
-   environment, with the redirect URL shown on the page.
+1. Press **Create an app on Enable Banking**: the control panel opens in a new
+   tab and a step-by-step guide opens next to it. Sign in with your email,
+   register a production application with the redirect URL the guide shows, and
+   your browser downloads its private key, named after the application ID.
 2. Paste its application ID and the RSA private key it gave you. The key is
    stored encrypted, never sent back to the browser, and the pair is checked
    against Enable Banking before it is saved.

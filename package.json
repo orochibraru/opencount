@@ -22,7 +22,11 @@
 		"prepare": "svelte-kit sync || true && prek install --allow-missing-config || true"
 	},
 	"dependencies": {
+		"@better-auth/cimd": "1.7.13",
+		"@better-auth/mcp": "1.7.13",
+		"@better-auth/oauth-provider": "1.7.13",
 		"@better-auth/passkey": "1.7.13",
+		"@modelcontextprotocol/server": "2.4.0",
 		"@opentelemetry/api": "1.10.0",
 		"@opentelemetry/context-async-hooks": "3.0.0",
 		"@opentelemetry/exporter-trace-otlp-proto": "0.300.0",

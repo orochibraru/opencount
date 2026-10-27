@@ -81,6 +81,7 @@ describe("importCategory", () => {
 		expect(importCategory("RESTAURANTS_BARS")).toBe("food");
 		expect(importCategory(null, "GROCERIES")).toBe("groceries");
 		expect(importCategory("ACCOMMODATION")).toBe("lodging");
+		expect(importCategory(null, "Speeding fine")).toBe("taxes");
 		expect(importCategory("UNCATEGORIZED", "Taxi to the airport")).toBe(
 			"transport",
 		);

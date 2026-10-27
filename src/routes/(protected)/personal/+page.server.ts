@@ -36,6 +36,10 @@ const folderSchema = z.object({
 		.min(1, "Give the folder a name.")
 		.max(60, "Keep it under 60 characters."),
 });
+const moveSchema = z.object({
+	id: z.string().min(1),
+	folderId: z.string().default(""),
+});
 const applyCategorySchema = z.object({
 	category: z.string().min(1),
 	ids: z.array(z.string().min(1)).min(1).max(500),
@@ -159,6 +163,23 @@ export const actions = {
 		}
 		existing.delete();
 		return { deleted: true };
+	},
+	moveToFolder: async ({ locals, request }) => {
+		if (!locals.user) {
+			return fail(401, { error: "Sign in again to continue." });
+		}
+		const parsed = parseForm(moveSchema, await request.formData());
+		const existing = parsed.success
+			? PersonalExpenseDTO.findForUser(parsed.data.id, locals.user.id)
+			: undefined;
+		if (!parsed.success || !existing) {
+			return fail(404, { error: "That expense no longer exists." });
+		}
+		if (!ownsFolder(locals.user.id, parsed.data.folderId)) {
+			return fail(404, { error: "That folder no longer exists." });
+		}
+		existing.moveTo(parsed.data.folderId || null);
+		return { moved: true };
 	},
 	applyCategory: async ({ locals, request }) => {
 		if (!locals.user) {

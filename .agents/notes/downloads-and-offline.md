@@ -62,22 +62,27 @@
   `markAside`.
 - Personal Insights at `/personal/analytics`: period tabs, main currency only,
   built from `PersonalExpenseDTO.spending()`.
-- A line with `bankRef` is read-only except category, date, folder and `aside`;
-  the actions enforce it, not only the sheet.
-- The home page can open on a money overview (`AppearanceDTO.homeFor` is `money`
-  or `groups`, `groups` by default, asked once after a first bank link, switch
-  under Account > Bank sync). `#lib/money-overview.ts` computes it from
-  `spending()`: month totals, pace against last month, forecast, yesterday, the
-  biggest habit, top category change, monthly repeats and the daily series.
+- A line with `bankRef` is read-only except category, date, folder, `aside` and
+  `note`; the actions enforce it, not only the sheet. Syncs insert with
+  `onConflictDoNothing`, so a note is never overwritten; search matches the
+  description or the note.
+- The money overview is the Home tab at `/home`, first in the navigation when
+  `AppearanceDTO.homeFor` is `money` (`groups`, the stored "no", or null by
+  default; asked once on Groups after a first bank link, switch under Account >
+  Bank sync). `/home` redirects to Groups while it's off.
+  `#lib/money-overview.ts` computes it from `spending()`: month totals, pace
+  against last month, forecast, yesterday, the biggest habit, top category
+  change, monthly repeats and the daily series.
 - "Split in a group" adds a group expense paid by the account, split equally
   among all members, converted with `exchangeRate()` when the currencies differ,
   and marks the personal one as split in that group.
 
 - Folders (`personal_folder`) are projects inside Personal: created from the
-  Personal page, renamed and deleted on `/personal/folders/[folderId]` (total,
-  this month, top categories, last 6 months). Deleting one nulls the folder on
-  its expenses; the expense sheet has a Folder picker and actions check the
-  folder belongs to the user.
+  Personal menu, reached through the Filter sheet (a folder filter navigates to
+  its route), renamed and deleted on `/personal/folders/[folderId]` (total, this
+  month, top categories, last 6 months). Deleting one nulls the folder on its
+  expenses; the expense sheet has a Folder picker and actions check the folder
+  belongs to the user.
 - Lists (group expenses, Personal) load 50 with a "Load more" button, a `limit`
   URL param growing by 50. Balances, totals and month totals are SQL sums, never
   a sum over loaded rows. The group page also takes a debounced,
@@ -135,3 +140,26 @@
   `vite.config.ts`): enough for a Tricount file or a receipt, small enough that
   a few anonymous posts can't exhaust memory. `BODY_SIZE_LIMIT` raises it to
   restore a bigger backup.
+
+## AI apps over MCP
+
+- `mcp()`, `cimd()` and `jwt()` from better-auth make the app an OAuth 2.1
+  server, only when `mcpResource()` gives an HTTPS or loopback `/mcp` URL. Both
+  DCR and CIMD are on so Claude, ChatGPT and Gemini all register themselves;
+  CIMD fetches go through `@better-auth/cimd/node` (resolve once, public
+  addresses only, pinned, no redirects), which Bun honours.
+- better-auth's `baseURL` is `ORIGIN` or the request's origin, never unset: the
+  OAuth provider builds URLs from it on every request.
+- `loginPage` is `/auth/oauth`: it checks the signed query, strips the signature
+  params and sends the person through the normal sign-in with `redirectTo` back
+  at `/oauth2/authorize`, so every sign-in method works. The consent page posts
+  to better-auth through `getAuth().handler()` with a real `Request`:
+  `auth.api.oauth2Consent` has no request and fails.
+- `/mcp` verifies the JWT in-process against `getJwks()` (no HTTP call to
+  itself), then `AiAppDTO.allowed()`: an approval older than 30 days is deleted
+  with its tokens, so the app must sign in again, and a revoke bites at once.
+- Tools expose description, amount, currency, date, kind and category only.
+  `csrfHandler` lets `/api/auth/oauth2/token`, `revoke` and `introspect`
+  through: AI apps call them server to server with no `Origin`.
+- The root `/.well-known/oauth-*` routes hand the request to
+  `getAuth().handler`, which only gets `/api/auth/*` from the hook.

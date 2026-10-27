@@ -352,6 +352,19 @@ describe("personal folders, stats and similar expenses", () => {
 		expect(PersonalExpenseDTO.recategorize(grace.id, [tiles], "food")).toBe(0);
 		expect(PersonalExpenseDTO.recategorize(ada.id, [], "food")).toBe(0);
 
+		const lunch = PersonalExpenseDTO.page(ada.id, {
+			limit: 50,
+			search: "Lunch",
+		}).entries[0];
+		lunch?.moveTo(folderId);
+		expect(PersonalExpenseDTO.page(ada.id, { limit: 50, folderId }).total).toBe(
+			2,
+		);
+		lunch?.moveTo(null);
+		expect(PersonalExpenseDTO.page(ada.id, { limit: 50, folderId }).total).toBe(
+			1,
+		);
+
 		const folder = PersonalFolderDTO.findForUser(folderId, ada.id);
 		folder?.rename("Kitchen 2026");
 		expect(PersonalFolderDTO.forUser(ada.id)[0]?.toJSON().name).toBe(

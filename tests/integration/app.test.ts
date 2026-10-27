@@ -197,6 +197,35 @@ describe("setting up and using it", () => {
 		);
 	});
 
+	test("the Home tab only opens once someone turns it on", async () => {
+		const off = await client().get("/home");
+		expect(off.status).toBe(303);
+		expect(off.headers.get("location")).not.toContain("home");
+		const saved = await client().action("/", "home", { home: "money" });
+		expect(saved.type).toBe("success");
+		const on = await client().get("/home");
+		expect(on.status).toBe(200);
+		expect(await on.text()).toContain("Spent in");
+	});
+
+	test("an AI app without a token is pointed at sign-in", async () => {
+		const mcp = await fetch(`${app.origin}/mcp`, {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+		});
+		expect(mcp.status).toBe(401);
+		expect(mcp.headers.get("www-authenticate")).toContain(
+			"/.well-known/oauth-protected-resource/mcp",
+		);
+		const metadata = await fetch(
+			`${app.origin}/.well-known/oauth-protected-resource/mcp`,
+		);
+		expect(await metadata.json()).toEqual(
+			expect.objectContaining({ resource: `${app.origin}/mcp` }),
+		);
+	});
+
 	test("a required authenticator app sends people to Security without looping", async () => {
 		const writer = new Database(app.databasePath);
 		writer.run(

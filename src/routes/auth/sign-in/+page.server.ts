@@ -60,7 +60,10 @@ export const actions = {
 		}
 		passwordAttempts.reset(account);
 		if ("twoFactorRedirect" in result && result.twoFactorRedirect) {
-			redirect(303, `${resolve("/auth/two-factor")}${url.search}`);
+			redirect(
+				303,
+				`${resolve("/auth/two-factor")}?redirectTo=${encodeURIComponent(safeRedirectTarget(url))}`,
+			);
 		}
 		redirect(303, safeRedirectTarget(url));
 	},

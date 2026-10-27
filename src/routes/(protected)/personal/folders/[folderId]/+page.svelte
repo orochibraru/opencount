@@ -72,7 +72,7 @@
 	shareGroups={data.shareGroups}
 	defaultCurrency={data.defaultCurrency}
 	folder={data.folder}
-	empty="Add expenses here, or move one in from its edit sheet."
+	empty="Add expenses here, or move one in from its menu."
 	bind:adding
 >
 	{#snippet aside()}

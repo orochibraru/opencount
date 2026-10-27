@@ -20,16 +20,19 @@
 
 	interface Props {
 		isAdmin: boolean;
+		moneyHome: boolean;
 		user: { name: string; email: string };
 		groups: { id: string; name: string }[];
 	}
 
-	const { isAdmin, user, groups }: Props = $props();
+	const { isAdmin, moneyHome, user, groups }: Props = $props();
 
 	const homeHref = resolve("/(protected)");
 	const accountHref = resolve("/(protected)/account");
 	const items = $derived(
-		navigationItems(isAdmin).filter((item) => item.href !== accountHref),
+		navigationItems(isAdmin, moneyHome).filter(
+			(item) => item.href !== accountHref,
+		),
 	);
 	let signOutForm: HTMLFormElement | undefined = $state();
 </script>

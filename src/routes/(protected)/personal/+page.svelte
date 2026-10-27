@@ -3,7 +3,6 @@
 	import { goto } from "$app/navigation";
 	import { resolve } from "$app/paths";
 	import { page } from "$app/state";
-	import BanknoteIcon from "@lucide/svelte/icons/banknote";
 	import ChartColumnIcon from "@lucide/svelte/icons/chart-column";
 	import CheckIcon from "@lucide/svelte/icons/check";
 	import FolderIcon from "@lucide/svelte/icons/folder";
@@ -97,56 +96,8 @@
 	bind:adding
 >
 	{#snippet aside()}
-		<section class="glass flex flex-col gap-3 rounded-2xl p-4 md:p-6">
-			<div class="flex items-center justify-between gap-2">
-				<h2 class="font-semibold">Folders</h2>
-				<Button
-					variant="ghost"
-					size="sm"
-					class="h-9 rounded-lg"
-					onclick={() => (folderOpen = true)}
-				>
-					<FolderPlusIcon />
-					New
-				</Button>
-			</div>
-			{#if data.folders.length === 0}
-				<p class="text-muted-foreground text-sm">
-					One per project, like a renovation or a trip, with its own totals.
-				</p>
-			{:else}
-				<ul class="-mx-1 flex flex-col">
-					{#each data.folders as folder (folder.id)}
-						<li>
-							<a
-								href={resolve("/(protected)/personal/folders/[folderId]", {
-									folderId: folder.id,
-								})}
-								class="hover:bg-muted flex min-h-11 items-center gap-3 rounded-xl px-2"
-							>
-								<FolderIcon class="text-muted-foreground size-4" />
-								<span class="min-w-0 flex-1 truncate">{folder.name}</span>
-								<span class="text-muted-foreground text-sm tabular"
-									>{folder.expenseCount}</span
-								>
-							</a>
-						</li>
-					{/each}
-				</ul>
-			{/if}
-		</section>
 		{#if data.bankSyncAvailable}
 			<BanksCard connections={data.connections} />
-		{:else}
-			<a
-				href={resolve("/(protected)/account/banks")}
-				class="glass hover:bg-muted/50 flex min-h-14 items-center gap-3 rounded-2xl p-4 text-sm"
-			>
-				<BanknoteIcon class="text-muted-foreground size-5 shrink-0" />
-				<span class="flex-1"
-					>Bring your card payments in: set up bank sync in your account.</span
-				>
-			</a>
 		{/if}
 	{/snippet}
 </PersonalView>

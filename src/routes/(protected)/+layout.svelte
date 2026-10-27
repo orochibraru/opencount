@@ -23,8 +23,13 @@
 	<AppFooter version={data.version} class="px-4 pb-32 md:pb-8" />
 </div>
 <AppBar />
-<Sidebar isAdmin={data.isAdmin} user={data.user} groups={data.groups} />
-<BottomTabBar isAdmin={data.isAdmin} />
+<Sidebar
+	isAdmin={data.isAdmin}
+	moneyHome={data.moneyHome}
+	user={data.user}
+	groups={data.groups}
+/>
+<BottomTabBar isAdmin={data.isAdmin} moneyHome={data.moneyHome} />
 <InstallPrompt />
 <OfflineSync userId={data.user.id} />
 <PullToRefresh />

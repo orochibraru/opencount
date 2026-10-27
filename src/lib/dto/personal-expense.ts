@@ -17,6 +17,7 @@ export type PersonalKind = (typeof personalKinds)[number];
 export interface PersonalExpenseRow {
 	id: string;
 	description: string;
+	note: string | null;
 	category: string;
 	amountMinor: number;
 	currency: string;
@@ -36,7 +37,12 @@ export interface PersonalExpenseRow {
 export type PersonalExpenseInput = Pick<
 	PersonalExpenseRow,
 	"description" | "category" | "amountMinor" | "currency" | "spentOn"
-> & { folderId?: string | null; aside?: boolean; kind?: PersonalKind };
+> & {
+	folderId?: string | null;
+	aside?: boolean;
+	kind?: PersonalKind;
+	note?: string | null;
+};
 
 export interface BankExpense extends PersonalExpenseInput {
 	bankRef: string;
@@ -83,6 +89,7 @@ function select() {
 		.select({
 			id: personalExpense.id,
 			description: personalExpense.description,
+			note: personalExpense.note,
 			category: personalExpense.category,
 			amountMinor: personalExpense.amountMinor,
 			currency: personalExpense.currency,
@@ -134,7 +141,7 @@ function visible(
 		bankId ? eq(personalExpense.bankConnectionId, bankId) : undefined,
 		accountUid ? eq(personalExpense.bankAccountUid, accountUid) : undefined,
 		pattern
-			? sql`lower(${personalExpense.description}) like ${pattern} escape '\\'`
+			? sql`(lower(${personalExpense.description}) like ${pattern} escape '\\' or lower(coalesce(${personalExpense.note}, '')) like ${pattern} escape '\\')`
 			: undefined,
 	);
 }
@@ -142,10 +149,14 @@ function visible(
 const minor = sql<number>`sum(${personalExpense.amountMinor})`.mapWith(Number);
 
 export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
-	/** The latest `limit` of `userId`'s own expenses matching `filter`, with how many match. */
+	/** The latest `limit` of `userId`'s own expenses matching `filter`, skipping the first `offset`, with how many match. */
 	static page(
 		userId: string,
-		{ limit, ...filter }: { limit: number } & PersonalFilter,
+		{
+			limit,
+			offset = 0,
+			...filter
+		}: { limit: number; offset?: number } & PersonalFilter,
 	): { entries: PersonalExpenseDTO[]; total: number } {
 		const scope = visible(userId, filter);
 		return {
@@ -153,6 +164,7 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 				.where(scope)
 				.orderBy(desc(personalExpense.spentOn), desc(personalExpense.createdAt))
 				.limit(limit)
+				.offset(offset)
 				.all()
 				.map((row) => new PersonalExpenseDTO(toRow(row))),
 			total:
@@ -469,6 +481,15 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 		getDb()
 			.update(personalExpense)
 			.set({ folderId: null, ...input })
+			.where(eq(personalExpense.id, this.row.id))
+			.run();
+	}
+
+	/** Moves the expense into folder `folderId`, or out of every folder when null. */
+	moveTo(folderId: string | null): void {
+		getDb()
+			.update(personalExpense)
+			.set({ folderId })
 			.where(eq(personalExpense.id, this.row.id))
 			.run();
 	}

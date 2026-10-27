@@ -6,9 +6,6 @@ import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
 import { ExpenseDTO } from "#lib/dto/expense.js";
 import { GroupMemberDTO } from "#lib/dto/group-member.js";
 import { GroupDTO } from "#lib/dto/group.js";
-import { PersonalCategoryDTO } from "#lib/dto/personal-category.js";
-import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
-import { moneyOverview } from "#lib/money-overview.js";
 import { homePages } from "#lib/server/db/schema.js";
 import { groupForMember } from "#lib/server/group-access.js";
 import { parseForm } from "#lib/server/validation/form.js";
@@ -17,37 +14,17 @@ import { newGroupSchema } from "#lib/server/validation/group.js";
 const groupIdSchema = z.object({ id: z.string().min(1) });
 const homeSchema = z.object({ home: z.enum(homePages) });
 
-function overviewFor(userId: string) {
-	const connections = BankConnectionDTO.forUser(userId).map((entry) =>
-		entry.toJSON(),
+function askHome(userId: string): boolean {
+	return (
+		BankConnectionDTO.forUser(userId).length > 0 &&
+		AppearanceDTO.homeFor(userId) === null
 	);
-	const home = AppearanceDTO.homeFor(userId);
-	const syncedAt = connections
-		.map((connection) => connection.syncedAt)
-		.filter((date) => date !== null)
-		.toSorted((left, right) => right.getTime() - left.getTime())[0];
-	return {
-		askHome: connections.length > 0 && home === null,
-		overview:
-			home === "money"
-				? {
-						...moneyOverview(
-							PersonalExpenseDTO.spending(userId),
-							new Date().toISOString().slice(0, 10),
-						),
-						syncedAt: syncedAt ?? null,
-						categories: PersonalCategoryDTO.forUser(userId).map((entry) =>
-							entry.toJSON(),
-						),
-					}
-				: null,
-	};
 }
 
 export const load = async ({ parent }) => {
 	const { user } = await parent();
 	return {
-		...overviewFor(user.id),
+		askHome: askHome(user.id),
 		groups: GroupDTO.forMember(user.id).map((entry) => {
 			const group = entry.toJSON();
 			const members = GroupMemberDTO.forGroup(group.id).map((member) =>
@@ -77,7 +54,7 @@ export const actions = {
 		}
 		const parsed = parseForm(homeSchema, await request.formData());
 		if (!parsed.success) {
-			return fail(400, { error: "Pick a home page." });
+			return fail(400, { error: "Pick whether to show the Home tab." });
 		}
 		AppearanceDTO.saveHome(locals.user.id, parsed.data.home);
 		return { home: parsed.data.home };

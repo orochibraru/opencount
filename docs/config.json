@@ -58,6 +58,7 @@
 					"title": "Personal expenses and bank sync",
 					"icon": "landmark"
 				},
+				{ "slug": "ai-apps", "title": "AI apps", "icon": "bot" },
 				{ "slug": "archiving", "title": "Archiving", "icon": "archive" },
 				{
 					"slug": "accounts-and-appearance",

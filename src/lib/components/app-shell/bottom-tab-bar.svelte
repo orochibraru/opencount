@@ -6,9 +6,10 @@
 		navigationItems,
 	} from "#lib/components/app-shell/navigation.js";
 
-	const { isAdmin }: { isAdmin: boolean } = $props();
+	const { isAdmin, moneyHome }: { isAdmin: boolean; moneyHome: boolean } =
+		$props();
 
-	const items = $derived(navigationItems(isAdmin));
+	const items = $derived(navigationItems(isAdmin, moneyHome));
 </script>
 
 <nav

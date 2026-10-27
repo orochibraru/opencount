@@ -2,6 +2,7 @@
 	export interface EditablePersonalExpense {
 		id: string;
 		description: string;
+		note: string | null;
 		category: string;
 		amountMinor: number;
 		currency: string;
@@ -30,6 +31,7 @@
 	import * as Field from "#lib/components/ui/field/index.js";
 	import { Input } from "#lib/components/ui/input/index.js";
 	import { Switch } from "#lib/components/ui/switch/index.js";
+	import { Textarea } from "#lib/components/ui/textarea/index.js";
 	import { currencies } from "#lib/currencies.js";
 	import { haptic } from "#lib/haptics.js";
 	import { minorToDecimal } from "#lib/money.js";
@@ -65,6 +67,7 @@
 				: "",
 			currency: expense?.currency ?? defaultCurrency,
 			description: expense?.description ?? "",
+			note: expense?.note ?? "",
 			category: expense?.category ?? "other",
 			categoryPicked: expense !== undefined,
 			aside: expense?.aside ?? false,
@@ -159,7 +162,8 @@
 			{/if}
 			{#if locked}
 				<span class="text-muted-foreground text-sm"
-					>From your bank: the amount and what it was stay as the bank says.</span
+					>From your bank: the amount and what it was stay as the bank says. Add
+					a note to say more.</span
 				>
 			{/if}
 		</label>
@@ -239,6 +243,18 @@
 				/>
 			</Field.Field>
 		{/if}
+		<Field.Field>
+			<Field.Label for="personal-note">Note</Field.Label>
+			<Textarea
+				id="personal-note"
+				name="note"
+				rows={2}
+				maxlength={500}
+				placeholder={locked ? "What it was really for" : "Optional"}
+				bind:value={form.note}
+			/>
+			<Field.Error errors={errors.note?.map((message) => ({ message }))} />
+		</Field.Field>
 		<div class="bg-popover sticky bottom-0 z-10 -mb-4 pt-2 pb-4">
 			<Button
 				type="submit"

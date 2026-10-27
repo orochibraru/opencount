@@ -147,6 +147,7 @@ const categoryPatterns: [RegExp, ImportCategory][] = [
 	[/book|music|concert|theat|culture/i, "culture"],
 	[/education|school/i, "education"],
 	[/grocer|supermarket/i, "groceries"],
+	[/\btax(es)?\b|\bfines?\b|penalt|impot|amende/i, "taxes"],
 	[/food|restaurant|drink|bar|meal|dinner|lunch|breakfast/i, "food"],
 	[/transport|travel|car|fuel|gas|taxi|train|flight|parking/i, "transport"],
 	[/accommodation|lodging|hotel|rent|housing/i, "lodging"],

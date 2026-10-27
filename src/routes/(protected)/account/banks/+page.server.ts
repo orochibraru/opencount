@@ -51,7 +51,7 @@ export const actions = {
 		}
 		const parsed = parseForm(homeSchema, await request.formData());
 		if (!parsed.success) {
-			return fail(400, { error: "Pick a home page." });
+			return fail(400, { error: "Pick whether to show the Home tab." });
 		}
 		AppearanceDTO.saveHome(
 			locals.user.id,

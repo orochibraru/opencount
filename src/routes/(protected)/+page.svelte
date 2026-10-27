@@ -19,7 +19,6 @@
 	import { setPageTitle } from "#lib/page-title.svelte.js";
 
 	import HomeQuestion from "./home-question.svelte";
-	import MoneyOverview from "./money-overview.svelte";
 	import NewGroupSheet from "./new-group-sheet.svelte";
 
 	const { data } = $props();
@@ -100,9 +99,6 @@
 
 {#if data.askHome}
 	<HomeQuestion />
-{/if}
-{#if data.overview}
-	<MoneyOverview overview={data.overview} />
 {/if}
 
 {#if data.groups.length === 0}

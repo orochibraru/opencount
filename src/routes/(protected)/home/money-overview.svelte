@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { resolve } from "$app/paths";
-	import ArrowRightIcon from "@lucide/svelte/icons/arrow-right";
 	import CalendarClockIcon from "@lucide/svelte/icons/calendar-clock";
 	import RepeatIcon from "@lucide/svelte/icons/repeat";
 	import SunriseIcon from "@lucide/svelte/icons/sunrise";
@@ -12,7 +10,6 @@
 		type CustomCategory,
 	} from "#lib/categories.js";
 	import SpendingChart from "#lib/components/spending-chart.svelte";
-	import { Button } from "#lib/components/ui/button/index.js";
 	import type { MoneyOverview } from "#lib/money-overview.js";
 	import { formatMoney } from "#lib/money.js";
 
@@ -69,21 +66,8 @@
 	}
 </script>
 
-<section class="mb-8 flex flex-col gap-4" aria-labelledby="money-heading">
-	<div class="flex items-end justify-between gap-3 px-1">
-		<div>
-			<h2 id="money-heading" class="text-lg font-semibold">Your money</h2>
-			<p class="text-muted-foreground text-sm">{synced(overview.syncedAt)}</p>
-		</div>
-		<Button
-			href={resolve("/(protected)/personal")}
-			variant="ghost"
-			class="h-10 rounded-xl"
-		>
-			Personal
-			<ArrowRightIcon />
-		</Button>
-	</div>
+<section class="flex flex-col gap-4" aria-label="Your money">
+	<p class="text-muted-foreground px-1 text-sm">{synced(overview.syncedAt)}</p>
 
 	<div class="grid gap-4 lg:grid-cols-3">
 		<article class="glass rounded-3xl p-5 md:p-6 lg:col-span-2">
@@ -249,5 +233,3 @@
 		</article>
 	</div>
 </section>
-
-<h2 class="mb-3 px-1 text-lg font-semibold">Your groups</h2>

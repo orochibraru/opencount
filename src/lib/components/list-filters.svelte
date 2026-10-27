@@ -8,12 +8,14 @@
 	export interface FilterChange {
 		category?: string | null;
 		source?: string | null;
+		folder?: string | null;
 		search?: string;
 	}
 </script>
 
 <script lang="ts">
 	import { goto } from "$app/navigation";
+	import FolderIcon from "@lucide/svelte/icons/folder";
 	import LandmarkIcon from "@lucide/svelte/icons/landmark";
 	import ListFilterIcon from "@lucide/svelte/icons/list-filter";
 	import SearchIcon from "@lucide/svelte/icons/search";
@@ -32,6 +34,8 @@
 		options: CategoryOption[];
 		sources?: FilterSource[];
 		activeSource?: FilterSource;
+		folders?: FilterSource[];
+		activeFolder?: FilterSource;
 		href: (change: FilterChange) => string;
 	}
 
@@ -41,6 +45,8 @@
 		options,
 		sources = [],
 		activeSource,
+		folders = [],
+		activeFolder,
 		href,
 	}: Props = $props();
 
@@ -58,7 +64,9 @@
 	}
 
 	const label = $derived(
-		[active?.label, activeSource?.label].filter(Boolean).join(" · "),
+		[activeFolder?.label, active?.label, activeSource?.label]
+			.filter(Boolean)
+			.join(" · "),
 	);
 </script>
 
@@ -92,16 +100,18 @@
 			</span>
 		{:else if activeSource}
 			<LandmarkIcon />
+		{:else if activeFolder}
+			<FolderIcon />
 		{:else}
 			<ListFilterIcon />
 		{/if}
 		<span class="truncate">{label || "Filter"}</span>
 	</Button>
-	{#if active || activeSource}
+	{#if active || activeSource || activeFolder}
 		<IconButton
 			label="Clear the filters"
 			icon={XIcon}
-			href={href({ category: null, source: null })}
+			href={href({ category: null, source: null, folder: null })}
 			data-sveltekit-reset="false"
 		/>
 	{/if}
@@ -147,8 +157,45 @@
 	</span>
 {/snippet}
 
+{#snippet folderTile()}
+	<span
+		class="category-tile flex size-9 items-center justify-center rounded-lg"
+		style="--category-chroma: 0"
+	>
+		<FolderIcon class="size-4" />
+	</span>
+{/snippet}
+
 <ResponsiveSheet bind:open title="Filter">
 	<div class="flex flex-col gap-4 pb-4">
+		{#if folders.length > 0}
+			<section aria-labelledby="filter-folders">
+				<h3
+					id="filter-folders"
+					class="text-muted-foreground mb-1 px-2 text-sm font-medium"
+				>
+					Folders
+				</h3>
+				<ul class="flex flex-col gap-1">
+					{@render choice(
+						href({ folder: null }),
+						!activeFolder,
+						"Every folder",
+						false,
+						neutralTile,
+					)}
+					{#each folders as folder (folder.value)}
+						{@render choice(
+							href({ folder: folder.value }),
+							activeFolder?.value === folder.value,
+							folder.label,
+							false,
+							folderTile,
+						)}
+					{/each}
+				</ul>
+			</section>
+		{/if}
 		{#if sources.length > 0}
 			<section aria-labelledby="filter-sources">
 				<h3
@@ -178,7 +225,7 @@
 			</section>
 		{/if}
 		<section aria-labelledby="filter-categories">
-			{#if sources.length > 0}
+			{#if sources.length > 0 || folders.length > 0}
 				<h3
 					id="filter-categories"
 					class="text-muted-foreground mb-1 px-2 text-sm font-medium"

@@ -163,6 +163,11 @@ describe("guessCategory", () => {
 		expect(guessCategory("Assurance habitation")).toBe("bills");
 		expect(guessCategory("Überweisung an Max")).toBe("finance");
 		expect(guessCategory("Trade Republic")).toBe("finance");
+		expect(guessCategory("Amende ANTAI excès de vitesse")).toBe("taxes");
+		expect(guessCategory("Parking ticket Camden")).toBe("taxes");
+		expect(guessCategory("Impôts DGFIP")).toBe("taxes");
+		expect(guessCategory("Bußgeld")).toBe("taxes");
+		expect(guessCategory("Taxi Paris")).toBe("transport");
 		expect(guessCategory("Something else")).toBeUndefined();
 	});
 
@@ -208,6 +213,7 @@ describe("categories", () => {
 			"education",
 			"culture",
 			"finance",
+			"taxes",
 			"income",
 			"other",
 			"kids",

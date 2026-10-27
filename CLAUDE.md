@@ -18,7 +18,8 @@ link or code (never for accounts with an authenticator app, which those would
 skip); email goes out over SMTP configured in the admin UI; push notifications
 go out from the worker through `web-push`, with VAPID keys made on first use and
 kept encrypted in the settings; receipt reading is optional and local: Tesseract
-in the image, run by the worker, its text parsed by `#lib/server/ocr.ts`.
+in the image, run by the worker, its text parsed by `#lib/server/ocr.ts`; AI
+apps reach personal expenses over MCP at `/mcp`, behind better-auth's OAuth.
 Tailwind v4 and shadcn-svelte (vega, per-account accent, theme, font and
 corners), oxlint lints, `bun fmt` formats, prek runs every check as a git hook,
 mise pins the toolchain.
@@ -144,7 +145,7 @@ Each is a hard rule.
   sends it the same `Config` over IPC. `process.env`, `Bun.env` and
   `import.meta.env` are a prek error.
 - A file built for a person (export, backup) is a worker `download`, served to
-  its owner only. Outbound HTTP: SMTP, OIDC, Frankfurter and Tricount only.
+  its owner only. Outbound HTTP: SMTP, OIDC, Frankfurter, Tricount, CIMD only.
 - Errors the user doesn't cause go through `reportError` (Sentry when
   `SENTRY_DSN` is set); slow units of work get a `withSpan`.
 - CSS-only packages are devDependencies.
@@ -168,11 +169,11 @@ Each is a hard rule.
 Read only the note for the area you touch. A new area with its own decisions
 gets its own note and row.
 
-| Area                                                                                                  | Note                                     |
-| ----------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| Scripts, mise tasks, git hooks, tests, the worker in dev                                              | `.agents/notes/commands.md`              |
-| The PR gate, canaries, the release PR, images and secrets                                             | `.agents/notes/ci-releases.md`           |
-| Downloads, backup and restore, imports, currencies, invite links, offline, personal ledger, bank sync | `.agents/notes/downloads-and-offline.md` |
+| Area                                                                                                                    | Note                                     |
+| ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| Scripts, mise tasks, git hooks, tests, the worker in dev                                                                | `.agents/notes/commands.md`              |
+| The PR gate, canaries, the release PR, images and secrets                                                               | `.agents/notes/ci-releases.md`           |
+| Downloads, backup and restore, imports, currencies, invite links, offline, personal ledger, bank sync, AI apps over MCP | `.agents/notes/downloads-and-offline.md` |
 
 ## AI-assisted development
 

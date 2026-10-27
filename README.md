@@ -37,15 +37,18 @@ open-source alternative to Tricount that installs on your phone like an app.
   account sees, each in any currency, with this month's totals by category.
   **Split in a group** adds one to a group, paid by you and split equally,
   converted at the day's rate when the currencies differ. Folders group expenses
-  into projects, each with its own totals.
+  into projects, each with its own totals, and any expense can carry a note.
 - **Bank sync**, optional: link your bank through Enable Banking (most European
   banks, Revolut included) and its payments, salary and top-ups land in your
   personal ledger every day, categorized, with savings and investing kept apart
   from spending. Each person sets up their own Enable Banking keys under
   **Account, Bank sync**.
-- **Money overview**, optional: once a bank is linked, the home page can open on
-  how you're doing: this month against the last, a month-end forecast,
-  yesterday's spending, your habits and what repeats every month.
+- **Money overview**, optional: once a bank is linked, a Home tab shows how
+  you're doing: this month against the last, a month-end forecast, yesterday's
+  spending, your habits and what repeats every month.
+- **AI apps**, optional: connect Claude, ChatGPT or Gemini over MCP and let them
+  sort your personal expenses into categories. They see descriptions, amounts,
+  dates and categories, nothing else, and must sign in again every 30 days.
 - **Search and filter**: find an expense by description or merchant, or filter a
   list by category, and Personal by bank and account. Lists load 50 at a time.
 - **Insights** by period, category, merchant and payer, and over time.

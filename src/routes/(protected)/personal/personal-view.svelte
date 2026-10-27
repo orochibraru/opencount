@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from "$app/paths";
 	import FolderIcon from "@lucide/svelte/icons/folder";
+	import FolderInputIcon from "@lucide/svelte/icons/folder-input";
 	import HandCoinsIcon from "@lucide/svelte/icons/hand-coins";
 	import LandmarkIcon from "@lucide/svelte/icons/landmark";
 	import PencilIcon from "@lucide/svelte/icons/pencil";
@@ -38,6 +39,7 @@
 	import { listBlocks } from "#lib/list-blocks.js";
 	import { formatMoney } from "#lib/money.js";
 
+	import MoveSheet from "./move-sheet.svelte";
 	import PersonalSheet, {
 		type EditablePersonalExpense,
 	} from "./personal-sheet.svelte";
@@ -92,6 +94,8 @@
 	let editing = $state<EditablePersonalExpense>();
 	let shareOpen = $state(false);
 	let sharing = $state<PersonalExpenseRow>();
+	let moveOpen = $state(false);
+	let moving = $state<PersonalExpenseRow>();
 	let similarOpen = $state(false);
 	let similar = $state<{
 		category: { value: string; label: string };
@@ -132,12 +136,22 @@
 	const activeSource = $derived(
 		sources.find((source) => source.value === currentSource),
 	);
+	const folderOptions = $derived(
+		folders.map((entry) => ({ value: entry.id, label: entry.name })),
+	);
+	const activeFolder = $derived(
+		folderOptions.find((entry) => entry.value === folder?.id),
+	);
 	const filtered = $derived(
 		activeCategory !== undefined || search !== "" || currentSource !== null,
 	);
 
 	function listHref(change: FilterChange & { limit?: number }): string {
 		const params = new URLSearchParams();
+		const folderId = change.folder === undefined ? folder?.id : change.folder;
+		const base = folderId
+			? resolve("/(protected)/personal/folders/[folderId]", { folderId })
+			: action;
 		const wanted = change.category === undefined ? category : change.category;
 		const source = change.source === undefined ? currentSource : change.source;
 		const text = change.search ?? search;
@@ -156,7 +170,7 @@
 			params.set("limit", String(change.limit));
 		}
 		const query = params.toString();
-		return query ? `?${query}` : "?";
+		return query ? `${base}?${query}` : base;
 	}
 
 	function sourceOf(entry: PersonalExpenseRow): string | undefined {
@@ -225,6 +239,18 @@
 					adding = true;
 				},
 			},
+			...(folders.length > 0
+				? [
+						{
+							label: "Move to folder",
+							icon: FolderInputIcon,
+							onSelect: () => {
+								moving = entry;
+								moveOpen = true;
+							},
+						},
+					]
+				: []),
 			...(shareGroups.length > 0 && !entry.sharedGroupId
 				? [
 						{
@@ -364,6 +390,8 @@
 				options={categoryOptions(categories)}
 				{sources}
 				{activeSource}
+				folders={folderOptions}
+				{activeFolder}
 				href={listHref}
 			/>
 			{#if filtered}
@@ -440,6 +468,12 @@
 													/>{/if}
 												{detail(entry)}
 											</span>
+											{#if entry.note}
+												<span
+													class="text-muted-foreground block truncate text-sm italic"
+													>{entry.note}</span
+												>
+											{/if}
 										</span>
 										<span
 											class="font-display font-semibold tabular {entry.aside
@@ -498,6 +532,10 @@
 		groups={shareGroups}
 		{action}
 	/>
+{/if}
+
+{#if moving}
+	<MoveSheet bind:open={moveOpen} expense={moving} {folders} {action} />
 {/if}
 
 {#if similar}

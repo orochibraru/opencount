@@ -4,7 +4,7 @@ import { csrfHandler } from "#lib/server/csrf.js";
 
 function call(
 	handler: ReturnType<typeof csrfHandler>,
-	init: { method: string; origin?: string; type?: string },
+	init: { method: string; origin?: string; type?: string; path?: string },
 ) {
 	const headers = new Headers();
 	if (init.origin) {
@@ -13,12 +13,10 @@ function call(
 	if (init.type) {
 		headers.set("content-type", init.type);
 	}
+	const url = new URL(init.path ?? "/form", "https://app.test");
 	const event = {
-		request: new Request("https://app.test/form", {
-			method: init.method,
-			headers,
-		}),
-		url: new URL("https://app.test/form"),
+		request: new Request(url, { method: init.method, headers }),
+		url,
 	};
 	return handler({
 		event,
@@ -75,5 +73,19 @@ describe("csrfHandler", () => {
 				},
 			).status,
 		).toBe(403);
+	});
+
+	test("lets an AI app's server swap its code for a token, nothing else", async () => {
+		const tokenSwap = {
+			method: "POST",
+			type: "application/x-www-form-urlencoded",
+		};
+		expect(
+			await call(handler, {
+				...tokenSwap,
+				path: "/api/auth/oauth2/token",
+			}).text(),
+		).toBe("ok");
+		expect(call(handler, { ...tokenSwap, path: "/account" }).status).toBe(403);
 	});
 });

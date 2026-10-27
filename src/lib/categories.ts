@@ -12,6 +12,7 @@ import GraduationCapIcon from "@lucide/svelte/icons/graduation-cap";
 import HandCoinsIcon from "@lucide/svelte/icons/hand-coins";
 import HeartIcon from "@lucide/svelte/icons/heart";
 import HouseIcon from "@lucide/svelte/icons/house";
+import LandmarkIcon from "@lucide/svelte/icons/landmark";
 import MusicIcon from "@lucide/svelte/icons/music";
 import PawPrintIcon from "@lucide/svelte/icons/paw-print";
 import PiggyBankIcon from "@lucide/svelte/icons/piggy-bank";
@@ -109,6 +110,12 @@ export const categories = [
 		label: categoryLabels.finance,
 		icon: PiggyBankIcon,
 		hue: 305,
+	},
+	{
+		value: "taxes",
+		label: categoryLabels.taxes,
+		icon: LandmarkIcon,
+		hue: 20,
 	},
 	{
 		value: "income",

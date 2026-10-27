@@ -1,6 +1,7 @@
 import { resolve } from "$app/paths";
 import BanknoteIcon from "@lucide/svelte/icons/banknote";
 import BellIcon from "@lucide/svelte/icons/bell";
+import BotIcon from "@lucide/svelte/icons/bot";
 import FingerprintIcon from "@lucide/svelte/icons/fingerprint";
 import PaletteIcon from "@lucide/svelte/icons/palette";
 import UserRoundIcon from "@lucide/svelte/icons/user-round";
@@ -40,6 +41,12 @@ export function accountTabs(): SectionTab[] {
 			label: "Bank sync",
 			description: "Bring your card payments into your personal expenses.",
 			icon: BanknoteIcon,
+		},
+		{
+			href: resolve("/(protected)/account/ai-apps"),
+			label: "AI apps",
+			description: "Let Claude, ChatGPT or Gemini sort your personal expenses.",
+			icon: BotIcon,
 		},
 	];
 }

@@ -14,8 +14,8 @@
 		loading: "Saving your choice",
 		success: (result) =>
 			result?.home === "money"
-				? "Your money opens first now."
-				: "Groups stay your home. Change it under Account, Bank sync.",
+				? "Home is in your tabs now."
+				: "No Home tab. Turn it on under Account, Bank sync.",
 	})}
 >
 	<span
@@ -24,11 +24,10 @@
 		<PiggyBankIcon class="size-6" />
 	</span>
 	<div class="min-w-0 flex-1">
-		<h2 class="font-semibold">Open on your money?</h2>
+		<h2 class="font-semibold">Add a Home tab for your money?</h2>
 		<p class="text-muted-foreground mt-1 text-sm">
-			Your bank is linked. OpenCount can open on how you're doing: yesterday's
+			Your bank is linked. A Home tab can show how you're doing: yesterday's
 			spending, a month-end forecast, your habits and what repeats every month.
-			Your groups stay right below.
 		</p>
 	</div>
 	<div class="flex gap-2">
@@ -43,7 +42,7 @@
 			type="submit"
 			name="home"
 			value="money"
-			class="glow h-11 flex-1 rounded-xl md:flex-none">Show my money</Button
+			class="glow h-11 flex-1 rounded-xl md:flex-none">Add Home</Button
 		>
 	</div>
 </form>

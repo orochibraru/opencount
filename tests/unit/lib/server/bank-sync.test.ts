@@ -343,4 +343,31 @@ describe("PersonalExpenseDTO", () => {
 		connection.delete();
 		expect(BankConnectionDTO.forUser(ada.id)).toEqual([]);
 	});
+
+	test("a note on a bank line is searchable and survives the next sync", () => {
+		const ada = createUser("ada");
+		const connection = link(ada.id);
+		const card = {
+			description: "CB AMZN MKTP",
+			category: "shopping",
+			amountMinor: 4200,
+			currency: "EUR",
+			spentOn: "2026-10-03",
+			bankRef: "acc:2",
+			bankAccountUid: "acc",
+		};
+		PersonalExpenseDTO.importFromBank(ada.id, connection.id, [card]);
+		const [line] = PersonalExpenseDTO.page(ada.id, { limit: 50 }).entries;
+		line?.update({ ...card, note: "Birthday present for Grace" });
+		expect(
+			PersonalExpenseDTO.importFromBank(ada.id, connection.id, [card]),
+		).toBe(0);
+		const found = PersonalExpenseDTO.page(ada.id, {
+			limit: 50,
+			search: "birthday",
+		}).entries;
+		expect(found.map((entry) => entry.toJSON().note)).toEqual([
+			"Birthday present for Grace",
+		]);
+	});
 });

@@ -1,5 +1,8 @@
 import { dev } from "$app/env";
 import { getRequestEvent } from "$app/server";
+import { cimd } from "@better-auth/cimd";
+import { fetchClientMetadataResource } from "@better-auth/cimd/node";
+import { mcp } from "@better-auth/mcp";
 import { passkey } from "@better-auth/passkey";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -7,6 +10,7 @@ import { APIError, createAuthMiddleware } from "better-auth/api";
 import {
 	emailOTP,
 	genericOAuth,
+	jwt,
 	magicLink,
 	twoFactor,
 } from "better-auth/plugins";
@@ -33,6 +37,46 @@ const logger = new Logger("Auth");
 /** The configured public origin, ignored in dev where Vite serves the real one. */
 export function publicOrigin(): string | undefined {
 	return dev ? undefined : getConfig().origin;
+}
+
+const loopbackHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/** The address AI apps reach the MCP server at on `origin`, or none when it isn't HTTPS or localhost, which OAuth requires. */
+export function mcpResource(origin: string | undefined): string | undefined {
+	if (!origin) {
+		return undefined;
+	}
+	const url = new URL("/mcp", origin);
+	return url.protocol === "https:" || loopbackHosts.has(url.hostname)
+		? url.href
+		: undefined;
+}
+
+function requestOrigin(): string | undefined {
+	try {
+		return getRequestEvent().url.origin;
+	} catch {
+		return undefined;
+	}
+}
+
+function aiAppPlugins(resource: string | undefined) {
+	if (!resource) {
+		return [];
+	}
+	return [
+		jwt(),
+		mcp({
+			resource,
+			loginPage: "/auth/oauth",
+			consentPage: "/oauth/consent",
+			scopes: ["openid", "offline_access"],
+			allowDynamicClientRegistration: true,
+			allowUnauthenticatedClientRegistration: true,
+			clientRegistrationDefaultApplicationType: "infer",
+		}),
+		cimd({ fetchClientMetadataResource, metadataProfile: "mcp-2026-07-28" }),
+	];
 }
 
 /** Routes a better-auth log line through the app logger, dropping the "Base URL is not set" warning the request-derived origin causes. */
@@ -144,8 +188,11 @@ const enforceSignInMethods = createAuthMiddleware((context) => {
 	return error ? Promise.reject(error) : Promise.resolve();
 });
 
-function createAuth(providers: SsoProvider[], signUpsEnabled: boolean) {
-	const origin = publicOrigin();
+function createAuth(
+	providers: SsoProvider[],
+	signUpsEnabled: boolean,
+	origin: string | undefined,
+) {
 	return betterAuth({
 		appName: "OpenCount",
 		baseURL: origin,
@@ -176,6 +223,7 @@ function createAuth(providers: SsoProvider[], signUpsEnabled: boolean) {
 			},
 		},
 		disabledPaths: [
+			"/token",
 			"/sign-up/email",
 			"/email-otp/verify-email",
 			"/email-otp/request-password-reset",
@@ -222,6 +270,7 @@ function createAuth(providers: SsoProvider[], signUpsEnabled: boolean) {
 					disableImplicitSignUp: !signUpsEnabled,
 				})),
 			}),
+			...aiAppPlugins(mcpResource(origin)),
 			sveltekitCookies(getRequestEvent),
 		],
 	});
@@ -234,14 +283,19 @@ let instance: { auth: Auth; key: string } | undefined;
 
 /**
  * The better-auth instance, created on first use so a build never opens the database or needs the secret, and rebuilt
- * when an admin changes the single sign-on providers or the sign-up policy they depend on.
+ * when an admin changes the single sign-on providers or the sign-up policy they depend on, or the origin it is reached
+ * at, which the MCP server's OAuth endpoints are built from, changes.
  */
 export function getAuth(): Auth {
 	const providers = getSetting("ssoProviders");
 	const signUpsEnabled = getSetting("signUpsEnabled");
-	const key = JSON.stringify([providers, signUpsEnabled]);
+	const origin = publicOrigin() ?? requestOrigin();
+	const key = JSON.stringify([providers, signUpsEnabled, origin]);
 	if (instance?.key !== key) {
-		instance = { auth: createAuth(providers, signUpsEnabled), key };
+		instance = {
+			auth: createAuth(providers, signUpsEnabled, origin),
+			key,
+		};
 	}
 	return instance.auth;
 }

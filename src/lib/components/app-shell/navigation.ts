@@ -1,4 +1,5 @@
 import { resolve } from "$app/paths";
+import HouseIcon from "@lucide/svelte/icons/house";
 import ShieldIcon from "@lucide/svelte/icons/shield";
 import UserRoundIcon from "@lucide/svelte/icons/user-round";
 import UsersIcon from "@lucide/svelte/icons/users";
@@ -11,8 +12,11 @@ export interface NavigationItem {
 	icon: Component<{ class?: string }>;
 }
 
-/** The app's top-level destinations, shared by the bottom tab bar and the desktop top bar; admins also get Admin. */
-export function navigationItems(isAdmin: boolean): NavigationItem[] {
+/** The app's top-level destinations, shared by the bottom tab bar and the sidebar; Home leads when the money overview is on, admins also get Admin. */
+export function navigationItems(
+	isAdmin: boolean,
+	moneyHome: boolean,
+): NavigationItem[] {
 	const items = [
 		{ href: resolve("/(protected)"), label: "Groups", icon: UsersIcon },
 		{
@@ -26,6 +30,13 @@ export function navigationItems(isAdmin: boolean): NavigationItem[] {
 			icon: UserRoundIcon,
 		},
 	];
+	if (moneyHome) {
+		items.unshift({
+			href: resolve("/(protected)/home"),
+			label: "Home",
+			icon: HouseIcon,
+		});
+	}
 	if (isAdmin) {
 		items.push({
 			href: resolve("/(protected)/admin"),
