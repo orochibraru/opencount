@@ -6,7 +6,7 @@ import { InviteDTO } from "#lib/dto/invite.js";
 import { PasskeyDTO } from "#lib/dto/passkey.js";
 import { allSettings, getSetting, setSetting } from "#lib/dto/setting.js";
 import { UserDTO } from "#lib/dto/user.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { passkey, session, verification } from "#lib/server/db/schema.js";
 
 import { createUser, resetDatabase } from "../../database.js";
@@ -90,7 +90,8 @@ describe("UserDTO", () => {
 				?.toJSON().role,
 		).toBe("admin");
 		UserDTO.markEmailVerified(ada.id);
-		getDb()
+		databaseConnection
+			.get()
 			.insert(session)
 			.values({
 				id: "s1",
@@ -100,7 +101,9 @@ describe("UserDTO", () => {
 			})
 			.run();
 		UserDTO.revokeSessions(ada.id);
-		expect(getDb().select().from(session).all()).toHaveLength(0);
+		expect(databaseConnection.get().select().from(session).all()).toHaveLength(
+			0,
+		);
 		UserDTO.delete(ada.id);
 		expect(UserDTO.count()).toBe(1);
 		expect(PasskeyDTO.forUser("grace")).toEqual([]);
@@ -131,7 +134,9 @@ describe("CodeChallengeDTO", () => {
 		for (let attempt = 0; attempt < 5; attempt += 1) {
 			expect(verifyCode("new@example.com", "654321")).toBe(false);
 		}
-		expect(getDb().select().from(verification).all()).toHaveLength(0);
+		expect(
+			databaseConnection.get().select().from(verification).all(),
+		).toHaveLength(0);
 		expect(verifyCode("new@example.com", "123456")).toBe(false);
 	});
 });
@@ -186,7 +191,8 @@ describe("PasskeyDTO", () => {
 
 	test("lists a user's passkeys", () => {
 		const ada = createUser("ada");
-		getDb()
+		databaseConnection
+			.get()
 			.insert(passkey)
 			.values({
 				id: "p1",

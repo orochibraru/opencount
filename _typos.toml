@@ -4,7 +4,7 @@ extend-exclude = [
 	"bun.lock",
 	"drizzle/",
 	"src/lib/category-keywords.json",
-	"src/lib/server/enable-banking-api.d.ts",
+	"src/lib/server/banking/enable-banking-api.d.ts",
 ]
 
 [default.extend-words]

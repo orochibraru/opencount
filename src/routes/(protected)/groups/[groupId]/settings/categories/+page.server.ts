@@ -3,7 +3,7 @@ import { fail } from "@sveltejs/kit";
 import { ExpenseDTO } from "#lib/dto/expense.js";
 import { GroupCategoryDTO } from "#lib/dto/group-category.js";
 import { MerchantDTO } from "#lib/dto/merchant.js";
-import { groupForMember } from "#lib/server/group-access.js";
+import { groupAccess } from "#lib/server/expenses/group-access.js";
 import {
 	categoryNameTaken,
 	categorySchema,
@@ -22,7 +22,7 @@ export const actions = {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
 		}
-		const { group } = groupForMember(params.groupId, locals.user.id);
+		const { group } = groupAccess.forMember(params.groupId, locals.user.id);
 		const custom = GroupCategoryDTO.forGroup(group.id).map((entry) =>
 			entry.toJSON(),
 		);
@@ -50,7 +50,7 @@ export const actions = {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
 		}
-		const { group } = groupForMember(params.groupId, locals.user.id);
+		const { group } = groupAccess.forMember(params.groupId, locals.user.id);
 		const parsed = parseForm(categorySchema, await request.formData());
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
@@ -82,7 +82,7 @@ export const actions = {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
 		}
-		const { group } = groupForMember(params.groupId, locals.user.id);
+		const { group } = groupAccess.forMember(params.groupId, locals.user.id);
 		const parsed = parseForm(idSchema, await request.formData());
 		const existing =
 			parsed.success && GroupCategoryDTO.findInGroup(group.id, parsed.data.id);

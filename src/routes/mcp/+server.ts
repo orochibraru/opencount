@@ -1,5 +1,5 @@
-import { handleMcpRequest } from "#lib/server/mcp.js";
+import { mcpEndpoint } from "#lib/server/mcp/server.js";
 
-export const POST = ({ request, url }) => handleMcpRequest(request, url);
+export const POST = ({ request, url }) => mcpEndpoint.handle(request, url);
 
-export const GET = ({ request, url }) => handleMcpRequest(request, url);
+export const GET = ({ request, url }) => mcpEndpoint.handle(request, url);

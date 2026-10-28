@@ -7,15 +7,15 @@ import {
 } from "@sveltejs/kit/hooks";
 import { svelteKitHandler } from "better-auth/svelte-kit";
 
-import { getAuth, publicOrigin } from "#lib/server/auth.js";
-import { csrfHandler } from "#lib/server/csrf.js";
-import { closeDb, migrateDb } from "#lib/server/db/lib.js";
-import { Logger } from "#lib/server/logger.js";
-import { securityHeaders } from "#lib/server/security-headers.js";
-import { sessionGate } from "#lib/server/security-policy.js";
-import { announceSetup } from "#lib/server/setup.js";
-import { flushTelemetry, reportError } from "#lib/server/telemetry.js";
-import { workerCommand, WorkerSupervisor } from "#lib/server/worker-process.js";
+import { authService } from "#lib/server/auth/auth.js";
+import { securityPolicy } from "#lib/server/auth/security-policy.js";
+import { instanceSetup } from "#lib/server/auth/setup.js";
+import { Logger } from "#lib/server/core/logger.js";
+import { telemetry } from "#lib/server/core/telemetry.js";
+import { databaseConnection } from "#lib/server/db/database.js";
+import { csrfHandler } from "#lib/server/http/csrf.js";
+import { securityHeaders } from "#lib/server/http/security-headers.js";
+import { WorkerSupervisor } from "#lib/server/worker/supervisor.js";
 
 const logger = new Logger("Server");
 
@@ -28,13 +28,13 @@ const devShutdownSignals = ["SIGINT", "SIGTERM", "SIGHUP"] as const;
 function shutDown(reason: string): void {
 	logger.info("Shutting down", { reason });
 	globalForWorker.__opencountWorker?.stop();
-	closeDb();
-	void flushTelemetry().finally(() => process.exit(0));
+	databaseConnection.close();
+	void telemetry.flush().finally(() => process.exit(0));
 }
 
 export const init: ServerInit = () => {
 	try {
-		migrateDb();
+		databaseConnection.migrate();
 	} catch (error) {
 		logger.error("Could not migrate the database, refusing to start", error);
 		throw error;
@@ -44,8 +44,8 @@ export const init: ServerInit = () => {
 	if (globalForWorker.__opencountWorker) {
 		return;
 	}
-	announceSetup();
-	const supervisor = new WorkerSupervisor(workerCommand(dev));
+	instanceSetup.announce();
+	const supervisor = new WorkerSupervisor(WorkerSupervisor.command(dev));
 	supervisor.start();
 	globalForWorker.__opencountWorker = supervisor;
 
@@ -85,9 +85,11 @@ const requestLog: Handle = async ({ event, resolve }) => {
 };
 
 const authentication: Handle = async ({ event, resolve }) => {
-	const auth = getAuth();
+	const auth = authService.get();
 	const current = await auth.api.getSession({ headers: event.request.headers });
-	const gate = current ? sessionGate(current, event.route.id) : undefined;
+	const gate = current
+		? securityPolicy.sessionGate(current, event.route.id)
+		: undefined;
 	event.locals.gate = gate ?? null;
 	event.locals.session = gate ? null : (current?.session ?? null);
 	event.locals.user = gate ? null : (current?.user ?? null);
@@ -97,7 +99,7 @@ const authentication: Handle = async ({ event, resolve }) => {
 export const handle = sequence(
 	requestLog,
 	securityHeaders,
-	csrfHandler(publicOrigin),
+	csrfHandler(() => authService.publicOrigin()),
 	authentication,
 );
 
@@ -105,7 +107,7 @@ export const handleError: HandleServerError = ({ error, event, kind }) => {
 	if (kind !== "unknown") {
 		return;
 	}
-	const errorId = reportError(error, {
+	const errorId = telemetry.reportError(error, {
 		path: event.route.id ?? event.url.pathname,
 	});
 	logger.error(

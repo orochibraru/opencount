@@ -1,7 +1,7 @@
 import { and, asc, eq, gt } from "drizzle-orm";
 
 import { BaseDTO } from "#lib/dto/base-dto.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { bankConnection, type BankSyncReport } from "#lib/server/db/schema.js";
 
 type ConnectionRow = typeof bankConnection.$inferSelect;
@@ -28,7 +28,8 @@ export class BankConnectionDTO extends BaseDTO<BankConnectionRow> {
 		>,
 	): BankConnectionDTO {
 		return new BankConnectionDTO(
-			getDb()
+			databaseConnection
+				.get()
 				.insert(bankConnection)
 				.values({
 					userId,
@@ -45,7 +46,8 @@ export class BankConnectionDTO extends BaseDTO<BankConnectionRow> {
 
 	/** `userId`'s linked banks, oldest first. */
 	static forUser(userId: string): BankConnectionDTO[] {
-		return getDb()
+		return databaseConnection
+			.get()
 			.select()
 			.from(bankConnection)
 			.where(eq(bankConnection.userId, userId))
@@ -56,7 +58,8 @@ export class BankConnectionDTO extends BaseDTO<BankConnectionRow> {
 
 	/** Linked bank `id`, whoever it belongs to: for the worker. */
 	static find(id: string): BankConnectionDTO | undefined {
-		const row = getDb()
+		const row = databaseConnection
+			.get()
 			.select()
 			.from(bankConnection)
 			.where(eq(bankConnection.id, id))
@@ -69,7 +72,8 @@ export class BankConnectionDTO extends BaseDTO<BankConnectionRow> {
 		id: string,
 		userId: string,
 	): BankConnectionDTO | undefined {
-		const row = getDb()
+		const row = databaseConnection
+			.get()
 			.select()
 			.from(bankConnection)
 			.where(and(eq(bankConnection.id, id), eq(bankConnection.userId, userId)))
@@ -79,7 +83,8 @@ export class BankConnectionDTO extends BaseDTO<BankConnectionRow> {
 
 	/** The ids of every link whose consent hasn't run out. */
 	static activeIds(now = new Date()): string[] {
-		return getDb()
+		return databaseConnection
+			.get()
 			.select({ id: bankConnection.id })
 			.from(bankConnection)
 			.where(gt(bankConnection.validUntil, now))
@@ -175,7 +180,8 @@ export class BankConnectionDTO extends BaseDTO<BankConnectionRow> {
 			lastError: null,
 			lastReport: [],
 		};
-		getDb()
+		databaseConnection
+			.get()
 			.update(bankConnection)
 			.set({ ...values, sessionId: link.sessionId })
 			.where(eq(bankConnection.id, this.row.id))
@@ -191,7 +197,8 @@ export class BankConnectionDTO extends BaseDTO<BankConnectionRow> {
 
 	/** Writes `values` to the link and to this copy of it. */
 	#update(values: Partial<BankConnectionRow>): void {
-		getDb()
+		databaseConnection
+			.get()
 			.update(bankConnection)
 			.set(values)
 			.where(eq(bankConnection.id, this.row.id))
@@ -201,7 +208,8 @@ export class BankConnectionDTO extends BaseDTO<BankConnectionRow> {
 
 	/** Forgets the link; the expenses it brought stay. */
 	delete(): void {
-		getDb()
+		databaseConnection
+			.get()
 			.delete(bankConnection)
 			.where(eq(bankConnection.id, this.row.id))
 			.run();

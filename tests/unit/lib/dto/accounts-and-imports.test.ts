@@ -5,7 +5,7 @@ import { ExpenseDTO } from "#lib/dto/expense.js";
 import { GroupMemberDTO } from "#lib/dto/group-member.js";
 import { GroupDTO } from "#lib/dto/group.js";
 import { UserDTO } from "#lib/dto/user.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import {
 	account,
 	passkey,
@@ -22,7 +22,7 @@ describe("UserDTO account changes", () => {
 
 	test("resetFactors removes the authenticator, passkeys and sessions", () => {
 		const ada = createUser("ada");
-		const database = getDb();
+		const database = databaseConnection.get();
 		database.update(user).set({ twoFactorEnabled: true }).run();
 		database
 			.insert(twoFactor)
@@ -60,7 +60,9 @@ describe("UserDTO account changes", () => {
 		const ada = createUser("ada");
 		UserDTO.changeEmail(ada.id, "new@example.com");
 		expect(UserDTO.idForEmail("new@example.com")).toBe(ada.id);
-		expect(getDb().select().from(user).get()?.emailVerified).toBe(true);
+		expect(
+			databaseConnection.get().select().from(user).get()?.emailVerified,
+		).toBe(true);
 	});
 
 	test("adminCount counts admins only", () => {
@@ -73,7 +75,8 @@ describe("UserDTO account changes", () => {
 
 	test("emailForPasswordReset finds a live token's account only", () => {
 		const ada = createUser("ada");
-		getDb()
+		databaseConnection
+			.get()
 			.insert(verification)
 			.values([
 				{
@@ -98,7 +101,8 @@ describe("UserDTO account changes", () => {
 	test("hasPassword is true for a credential account with a password", () => {
 		const ada = createUser("ada");
 		expect(hasPassword(ada.id)).toBe(false);
-		getDb()
+		databaseConnection
+			.get()
 			.insert(account)
 			.values({
 				id: "credential",

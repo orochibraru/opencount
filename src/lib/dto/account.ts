@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNotNull } from "drizzle-orm";
 
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { account } from "#lib/server/db/schema.js";
 
 /** Whether `userId` has signed in with one of the `providerIds` (single sign-on providers). */
@@ -12,7 +12,8 @@ export function hasLinkedProvider(
 		return false;
 	}
 	return (
-		getDb()
+		databaseConnection
+			.get()
 			.select({ id: account.id })
 			.from(account)
 			.where(
@@ -28,7 +29,8 @@ export function hasLinkedProvider(
 /** Whether `userId` can sign in with a password. */
 export function hasPassword(userId: string): boolean {
 	return (
-		getDb()
+		databaseConnection
+			.get()
 			.select({ id: account.id })
 			.from(account)
 			.where(

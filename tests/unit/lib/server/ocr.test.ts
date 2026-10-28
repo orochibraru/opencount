@@ -1,19 +1,8 @@
 import { beforeEach, describe, expect, spyOn, test } from "bun:test";
 
 import { setSetting } from "#lib/dto/setting.js";
-import {
-	amountToMinor,
-	findDate,
-	installedLanguages,
-	isOcrConfigured,
-	isPopplerInstalled,
-	isTesseractInstalled,
-	parseReceiptText,
-	readReceipt,
-	recognizeText,
-	type RunCommand,
-} from "#lib/server/ocr.js";
-import { readUploadedReceipt } from "#lib/server/receipt-upload.js";
+import { receiptReader, type RunCommand } from "#lib/server/receipts/ocr.js";
+import { receiptUpload } from "#lib/server/receipts/receipt-upload.js";
 
 import { resetDatabase } from "../../database.js";
 
@@ -57,7 +46,7 @@ function scriptedRun(
 
 describe("receipt text parsing", () => {
 	test("reads merchant, date, currency, total and lines from a French receipt", () => {
-		const reading = parseReceiptText(receipt);
+		const reading = receiptReader.parseText(receipt);
 		expect(reading).toMatchObject({
 			merchant: "BOULANGERIE DU PORT",
 			date: "2026-10-03",
@@ -73,19 +62,19 @@ describe("receipt text parsing", () => {
 
 	test("falls back to the largest amount, and handles thousands separators", () => {
 		expect(
-			parseReceiptText("Shop\nThing 1,234.56\nOther 3.00").totalMinor,
+			receiptReader.parseText("Shop\nThing 1,234.56\nOther 3.00").totalMinor,
 		).toBe(123_456);
-		expect(parseReceiptText("nothing readable").totalMinor).toBeNull();
-		expect(amountToMinor("1.234,56")).toBe(123_456);
-		expect(amountToMinor("-2,50")).toBe(-250);
+		expect(receiptReader.parseText("nothing readable").totalMinor).toBeNull();
+		expect(receiptReader.amountToMinor("1.234,56")).toBe(123_456);
+		expect(receiptReader.amountToMinor("-2,50")).toBe(-250);
 	});
 
 	test("dates are ISO, day first unless that's impossible", () => {
-		expect(findDate("2026-10-03 12:00")).toBe("2026-10-03");
-		expect(findDate("01/02/26")).toBe("2026-02-01");
-		expect(findDate("12/25/2026")).toBe("2026-12-25");
-		expect(findDate("13/13/2026")).toBeNull();
-		expect(findDate("no date")).toBeNull();
+		expect(receiptReader.findDate("2026-10-03 12:00")).toBe("2026-10-03");
+		expect(receiptReader.findDate("01/02/26")).toBe("2026-02-01");
+		expect(receiptReader.findDate("12/25/2026")).toBe("2026-12-25");
+		expect(receiptReader.findDate("13/13/2026")).toBeNull();
+		expect(receiptReader.findDate("no date")).toBeNull();
 	});
 });
 
@@ -94,9 +83,13 @@ describe("tesseract", () => {
 
 	test("calls tesseract with the configured languages and reports failures", async () => {
 		const { run, calls } = fakeRun(receipt);
-		expect(await recognizeText(Buffer.from("img"), ["eng", "fra"], run)).toBe(
-			receipt,
-		);
+		expect(
+			await receiptReader.recognizeText(
+				Buffer.from("img"),
+				["eng", "fra"],
+				run,
+			),
+		).toBe(receipt);
 		expect(calls[0]).toEqual([
 			"tesseract",
 			"stdin",
@@ -107,26 +100,27 @@ describe("tesseract", () => {
 			"4",
 		]);
 		expect(
-			recognizeText(Buffer.from("img"), [], fakeRun("", 1).run),
+			receiptReader.recognizeText(Buffer.from("img"), [], fakeRun("", 1).run),
 		).rejects.toThrow("Tesseract failed (exit 1)");
 	});
 
 	test("readReceipt needs receipt reading turned on", async () => {
 		const { run } = fakeRun(receipt);
-		expect(isOcrConfigured()).toBe(false);
-		expect(readReceipt(Buffer.from("img"), "image/png", run)).rejects.toThrow(
-			"turned off",
-		);
+		expect(receiptReader.isConfigured()).toBe(false);
+		expect(
+			receiptReader.read(Buffer.from("img"), "image/png", run),
+		).rejects.toThrow("turned off");
 		setSetting("ocr", { languages: ["fra"] });
 		expect(
-			(await readReceipt(Buffer.from("img"), "image/png", run)).totalMinor,
+			(await receiptReader.read(Buffer.from("img"), "image/png", run))
+				.totalMinor,
 		).toBe(600);
 	});
 
 	test("reads a PDF's text layer without OCR", async () => {
 		setSetting("ocr", { languages: ["fra"] });
 		const { run, calls } = scriptedRun({ pdftotext: { stdout: receipt } });
-		const reading = await readReceipt(
+		const reading = await receiptReader.read(
 			Buffer.from("%PDF"),
 			"application/pdf",
 			run,
@@ -142,7 +136,7 @@ describe("tesseract", () => {
 			pdftoppm: { stdout: "png" },
 			tesseract: { stdout: receipt },
 		});
-		const reading = await readReceipt(
+		const reading = await receiptReader.read(
 			Buffer.from("%PDF"),
 			"application/pdf",
 			run,
@@ -158,14 +152,14 @@ describe("tesseract", () => {
 	test("reports Poppler failures", async () => {
 		setSetting("ocr", { languages: ["fra"] });
 		expect(
-			readReceipt(
+			receiptReader.read(
 				Buffer.from("%PDF"),
 				"application/pdf",
 				scriptedRun({ pdftotext: { stdout: "", exitCode: 1 } }).run,
 			),
 		).rejects.toThrow("pdftotext failed");
 		expect(
-			readReceipt(
+			receiptReader.read(
 				Buffer.from("%PDF"),
 				"application/pdf",
 				scriptedRun({
@@ -181,18 +175,18 @@ describe("tesseract", () => {
 		const { run } = fakeRun(
 			'List of available languages in "/usr/share/tessdata/" (3):\neng\nfra\nosd\n',
 		);
-		expect(isTesseractInstalled()).toBe(true);
-		expect(await installedLanguages(run)).toEqual(["eng", "fra"]);
+		expect(receiptReader.isTesseractInstalled()).toBe(true);
+		expect(await receiptReader.installedLanguages(run)).toEqual(["eng", "fra"]);
 		which.mockReturnValue(null);
-		expect(await installedLanguages(run)).toEqual([]);
+		expect(await receiptReader.installedLanguages(run)).toEqual([]);
 		which.mockRestore();
 	});
 
 	test("reports whether Poppler is installed", () => {
 		const which = spyOn(Bun, "which").mockReturnValue("/usr/bin/pdftoppm");
-		expect(isPopplerInstalled()).toBe(true);
+		expect(receiptReader.isPopplerInstalled()).toBe(true);
 		which.mockReturnValue(null);
-		expect(isPopplerInstalled()).toBe(false);
+		expect(receiptReader.isPopplerInstalled()).toBe(false);
 		which.mockRestore();
 	});
 });
@@ -209,16 +203,16 @@ describe("uploaded receipts", () => {
 	}
 
 	test("rejects a missing, wrong or oversized file", async () => {
-		expect(await readUploadedReceipt(upload())).toEqual({
+		expect(await receiptUpload.read(upload())).toEqual({
 			error: "Pick a photo or a PDF of a receipt.",
 		});
 		expect(
-			await readUploadedReceipt(
+			await receiptUpload.read(
 				upload(new File(["x"], "a.gif", { type: "image/gif" })),
 			),
 		).toEqual({ error: "Use a JPEG, PNG, WebP or PDF under 10 MB." });
 		expect(
-			await readUploadedReceipt(
+			await receiptUpload.read(
 				upload(
 					new File([new Uint8Array(11 * 1024 * 1024)], "a.png", {
 						type: "image/png",
@@ -232,7 +226,7 @@ describe("uploaded receipts", () => {
 		setSetting("ocr", { languages: ["eng"] });
 		const which = spyOn(Bun, "which").mockReturnValue(null);
 		expect(
-			await readUploadedReceipt(
+			await receiptUpload.read(
 				upload(new File(["x"], "a.png", { type: "image/png" })),
 			),
 		).toEqual({

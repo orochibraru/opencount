@@ -6,15 +6,11 @@ import { eq } from "drizzle-orm";
 import { hasLinkedProvider } from "#lib/dto/account.js";
 import { setSetting } from "#lib/dto/setting.js";
 import { UserDTO } from "#lib/dto/user.js";
-import { getAuth } from "#lib/server/auth.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { authService } from "#lib/server/auth/auth.js";
+import { signInMethods } from "#lib/server/auth/sign-in-methods.js";
+import { secrets } from "#lib/server/core/secrets.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { account, job, user } from "#lib/server/db/schema.js";
-import { encryptSecret } from "#lib/server/secrets.js";
-import {
-	enabledSignInMethods,
-	providerSlug,
-	usableMethods,
-} from "#lib/server/sign-in-methods.js";
 
 import { createUser, resetDatabase } from "../../database.js";
 
@@ -24,7 +20,7 @@ function provider(id: string, enabled: boolean) {
 		name: id,
 		discoveryUrl: `https://${id}.example.com/.well-known/openid-configuration`,
 		clientId: "opencount",
-		encryptedClientSecret: encryptSecret("secret"),
+		encryptedClientSecret: secrets.encrypt("secret"),
 		enabled,
 	};
 }
@@ -41,7 +37,8 @@ async function answered(call: Promise<Response>): Promise<Response> {
 }
 
 function linkAccount(userId: string, providerId: string): void {
-	getDb()
+	databaseConnection
+		.get()
 		.insert(account)
 		.values({
 			id: `${userId}-${providerId}`,
@@ -57,7 +54,7 @@ function linkAccount(userId: string, providerId: string): void {
 describe("sign-in methods", () => {
 	beforeEach(() => {
 		resetDatabase();
-		getDb().delete(account).run();
+		databaseConnection.get().delete(account).run();
 	});
 
 	test("only enabled providers are offered", () => {
@@ -65,7 +62,7 @@ describe("sign-in methods", () => {
 			provider("authentik", true),
 			provider("old", false),
 		]);
-		expect(enabledSignInMethods()).toEqual({
+		expect(signInMethods.enabled()).toEqual({
 			password: true,
 			passkey: true,
 			magicLink: false,
@@ -83,19 +80,20 @@ describe("sign-in methods", () => {
 			emailCode: false,
 			sso: [{ id: "authentik", name: "Authentik" }],
 		};
-		expect(usableMethods(ada.id, methods)).toEqual([]);
+		expect(signInMethods.usable(ada.id, methods)).toEqual([]);
 		linkAccount(ada.id, "authentik");
 		expect(hasLinkedProvider(ada.id, [])).toBe(false);
-		expect(usableMethods(ada.id, { ...methods, password: true })).toEqual([
-			"password",
-			"sso",
-		]);
+		expect(
+			signInMethods.usable(ada.id, { ...methods, password: true }),
+		).toEqual(["password", "sso"]);
 	});
 
 	test("provider slugs are URL-safe", () => {
-		expect(providerSlug("Keycloak (Prod)!")).toBe("keycloak-prod");
-		expect(providerSlug("Éclair")).toBe("eclair");
-		expect(providerSlug("***")).toBe("sso");
+		expect(signInMethods.providerSlug("Keycloak (Prod)!")).toBe(
+			"keycloak-prod",
+		);
+		expect(signInMethods.providerSlug("Éclair")).toBe("eclair");
+		expect(signInMethods.providerSlug("***")).toBe("sso");
 	});
 });
 
@@ -103,20 +101,20 @@ describe("getAuth", () => {
 	beforeEach(resetDatabase);
 
 	test("rebuilds only when providers or sign-ups change", () => {
-		const first = getAuth();
-		expect(getAuth()).toBe(first);
+		const first = authService.get();
+		expect(authService.get()).toBe(first);
 		setSetting("ssoProviders", [provider("authentik", true)]);
-		const withProvider = getAuth();
+		const withProvider = authService.get();
 		expect(withProvider).not.toBe(first);
 		setSetting("signUpsEnabled", true);
-		expect(getAuth()).not.toBe(withProvider);
+		expect(authService.get()).not.toBe(withProvider);
 	});
 
 	test("refuses sign-in methods an admin turned off", async () => {
 		setSetting("passwordSignIn", false);
 		setSetting("passkeySignIn", false);
 		setSetting("ssoProviders", [provider("off", false)]);
-		const auth = getAuth();
+		const auth = authService.get();
 		const headers = new Headers({
 			host: "localhost",
 			origin: "http://localhost",
@@ -156,7 +154,7 @@ describe("getAuth", () => {
 	});
 
 	test("answers only the endpoints a browser needs, leaving the rest to form actions", async () => {
-		const auth = getAuth();
+		const auth = authService.get();
 		for (const path of [
 			"/sign-in/email",
 			"/two-factor/verify-totp",
@@ -181,7 +179,7 @@ describe("getAuth", () => {
 describe("signing in by email", () => {
 	beforeEach(() => {
 		resetDatabase();
-		getDb().delete(account).run();
+		databaseConnection.get().delete(account).run();
 	});
 
 	function enableEmail() {
@@ -190,7 +188,7 @@ describe("signing in by email", () => {
 			port: 587,
 			security: "starttls",
 			username: "",
-			encryptedPassword: encryptSecret(""),
+			encryptedPassword: secrets.encrypt(""),
 			fromAddress: "opencount@example.com",
 			fromName: "OpenCount",
 		});
@@ -206,7 +204,9 @@ describe("signing in by email", () => {
 
 	function sendLink(body: { email: string; callbackURL?: string }) {
 		return answered(
-			getAuth().api.signInMagicLink({ body, headers, asResponse: true }),
+			authService
+				.get()
+				.api.signInMagicLink({ body, headers, asResponse: true }),
 		);
 	}
 
@@ -215,18 +215,21 @@ describe("signing in by email", () => {
 		type: "sign-in" | "forget-password";
 	}) {
 		return answered(
-			getAuth().api.sendVerificationOTP({ body, headers, asResponse: true }),
+			authService
+				.get()
+				.api.sendVerificationOTP({ body, headers, asResponse: true }),
 		);
 	}
 
 	function signInWithCode(body: { email: string; otp: string }) {
 		return answered(
-			getAuth().api.signInEmailOTP({ body, headers, asResponse: true }),
+			authService.get().api.signInEmailOTP({ body, headers, asResponse: true }),
 		);
 	}
 
 	function lastEmail(): { subject: string; text: string } | undefined {
-		return getDb()
+		return databaseConnection
+			.get()
 			.select({ payload: job.payload })
 			.from(job)
 			.all()
@@ -236,7 +239,7 @@ describe("signing in by email", () => {
 
 	test("both methods stay off without SMTP or the admin's say-so", async () => {
 		setSetting("magicLinkSignIn", true);
-		expect(enabledSignInMethods()).toMatchObject({
+		expect(signInMethods.enabled()).toMatchObject({
 			magicLink: false,
 			emailCode: false,
 		});
@@ -254,11 +257,13 @@ describe("signing in by email", () => {
 	test("a code by email signs an existing account in", async () => {
 		enableEmail();
 		createUser("ada");
-		expect(enabledSignInMethods()).toMatchObject({
+		expect(signInMethods.enabled()).toMatchObject({
 			magicLink: true,
 			emailCode: true,
 		});
-		expect(usableMethods("ada", enabledSignInMethods())).toContain("email");
+		expect(signInMethods.usable("ada", signInMethods.enabled())).toContain(
+			"email",
+		);
 		const sent = await sendCode({
 			email: "ada@example.com",
 			type: "sign-in",
@@ -291,9 +296,9 @@ describe("signing in by email", () => {
 		expect(sent.status).toBe(200);
 		const link = /http\S+magic-link\/verify\S+/.exec(lastEmail()?.text ?? "");
 		expect(link).not.toBeNull();
-		const verified = await getAuth().handler(
-			new Request(link?.[0] ?? "", { redirect: "manual" }),
-		);
+		const verified = await authService
+			.get()
+			.handler(new Request(link?.[0] ?? "", { redirect: "manual" }));
 		expect(verified.status).toBeGreaterThanOrEqual(300);
 		expect(verified.headers.getSetCookie().join(";")).toContain(
 			"session_token",
@@ -310,15 +315,20 @@ describe("signing in by email", () => {
 		expect(UserDTO.idForEmail("ghost@example.com")).toBeUndefined();
 
 		createUser("grace", "Grace");
-		getDb()
+		databaseConnection
+			.get()
 			.update(user)
 			.set({ twoFactorEnabled: true })
 			.where(eq(user.id, "grace"))
 			.run();
-		expect(usableMethods("grace", enabledSignInMethods())).not.toContain(
-			"email",
-		);
-		const emailsBefore = getDb().select().from(job).all().length;
+		expect(
+			signInMethods.usable("grace", signInMethods.enabled()),
+		).not.toContain("email");
+		const emailsBefore = databaseConnection
+			.get()
+			.select()
+			.from(job)
+			.all().length;
 		const quiet = await sendLink({ email: "grace@example.com" });
 		expect(quiet.status).toBe(200);
 		const quietCode = await sendCode({
@@ -326,7 +336,9 @@ describe("signing in by email", () => {
 			type: "sign-in",
 		});
 		expect(quietCode.status).toBe(200);
-		expect(getDb().select().from(job).all()).toHaveLength(emailsBefore);
+		expect(databaseConnection.get().select().from(job).all()).toHaveLength(
+			emailsBefore,
+		);
 	});
 
 	test("emailed codes only ever sign in", async () => {
@@ -337,7 +349,7 @@ describe("signing in by email", () => {
 			type: "forget-password",
 		});
 		expect(reset.status).toBe(403);
-		const disabled = await getAuth().handler(
+		const disabled = await authService.get().handler(
 			new Request("http://localhost/api/auth/email-otp/reset-password", {
 				method: "POST",
 				headers: {

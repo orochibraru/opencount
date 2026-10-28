@@ -12,9 +12,9 @@ import { PersonalCategoryDTO } from "#lib/dto/personal-category.js";
 import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
 import { PersonalFolderDTO } from "#lib/dto/personal-folder.js";
 import { convertMinor, formatMoney } from "#lib/money.js";
-import { exchangeRate } from "#lib/server/exchange-rates.js";
-import { groupForMember } from "#lib/server/group-access.js";
-import { personalPage } from "#lib/server/personal-page.js";
+import { exchangeRates } from "#lib/server/expenses/exchange-rates.js";
+import { groupAccess } from "#lib/server/expenses/group-access.js";
+import { personalPage } from "#lib/server/expenses/personal-page.js";
 import { idSchema, parseForm } from "#lib/server/validation/form.js";
 import {
 	monthStartSchema,
@@ -59,7 +59,7 @@ const shareSchema = z.object({
 export const load = async ({ parent, url }) => {
 	const { user } = await parent();
 	return {
-		...personalPage(user.id, url),
+		...personalPage.load(user.id, url),
 		banks: BankConnectionDTO.forUser(user.id).map((entry) => {
 			const { id, bankName, bankLogo, lastError } = entry.toJSON();
 			return {
@@ -263,7 +263,7 @@ export const actions = {
 		if (!personal) {
 			return fail(404, { error: "That expense no longer exists." });
 		}
-		const { group, members } = groupForMember(
+		const { group, members } = groupAccess.forMember(
 			parsed.data.groupId,
 			locals.user.id,
 		);
@@ -275,7 +275,11 @@ export const actions = {
 		const rate =
 			entry.currency === group.currency
 				? 1
-				: await exchangeRate(entry.currency, group.currency, entry.spentOn);
+				: await exchangeRates.rate(
+						entry.currency,
+						group.currency,
+						entry.spentOn,
+					);
 		if (rate === undefined) {
 			return fail(400, {
 				error: `Couldn't get the ${entry.currency} rate. Add it to the group by hand.`,

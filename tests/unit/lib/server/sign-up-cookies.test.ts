@@ -2,16 +2,8 @@ import { describe, expect, test } from "bun:test";
 
 import type { Cookies } from "@sveltejs/kit";
 
-import { adminFrom } from "#lib/server/admin.js";
-import {
-	clearSetupTicket,
-	clearSignUp,
-	currentSignUpStep,
-	grantSetupTicket,
-	grantSignUpTicket,
-	hasSetupTicket,
-	rememberPendingSignUp,
-} from "#lib/server/sign-up-cookies.js";
+import { access } from "#lib/server/auth/access.js";
+import { signUpCookies } from "#lib/server/auth/sign-up-cookies.js";
 
 function cookieJar(): Cookies {
 	const values = new Map<string, string>();
@@ -26,45 +18,50 @@ describe("sign-up cookies", () => {
 	test("walk the stepper from email to code to details and back", () => {
 		const cookies = cookieJar();
 		const url = new URL("https://app.test/auth/sign-up");
-		expect(currentSignUpStep(cookies)).toEqual({ step: "email" });
-		rememberPendingSignUp(cookies, url, "a@b.c");
-		expect(currentSignUpStep(cookies)).toEqual({
+		expect(signUpCookies.currentStep(cookies)).toEqual({ step: "email" });
+		signUpCookies.rememberPending(cookies, url, "a@b.c");
+		expect(signUpCookies.currentStep(cookies)).toEqual({
 			step: "code",
 			email: "a@b.c",
 		});
-		grantSignUpTicket(cookies, url, "a@b.c");
-		expect(currentSignUpStep(cookies)).toEqual({
+		signUpCookies.grantTicket(cookies, url, "a@b.c");
+		expect(signUpCookies.currentStep(cookies)).toEqual({
 			step: "details",
 			email: "a@b.c",
 		});
-		clearSignUp(cookies);
-		expect(currentSignUpStep(cookies)).toEqual({ step: "email" });
+		signUpCookies.clear(cookies);
+		expect(signUpCookies.currentStep(cookies)).toEqual({ step: "email" });
 	});
 });
 
 describe("setup ticket", () => {
 	test("is granted, read and cleared", () => {
 		const cookies = cookieJar();
-		expect(hasSetupTicket(cookies)).toBe(false);
-		grantSetupTicket(cookies, new URL("http://localhost:3000/auth/setup"));
-		expect(hasSetupTicket(cookies)).toBe(true);
-		clearSetupTicket(cookies);
-		expect(hasSetupTicket(cookies)).toBe(false);
+		expect(signUpCookies.hasSetupTicket(cookies)).toBe(false);
+		signUpCookies.grantSetupTicket(
+			cookies,
+			new URL("http://localhost:3000/auth/setup"),
+		);
+		expect(signUpCookies.hasSetupTicket(cookies)).toBe(true);
+		signUpCookies.clearSetupTicket(cookies);
+		expect(signUpCookies.hasSetupTicket(cookies)).toBe(false);
 	});
 });
 
 describe("adminFrom", () => {
 	test("returns the admin or a 403 failure", () => {
 		const admin = { id: "1", email: "admin@example.com", role: "admin" };
-		expect(adminFrom({ user: admin } as unknown as App.Locals)).toBe(
+		expect(access.adminFrom({ user: admin } as unknown as App.Locals)).toBe(
 			admin as never,
 		);
 		expect(
-			adminFrom({
+			access.adminFrom({
 				user: { id: "2", email: "x@example.com" },
 			} as unknown as App.Locals),
 		).toMatchObject({ status: 403 });
-		expect(adminFrom({ user: null } as unknown as App.Locals)).toMatchObject({
+		expect(
+			access.adminFrom({ user: null } as unknown as App.Locals),
+		).toMatchObject({
 			status: 403,
 		});
 	});

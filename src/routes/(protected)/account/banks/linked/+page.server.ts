@@ -5,15 +5,14 @@ import { z } from "zod";
 import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
 import { bankCredentialsFor } from "#lib/dto/bank-credential.js";
 import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
-import { publicOrigin } from "#lib/server/auth.js";
-import { queueBankSync } from "#lib/server/bank-sync.js";
+import { authService } from "#lib/server/auth/auth.js";
+import { bankSync } from "#lib/server/banking/bank-sync.js";
 import {
 	BankError,
 	bankLinkPurpose,
-	closeBankSession,
-	startBankLink,
-} from "#lib/server/enable-banking.js";
-import { signPayload } from "#lib/server/secrets.js";
+	EnableBankingClient,
+} from "#lib/server/banking/enable-banking.js";
+import { secrets } from "#lib/server/core/secrets.js";
 import { idSchema, parseForm } from "#lib/server/validation/form.js";
 
 const bankSchema = z.object({
@@ -34,14 +33,13 @@ async function openBank(
 	}
 	let target: string;
 	try {
-		target = await startBankLink(
-			credentials,
+		target = await new EnableBankingClient(credentials).startLink(
 			bank,
 			new URL(
 				resolve("/(protected)/personal/bank"),
-				publicOrigin() ?? url.origin,
+				authService.publicOrigin() ?? url.origin,
 			).href,
-			signPayload({ userId, connectionId }, bankLinkPurpose, 30 * 60 * 1000),
+			secrets.sign({ userId, connectionId }, bankLinkPurpose, 30 * 60 * 1000),
 		);
 	} catch (error) {
 		if (error instanceof BankError) {
@@ -105,7 +103,7 @@ export const actions = {
 		if (!parsed.success || !connection) {
 			return fail(404, { error: "That bank isn't linked anymore." });
 		}
-		queueBankSync(connection, parsed.data.full);
+		bankSync.queue(connection, parsed.data.full);
 		return { syncing: true };
 	},
 	disconnectBank: async ({ locals, request }) => {
@@ -121,7 +119,9 @@ export const actions = {
 		}
 		const credentials = bankCredentialsFor(locals.user.id);
 		if (credentials) {
-			await closeBankSession(credentials, connection.sessionId);
+			await new EnableBankingClient(credentials).closeSession(
+				connection.sessionId,
+			);
 		}
 		connection.delete();
 		return { disconnected: true };

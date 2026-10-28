@@ -20,7 +20,7 @@
 		"static/**",
 		"coverage/**",
 		"src/lib/components/ui/**",
-		"src/lib/server/enable-banking-api.d.ts"
+		"src/lib/server/banking/enable-banking-api.d.ts"
 	],
 	"rules": {
 		"complexity": ["error", 25],
@@ -113,7 +113,7 @@
 			}
 		},
 		{
-			"files": ["src/lib/server/logger.ts"],
+			"files": ["src/lib/server/core/logger.ts"],
 			"rules": {
 				"no-console": "off"
 			}

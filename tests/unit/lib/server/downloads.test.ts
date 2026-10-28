@@ -9,19 +9,9 @@ import { GroupMemberDTO } from "#lib/dto/group-member.js";
 import { GroupDTO } from "#lib/dto/group.js";
 import { JobDTO } from "#lib/dto/job.js";
 import { UserDTO } from "#lib/dto/user.js";
-import {
-	backupDatabase,
-	restoreDatabase,
-	RestoreError,
-} from "#lib/server/db/lib.js";
-import {
-	buildDownload,
-	downloadFileName,
-	downloadPath,
-	downloadsDirectory,
-	pruneDownloads,
-} from "#lib/server/downloads.js";
-import { exportSource, groupCsv } from "#lib/server/group-export.js";
+import { databaseConnection, RestoreError } from "#lib/server/db/database.js";
+import { groupExport } from "#lib/server/expenses/group-export.js";
+import { downloads } from "#lib/server/jobs/downloads.js";
 import { jobHandlers } from "#lib/server/jobs/handlers.js";
 
 import { createUser, resetDatabase } from "../../database.js";
@@ -67,17 +57,17 @@ describe("downloads", () => {
 	beforeEach(resetDatabase);
 
 	test("downloadFileName keeps a safe, dated slug", () => {
-		expect(downloadFileName("Café trip!", "2026-03-01", "csv")).toBe(
+		expect(downloads.fileName("Café trip!", "2026-03-01", "csv")).toBe(
 			"cafe-trip-2026-03-01.csv",
 		);
-		expect(downloadFileName("???", "2026-03-01", "pdf")).toBe(
+		expect(downloads.fileName("???", "2026-03-01", "pdf")).toBe(
 			"opencount-2026-03-01.pdf",
 		);
 	});
 
 	test("groupCsv lists every expense with each member's share", () => {
 		const { group } = setUp();
-		const csv = groupCsv(exportSource(group.id, group.toJSON()));
+		const csv = groupExport.csv(groupExport.source(group.id, group.toJSON()));
 		const lines = csv.replace("﻿", "").trim().split("\r\n");
 		expect(lines[0]).toStartWith(
 			"Date,Description,Category,Type,Paid by,Amount,Currency,Original amount,Original currency,Exchange rate,",
@@ -107,7 +97,7 @@ describe("downloads", () => {
 			},
 			ada.id,
 		);
-		const csv = groupCsv(exportSource(group.id, group.toJSON()));
+		const csv = groupExport.csv(groupExport.source(group.id, group.toJSON()));
 		expect(csv).toContain('"\'=HYPERLINK(""http://evil.test"")"');
 		expect(csv).not.toContain(",=HYPERLINK");
 	});
@@ -119,16 +109,16 @@ describe("downloads", () => {
 		const database = DownloadDTO.request(ada.id, "database", "db.sqlite");
 		expect(pendingBuild()).toBe(3);
 		await jobHandlers["download.build"]({ downloadId: csv.id });
-		await buildDownload(pdf);
-		await buildDownload(database);
-		expect(await Bun.file(downloadPath(csv.id)).text()).toContain("Ada");
+		await downloads.build(pdf);
+		await downloads.build(database);
+		expect(await Bun.file(downloads.path(csv.id)).text()).toContain("Ada");
 		expect(
 			new TextDecoder().decode(
-				(await Bun.file(downloadPath(pdf.id)).bytes()).slice(0, 5),
+				(await Bun.file(downloads.path(pdf.id)).bytes()).slice(0, 5),
 			),
 		).toBe("%PDF-");
 		expect(
-			(await Bun.file(downloadPath(database.id)).bytes()).byteLength,
+			(await Bun.file(downloads.path(database.id)).bytes()).byteLength,
 		).toBeGreaterThan(0);
 		expect(
 			DownloadDTO.recent(ada.id, ["group-csv", "group-pdf"], group.id).map(
@@ -152,10 +142,10 @@ describe("downloads", () => {
 			"athens.pdf",
 			group.id,
 		);
-		await buildDownload(pdf);
+		await downloads.build(pdf);
 		expect(DownloadDTO.find(pdf.id)?.ready).toBe(true);
 		expect(
-			(await Bun.file(downloadPath(pdf.id)).bytes()).byteLength,
+			(await Bun.file(downloads.path(pdf.id)).bytes()).byteLength,
 		).toBeGreaterThan(1000);
 	});
 
@@ -170,20 +160,20 @@ describe("downloads", () => {
 		group.delete();
 		await jobHandlers["download.build"]({ downloadId: download.id });
 		const other = DownloadDTO.request(ada.id, "group-csv", "trip.csv", null);
-		await expect(buildDownload(other)).rejects.toThrow("gone");
+		await expect(downloads.build(other)).rejects.toThrow("gone");
 		expect(DownloadDTO.find(other.id)?.toJSON().status).toBe("failed");
 	});
 
 	test("pruneDownloads forgets old files and sweeps leftovers", async () => {
 		const { ada, group } = setUp();
 		const kept = DownloadDTO.request(ada.id, "group-csv", "trip.csv", group.id);
-		await buildDownload(kept);
-		writeFileSync(join(downloadsDirectory(), "leftover"), "x");
-		expect(pruneDownloads(new Date(Date.now() - 60_000))).toBe(0);
-		expect(existsSync(join(downloadsDirectory(), "leftover"))).toBe(false);
-		expect(existsSync(downloadPath(kept.id))).toBe(true);
-		expect(pruneDownloads(new Date(Date.now() + 60_000))).toBe(1);
-		expect(existsSync(downloadPath(kept.id))).toBe(false);
+		await downloads.build(kept);
+		writeFileSync(join(downloads.directory(), "leftover"), "x");
+		expect(downloads.prune(new Date(Date.now() - 60_000))).toBe(0);
+		expect(existsSync(join(downloads.directory(), "leftover"))).toBe(false);
+		expect(existsSync(downloads.path(kept.id))).toBe(true);
+		expect(downloads.prune(new Date(Date.now() + 60_000))).toBe(1);
+		expect(existsSync(downloads.path(kept.id))).toBe(false);
 	});
 });
 
@@ -193,13 +183,13 @@ describe("restoreDatabase", () => {
 	test("brings back the rows of a backup and keeps the job queue", () => {
 		const { group } = setUp();
 		const path = join(tmpdir(), `opencount-test-${crypto.randomUUID()}.sqlite`);
-		backupDatabase(path);
+		databaseConnection.backup(path);
 		group.delete();
 		createUser("grace");
 		JobDTO.enqueue("jobs.prune", { olderThanDays: 1 });
 		const jobs = JobDTO.counts().pending;
 		try {
-			restoreDatabase(path);
+			databaseConnection.restore(path);
 		} finally {
 			rmSync(path, { force: true });
 		}
@@ -216,7 +206,7 @@ describe("restoreDatabase", () => {
 		other.exec("CREATE TABLE notes (id INTEGER)");
 		other.close();
 		try {
-			expect(() => restoreDatabase(path)).toThrow(RestoreError);
+			expect(() => databaseConnection.restore(path)).toThrow(RestoreError);
 		} finally {
 			rmSync(path, { force: true });
 		}

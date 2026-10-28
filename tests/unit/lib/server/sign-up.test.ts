@@ -3,15 +3,11 @@ import { beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { JobDTO } from "#lib/dto/job.js";
 import { setSetting } from "#lib/dto/setting.js";
 import { UserDTO } from "#lib/dto/user.js";
-import { forwardAuthLog } from "#lib/server/auth.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { authService } from "#lib/server/auth/auth.js";
+import { securityPolicy } from "#lib/server/auth/security-policy.js";
+import { signUp, SignUpError } from "#lib/server/auth/sign-up.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { job, user } from "#lib/server/db/schema.js";
-import { missingFactors } from "#lib/server/security-policy.js";
-import {
-	createVerifiedAccount,
-	SignUpError,
-	startSignUp,
-} from "#lib/server/sign-up.js";
 
 import { createUser, resetDatabase } from "../../database.js";
 
@@ -31,36 +27,40 @@ describe("startSignUp", () => {
 	beforeEach(resetDatabase);
 
 	test("is closed while sign-ups are off", () => {
-		expect(() => startSignUp("someone@example.com", signInLink)).toThrow(
+		expect(() => signUp.start("someone@example.com", signInLink)).toThrow(
 			SignUpError,
 		);
-		expect(() => startSignUp("someone@example.com", signInLink)).toThrow(
+		expect(() => signUp.start("someone@example.com", signInLink)).toThrow(
 			"invite",
 		);
 	});
 
 	test("open sign-ups still need SMTP, then email the code", () => {
 		setSetting("signUpsEnabled", true);
-		expect(() => startSignUp("someone@example.com", signInLink)).toThrow(
+		expect(() => signUp.start("someone@example.com", signInLink)).toThrow(
 			"email delivery",
 		);
 		setSetting("smtp", smtp);
-		startSignUp("someone@example.com", signInLink);
-		expect(getDb().select({ type: job.type }).from(job).all()).toEqual([
-			{ type: "email.send" },
-		]);
-		expect(() => startSignUp("someone@example.com", signInLink)).toThrow(
+		signUp.start("someone@example.com", signInLink);
+		expect(
+			databaseConnection.get().select({ type: job.type }).from(job).all(),
+		).toEqual([{ type: "email.send" }]);
+		expect(() => signUp.start("someone@example.com", signInLink)).toThrow(
 			"Wait a minute",
 		);
 	});
 
 	test("answers a taken address like a new one, mailing its owner a sign-in link instead of a code", () => {
 		createUser("ada");
-		expect(() => startSignUp("ada@example.com", signInLink)).toThrow("invite");
+		expect(() => signUp.start("ada@example.com", signInLink)).toThrow("invite");
 		setSetting("signUpsEnabled", true);
 		setSetting("smtp", smtp);
-		startSignUp("ada@example.com", signInLink);
-		const [queued] = getDb().select({ payload: job.payload }).from(job).all();
+		signUp.start("ada@example.com", signInLink);
+		const [queued] = databaseConnection
+			.get()
+			.select({ payload: job.payload })
+			.from(job)
+			.all();
 		expect(JSON.stringify(queued?.payload)).toContain(
 			"You already have an OpenCount account",
 		);
@@ -71,13 +71,13 @@ describe("createVerifiedAccount and missingFactors", () => {
 	beforeEach(resetDatabase);
 
 	test("creates a verified account through better-auth", async () => {
-		await createVerifiedAccount({
+		await signUp.createVerifiedAccount({
 			email: "new@example.com",
 			name: "New",
 			password: "Correct-Horse-42",
 			headers: new Headers({ host: "app.test", origin: "https://app.test" }),
 		});
-		const created = getDb().select().from(user).get();
+		const created = databaseConnection.get().select().from(user).get();
 		expect(created).toMatchObject({
 			role: "member",
 			email: "new@example.com",
@@ -88,13 +88,16 @@ describe("createVerifiedAccount and missingFactors", () => {
 
 	test("lists the factors an admin requires and the user lacks", () => {
 		const ada = createUser("ada");
-		expect(missingFactors(ada)).toEqual([]);
+		expect(securityPolicy.missingFactors(ada)).toEqual([]);
 		setSetting("requireTwoFactor", true);
 		setSetting("requirePasskey", true);
-		expect(missingFactors(ada)).toEqual(["two-factor", "passkey"]);
-		expect(missingFactors({ ...ada, twoFactorEnabled: true })).toEqual([
+		expect(securityPolicy.missingFactors(ada)).toEqual([
+			"two-factor",
 			"passkey",
 		]);
+		expect(
+			securityPolicy.missingFactors({ ...ada, twoFactorEnabled: true }),
+		).toEqual(["passkey"]);
 	});
 });
 
@@ -120,8 +123,8 @@ describe("JobDTO stats", () => {
 describe("forwardAuthLog", () => {
 	test("forwards better-auth logs except the base URL warning", () => {
 		const output = spyOn(console, "error").mockImplementation(() => {});
-		forwardAuthLog("warn", "Base URL is not set");
-		forwardAuthLog("error", "Something broke");
+		authService.forwardLog("warn", "Base URL is not set");
+		authService.forwardLog("error", "Something broke");
 		const calls = output.mock.calls.length;
 		output.mockRestore();
 		expect(calls).toBe(1);

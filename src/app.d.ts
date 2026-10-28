@@ -1,5 +1,5 @@
-import type { Session } from "#lib/server/auth.js";
-import type { SessionGate } from "#lib/server/security-policy.js";
+import type { Session } from "#lib/server/auth/auth.js";
+import type { SessionGate } from "#lib/server/auth/security-policy.js";
 
 declare global {
 	namespace App {

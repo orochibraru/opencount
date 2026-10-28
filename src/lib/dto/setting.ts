@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { setting } from "#lib/server/db/schema.js";
 
 export const smtpSecurityModes = ["tls", "starttls", "none"] as const;
@@ -73,7 +73,8 @@ const defaults: SettingValues = {
 export function getSetting<Key extends keyof SettingValues>(
 	key: Key,
 ): SettingValues[Key] {
-	const row = getDb()
+	const row = databaseConnection
+		.get()
 		.select({ value: setting.value })
 		.from(setting)
 		.where(eq(setting.key, key))
@@ -106,7 +107,8 @@ export function setSetting<Key extends keyof SettingValues>(
 	key: Key,
 	value: SettingValues[Key],
 ): void {
-	getDb()
+	databaseConnection
+		.get()
 		.insert(setting)
 		.values({ key, value })
 		.onConflictDoUpdate({

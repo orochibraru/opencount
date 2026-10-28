@@ -1,7 +1,7 @@
 import { and, count, desc, eq, gt } from "drizzle-orm";
 
 import { BaseDTO } from "#lib/dto/base-dto.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import {
 	passkey,
 	session,
@@ -26,7 +26,7 @@ export interface UserRow {
 export class UserDTO extends BaseDTO<UserRow> {
 	/** Every account, newest first, with its security factors. */
 	static list(): UserDTO[] {
-		const database = getDb();
+		const database = databaseConnection.get();
 		const passkeyCounts = database
 			.select({
 				userId: passkey.userId,
@@ -61,12 +61,16 @@ export class UserDTO extends BaseDTO<UserRow> {
 
 	/** How many accounts exist. */
 	static count(): number {
-		return getDb().select({ total: count() }).from(user).get()?.total ?? 0;
+		return (
+			databaseConnection.get().select({ total: count() }).from(user).get()
+				?.total ?? 0
+		);
 	}
 
 	/** The id of the account using `email`, if any. */
 	static idForEmail(email: string): string | undefined {
-		return getDb()
+		return databaseConnection
+			.get()
 			.select({ id: user.id })
 			.from(user)
 			.where(eq(user.email, email))
@@ -76,7 +80,8 @@ export class UserDTO extends BaseDTO<UserRow> {
 	/** Whether account `userId` turned on an authenticator app. */
 	static twoFactorEnabled(userId: string): boolean {
 		return (
-			getDb()
+			databaseConnection
+				.get()
 				.select({ enabled: user.twoFactorEnabled })
 				.from(user)
 				.where(eq(user.id, userId))
@@ -87,7 +92,8 @@ export class UserDTO extends BaseDTO<UserRow> {
 	/** Whether an account uses `email`. */
 	static emailExists(email: string): boolean {
 		return (
-			getDb()
+			databaseConnection
+				.get()
 				.select({ id: user.id })
 				.from(user)
 				.where(eq(user.email, email))
@@ -98,7 +104,8 @@ export class UserDTO extends BaseDTO<UserRow> {
 	/** How many accounts hold the admin role. */
 	static adminCount(): number {
 		return (
-			getDb()
+			databaseConnection
+				.get()
 				.select({ total: count() })
 				.from(user)
 				.where(eq(user.role, "admin"))
@@ -108,7 +115,8 @@ export class UserDTO extends BaseDTO<UserRow> {
 
 	/** The address of the account a live password reset `token` was sent for. */
 	static emailForPasswordReset(token: string): string | undefined {
-		return getDb()
+		return databaseConnection
+			.get()
 			.select({ email: user.email })
 			.from(verification)
 			.innerJoin(user, eq(user.id, verification.value))
@@ -123,7 +131,8 @@ export class UserDTO extends BaseDTO<UserRow> {
 
 	/** Moves `userId` to `email`, which counts as verified: a code proved it, or an admin set it. */
 	static changeEmail(userId: string, email: string): void {
-		getDb()
+		databaseConnection
+			.get()
 			.update(user)
 			.set({ email, emailVerified: true })
 			.where(eq(user.id, userId))
@@ -132,7 +141,7 @@ export class UserDTO extends BaseDTO<UserRow> {
 
 	/** Removes `userId`'s authenticator app and passkeys and signs them out everywhere, for a locked-out account. */
 	static resetFactors(userId: string): void {
-		getDb().transaction((transaction) => {
+		databaseConnection.get().transaction((transaction) => {
 			transaction.delete(twoFactor).where(eq(twoFactor.userId, userId)).run();
 			transaction.delete(passkey).where(eq(passkey.userId, userId)).run();
 			transaction
@@ -146,12 +155,18 @@ export class UserDTO extends BaseDTO<UserRow> {
 
 	/** Gives `userId` the `role`. */
 	static setRole(userId: string, role: UserRole): void {
-		getDb().update(user).set({ role }).where(eq(user.id, userId)).run();
+		databaseConnection
+			.get()
+			.update(user)
+			.set({ role })
+			.where(eq(user.id, userId))
+			.run();
 	}
 
 	/** Records that `userId` proved ownership of their address. */
 	static markEmailVerified(userId: string): void {
-		getDb()
+		databaseConnection
+			.get()
 			.update(user)
 			.set({ emailVerified: true })
 			.where(eq(user.id, userId))
@@ -160,11 +175,15 @@ export class UserDTO extends BaseDTO<UserRow> {
 
 	/** Signs `userId` out everywhere. */
 	static revokeSessions(userId: string): void {
-		getDb().delete(session).where(eq(session.userId, userId)).run();
+		databaseConnection
+			.get()
+			.delete(session)
+			.where(eq(session.userId, userId))
+			.run();
 	}
 
 	/** Deletes `userId` and, through the foreign keys, their sessions, factors and memberships' links. */
 	static delete(userId: string): void {
-		getDb().delete(user).where(eq(user.id, userId)).run();
+		databaseConnection.get().delete(user).where(eq(user.id, userId)).run();
 	}
 }

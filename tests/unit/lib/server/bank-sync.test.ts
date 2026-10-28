@@ -9,22 +9,11 @@ import {
 } from "#lib/dto/bank-credential.js";
 import { JobDTO } from "#lib/dto/job.js";
 import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
-import {
-	bankExpense,
-	queueBankSync,
-	relinkBank,
-	syncBank,
-} from "#lib/server/bank-sync.js";
-import type { Transaction } from "#lib/server/enable-banking-api.js";
-import {
-	bankApplicationName,
-	closeBankSession,
-	listBanks,
-	openBankSession,
-	startBankLink,
-} from "#lib/server/enable-banking.js";
+import { bankSync } from "#lib/server/banking/bank-sync.js";
+import type { Transaction } from "#lib/server/banking/enable-banking-api.js";
+import { EnableBankingClient } from "#lib/server/banking/enable-banking.js";
+import { secrets } from "#lib/server/core/secrets.js";
 import { jobHandlers } from "#lib/server/jobs/handlers.js";
-import { encryptSecret } from "#lib/server/secrets.js";
 
 import { createUser, resetDatabase } from "../../database.js";
 
@@ -37,7 +26,7 @@ const { privateKey, publicKey } = generateKeyPairSync("rsa", {
 function credentials() {
 	return {
 		applicationId: "app-123",
-		encryptedPrivateKey: encryptSecret(privateKey),
+		encryptedPrivateKey: secrets.encrypt(privateKey),
 	};
 }
 
@@ -89,7 +78,9 @@ describe("Enable Banking client", () => {
 		const fetched = spyOn(globalThis, "fetch").mockResolvedValue(
 			Response.json({ name: "OpenCount" }),
 		);
-		expect(await bankApplicationName(credentials())).toBe("OpenCount");
+		expect(await new EnableBankingClient(credentials()).applicationName()).toBe(
+			"OpenCount",
+		);
 		const { headers } = sent(fetched, 0);
 		const [header = "", body = "", signature = ""] = (
 			headers.get("Authorization") ?? ""
@@ -145,13 +136,14 @@ describe("Enable Banking client", () => {
 				}),
 			)
 			.mockResolvedValueOnce(Response.json({ message: "OK" }));
-		expect(await listBanks(credentials(), "FR")).toEqual([
+		expect(
+			await new EnableBankingClient(credentials()).listBanks("FR"),
+		).toEqual([
 			{ name: "Revolut", country: "FR", logo: "https://x/l.png" },
 			{ name: "Boursorama", country: "FR", logo: null },
 		]);
 		expect(
-			await startBankLink(
-				credentials(),
+			await new EnableBankingClient(credentials()).startLink(
 				{ name: "Revolut", country: "FR" },
 				"https://app.test/personal/bank",
 				"state",
@@ -162,7 +154,9 @@ describe("Enable Banking client", () => {
 			redirect_url: string;
 		};
 		expect(body.psu_type).toBe("personal");
-		const session = await openBankSession(credentials(), "code");
+		const session = await new EnableBankingClient(credentials()).openSession(
+			"code",
+		);
 		expect(session.sessionId).toBe("s-1");
 		expect(session.accounts).toEqual([
 			{
@@ -179,7 +173,7 @@ describe("Enable Banking client", () => {
 			},
 		]);
 		expect(session.listedAccounts).toBe(3);
-		await closeBankSession(credentials(), "s-1");
+		await new EnableBankingClient(credentials()).closeSession("s-1");
 		expect(sent(fetched, 3).url).toEndWith("/sessions/s-1");
 	});
 
@@ -187,9 +181,9 @@ describe("Enable Banking client", () => {
 		spyOn(globalThis, "fetch").mockResolvedValue(
 			Response.json({ message: "Wrong redirect URL" }, { status: 422 }),
 		);
-		await expect(listBanks(credentials(), "FR")).rejects.toThrow(
-			"Wrong redirect URL",
-		);
+		await expect(
+			new EnableBankingClient(credentials()).listBanks("FR"),
+		).rejects.toThrow("Wrong redirect URL");
 	});
 });
 
@@ -197,7 +191,7 @@ describe("bank sync", () => {
 	beforeEach(resetDatabase);
 
 	test("bankExpense keeps booked lines, money in as income", () => {
-		expect(bankExpense("acc", card())).toEqual({
+		expect(bankSync.bankExpense("acc", card())).toEqual({
 			description: "Carrefour City",
 			category: "groceries",
 			kind: "expense",
@@ -208,12 +202,17 @@ describe("bank sync", () => {
 			bankRef: "acc:t1",
 			bankAccountUid: "acc",
 		});
-		expect(bankExpense("acc", card(), () => "food")?.category).toBe("food");
+		expect(bankSync.bankExpense("acc", card(), () => "food")?.category).toBe(
+			"food",
+		);
 		expect(
-			bankExpense("acc", card({ creditor: { name: "To robo portfolio" } })),
+			bankSync.bankExpense(
+				"acc",
+				card({ creditor: { name: "To robo portfolio" } }),
+			),
 		).toEqual(expect.objectContaining({ aside: true, category: "finance" }));
 		expect(
-			bankExpense(
+			bankSync.bankExpense(
 				"acc",
 				card({
 					credit_debit_indicator: "CRDT",
@@ -229,7 +228,7 @@ describe("bank sync", () => {
 			}),
 		);
 		expect(
-			bankExpense(
+			bankSync.bankExpense(
 				"acc",
 				card({
 					credit_debit_indicator: "CRDT",
@@ -243,9 +242,11 @@ describe("bank sync", () => {
 				category: "finance",
 			}),
 		);
-		expect(bankExpense("acc", card({ status: "PDNG" }))).toBeUndefined();
 		expect(
-			bankExpense(
+			bankSync.bankExpense("acc", card({ status: "PDNG" })),
+		).toBeUndefined();
+		expect(
+			bankSync.bankExpense(
 				"acc",
 				card({
 					transaction_id: undefined,
@@ -300,7 +301,7 @@ describe("bank sync", () => {
 			}),
 		);
 		expect(again?.syncing()).toBe(false);
-		expect(await syncBank(again!)).toBe(0);
+		expect(await bankSync.sync(again!)).toBe(0);
 		expect(sent(fetched, 3).url).toContain(
 			`date_from=${new Date(Date.now() - 3 * 86_400_000).toISOString().slice(0, 10)}`,
 		);
@@ -313,7 +314,7 @@ describe("bank sync", () => {
 		const ada = createUser("ada");
 		const connection = link(ada.id);
 		expect(connection.fetchFrom()).toBeUndefined();
-		queueBankSync(connection, true);
+		bankSync.queue(connection, true);
 		expect(connection.syncing()).toBe(true);
 		expect(JobDTO.counts().pending).toBe(1);
 		expect(connection.syncing(new Date(Date.now() + 16 * 60_000))).toBe(false);
@@ -330,7 +331,7 @@ describe("bank sync", () => {
 			validUntil: new Date(Date.now() + 86_400_000),
 		});
 		connection.setLogo("https://logos.example/cm.png");
-		await expect(syncBank(connection)).rejects.toThrow(
+		await expect(bankSync.sync(connection)).rejects.toThrow(
 			"can't read any account",
 		);
 		expect(connection.toJSON().lastError).toContain("relink the bank");
@@ -357,9 +358,9 @@ describe("bank sync", () => {
 			validUntil: new Date(Date.now() + 86_400_000),
 		});
 		PersonalExpenseDTO.importFromBank(ada.id, connection.id, [
-			bankExpense("old-1", card())!,
-			bankExpense("old-2", card({ transaction_id: "t9" }))!,
-			bankExpense("old-4", card({ transaction_id: "t4" }))!,
+			bankSync.bankExpense("old-1", card())!,
+			bankSync.bankExpense("old-2", card({ transaction_id: "t9" }))!,
+			bankSync.bankExpense("old-4", card({ transaction_id: "t4" }))!,
 		]);
 		connection.markSynced(3);
 		const fetched = spyOn(globalThis, "fetch").mockResolvedValueOnce(
@@ -393,7 +394,7 @@ describe("bank sync", () => {
 			validUntil: new Date(Date.now() + 2 * 86_400_000),
 			accounts,
 		};
-		await relinkBank(connection, relink, credentials());
+		await bankSync.relink(connection, relink, credentials());
 		expect(sent(fetched, 0).url).toEndWith("/sessions/session-1");
 		const again = BankConnectionDTO.find(connection.id);
 		expect(again?.sessionId).toBe("session-2");
@@ -405,9 +406,9 @@ describe("bank sync", () => {
 		]);
 		expect(
 			PersonalExpenseDTO.importFromBank(ada.id, connection.id, [
-				bankExpense("new-1", card())!,
-				bankExpense("new-2", card({ transaction_id: "t9" }))!,
-				bankExpense("new-4", card({ transaction_id: "t4" }))!,
+				bankSync.bankExpense("new-1", card())!,
+				bankSync.bankExpense("new-2", card({ transaction_id: "t9" }))!,
+				bankSync.bankExpense("new-4", card({ transaction_id: "t4" }))!,
 			]),
 		).toBe(0);
 		expect(
@@ -415,7 +416,7 @@ describe("bank sync", () => {
 				.entries,
 		).toHaveLength(1);
 		fetched.mockRejectedValueOnce(new Error("offline"));
-		await relinkBank(
+		await bankSync.relink(
 			again!,
 			{ ...relink, sessionId: "session-3", accounts: [accounts[2]!] },
 			credentials(),
@@ -426,13 +427,15 @@ describe("bank sync", () => {
 
 	test("a link without keys fails and says why", async () => {
 		const ada = createUser("ada");
-		await expect(syncBank(link(ada.id))).rejects.toThrow("Bank sync is off");
+		await expect(bankSync.sync(link(ada.id))).rejects.toThrow(
+			"Bank sync is off",
+		);
 	});
 
 	test("an expired link fails and says why", async () => {
 		const ada = createUser("ada");
 		const connection = link(ada.id, new Date(Date.now() - 1000));
-		await expect(syncBank(connection)).rejects.toThrow("expired");
+		await expect(bankSync.sync(connection)).rejects.toThrow("expired");
 		expect(BankConnectionDTO.forUser(ada.id)[0]?.toJSON().lastError).toContain(
 			"expired",
 		);

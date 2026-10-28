@@ -2,8 +2,8 @@ import { error } from "@sveltejs/kit";
 
 import { DownloadDTO } from "#lib/dto/download.js";
 import { GroupMemberDTO } from "#lib/dto/group-member.js";
-import { isAdmin } from "#lib/server/admin.js";
-import { downloadPath, downloadTypes } from "#lib/server/downloads.js";
+import { access } from "#lib/server/auth/access.js";
+import { downloads } from "#lib/server/jobs/downloads.js";
 
 export const GET = ({ locals, params }) => {
 	if (!locals.user) {
@@ -13,15 +13,15 @@ export const GET = ({ locals, params }) => {
 	const allowed =
 		download?.ready &&
 		(download.kind === "database"
-			? isAdmin(locals.user)
+			? access.isAdmin(locals.user)
 			: download.groupId !== null &&
 				GroupMemberDTO.isMember(download.groupId, locals.user.id));
 	if (!download || !allowed) {
 		error(404, "That file isn't available anymore.");
 	}
-	return new Response(Bun.file(downloadPath(download.id)), {
+	return new Response(Bun.file(downloads.path(download.id)), {
 		headers: {
-			"Content-Type": downloadTypes[download.kind],
+			"Content-Type": downloads.types[download.kind],
 			"Content-Disposition": `attachment; filename="${download.fileName}"`,
 			"Cache-Control": "private, no-store",
 		},

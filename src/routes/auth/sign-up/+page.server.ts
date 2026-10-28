@@ -4,20 +4,10 @@ import { APIError } from "better-auth/api";
 
 import { CodeChallengeDTO } from "#lib/dto/code-challenge.js";
 import { getSetting } from "#lib/dto/setting.js";
-import { safeRedirectTarget } from "#lib/server/guards.js";
-import { mayEmail, signUpCodeAttempts } from "#lib/server/rate-limit.js";
-import {
-	clearSignUp,
-	currentSignUpStep,
-	grantSignUpTicket,
-	rememberPendingSignUp,
-} from "#lib/server/sign-up-cookies.js";
-import {
-	createVerifiedAccount,
-	SignUpError,
-	signUpIdentifier,
-	startSignUp,
-} from "#lib/server/sign-up.js";
+import { access } from "#lib/server/auth/access.js";
+import { rateLimits } from "#lib/server/auth/rate-limit.js";
+import { signUpCookies } from "#lib/server/auth/sign-up-cookies.js";
+import { signUp, SignUpError } from "#lib/server/auth/sign-up.js";
 import {
 	codeSchema,
 	newAccountSchema,
@@ -31,7 +21,7 @@ function signInLink(url: URL): string {
 	return new URL(resolve("/auth/sign-in"), url).href;
 }
 
-export const load = ({ cookies }) => currentSignUpStep(cookies);
+export const load = ({ cookies }) => signUpCookies.currentStep(cookies);
 
 export const actions = {
 	start: async ({ cookies, getClientAddress, request, url }) => {
@@ -39,12 +29,12 @@ export const actions = {
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
 		}
-		if (!mayEmail(parsed.data.email, getClientAddress())) {
+		if (!rateLimits.mayEmail(parsed.data.email, getClientAddress())) {
 			return fail(429, { error: tooManyEmails });
 		}
 		try {
-			startSignUp(parsed.data.email, signInLink(url));
-			rememberPendingSignUp(cookies, url, parsed.data.email);
+			signUp.start(parsed.data.email, signInLink(url));
+			signUpCookies.rememberPending(cookies, url, parsed.data.email);
 			return { sent: true };
 		} catch (error) {
 			if (error instanceof SignUpError) {
@@ -54,16 +44,16 @@ export const actions = {
 		}
 	},
 	resend: ({ cookies, getClientAddress, url }) => {
-		const current = currentSignUpStep(cookies);
+		const current = signUpCookies.currentStep(cookies);
 		if (current.step !== "code") {
 			return fail(400, { error: "Start again with your email." });
 		}
-		if (!mayEmail(current.email, getClientAddress())) {
+		if (!rateLimits.mayEmail(current.email, getClientAddress())) {
 			return fail(429, { error: tooManyEmails });
 		}
 		try {
-			startSignUp(current.email, signInLink(url));
-			rememberPendingSignUp(cookies, url, current.email);
+			signUp.start(current.email, signInLink(url));
+			signUpCookies.rememberPending(cookies, url, current.email);
 			return { sent: true };
 		} catch (error) {
 			if (error instanceof SignUpError) {
@@ -73,7 +63,7 @@ export const actions = {
 		}
 	},
 	verify: async ({ cookies, request, url }) => {
-		const current = currentSignUpStep(cookies);
+		const current = signUpCookies.currentStep(cookies);
 		if (current.step !== "code") {
 			return fail(400, { error: "Start again with your email." });
 		}
@@ -81,14 +71,14 @@ export const actions = {
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
 		}
-		if (signUpCodeAttempts.blocked(current.email)) {
+		if (rateLimits.signUpCodeAttempts.blocked(current.email)) {
 			return fail(429, {
 				error: "Too many wrong codes for this email today. Try again tomorrow.",
 			});
 		}
-		signUpCodeAttempts.hit(current.email);
+		rateLimits.signUpCodeAttempts.hit(current.email);
 		if (
-			!CodeChallengeDTO.find(signUpIdentifier(current.email))?.verify(
+			!CodeChallengeDTO.find(signUp.identifier(current.email))?.verify(
 				parsed.data.code,
 			)
 		) {
@@ -98,16 +88,16 @@ export const actions = {
 				},
 			});
 		}
-		grantSignUpTicket(cookies, url, current.email);
+		signUpCookies.grantTicket(cookies, url, current.email);
 		return { verified: true };
 	},
 	create: async ({ cookies, request, url }) => {
-		const current = currentSignUpStep(cookies);
+		const current = signUpCookies.currentStep(cookies);
 		if (current.step !== "details") {
 			return fail(400, { error: "Verify your email first." });
 		}
 		if (!getSetting("signUpsEnabled")) {
-			clearSignUp(cookies);
+			signUpCookies.clear(cookies);
 			return fail(403, {
 				error: "Sign-ups just closed. Ask an admin for an invite.",
 			});
@@ -120,7 +110,7 @@ export const actions = {
 			return fail(400, { errors: parsed.errors });
 		}
 		try {
-			await createVerifiedAccount({
+			await signUp.createVerifiedAccount({
 				email: current.email,
 				name: parsed.data.name,
 				password: parsed.data.password,
@@ -134,11 +124,11 @@ export const actions = {
 			}
 			throw error;
 		}
-		clearSignUp(cookies);
-		redirect(303, safeRedirectTarget(url));
+		signUpCookies.clear(cookies);
+		redirect(303, access.safeRedirectTarget(url));
 	},
 	restart: ({ cookies }) => {
-		clearSignUp(cookies);
+		signUpCookies.clear(cookies);
 		return { restarted: true };
 	},
 };

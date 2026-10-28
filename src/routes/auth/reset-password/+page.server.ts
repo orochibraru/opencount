@@ -3,7 +3,7 @@ import { fail, redirect } from "@sveltejs/kit";
 import { APIError } from "better-auth/api";
 
 import { UserDTO } from "#lib/dto/user.js";
-import { getAuth } from "#lib/server/auth.js";
+import { authService } from "#lib/server/auth/auth.js";
 import { newPasswordSchema } from "#lib/server/validation/auth.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
@@ -30,7 +30,7 @@ export const actions = {
 			return fail(400, { errors: parsed.errors });
 		}
 		try {
-			await getAuth().api.resetPassword({
+			await authService.get().api.resetPassword({
 				body: { newPassword: parsed.data.password, token },
 				headers: request.headers,
 			});

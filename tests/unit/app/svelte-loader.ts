@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { plugin } from "bun";
 import { compile, compileModule } from "svelte/compiler";
 
-import { configure } from "../../../src/lib/server/config.ts";
+import { configuration } from "../../../src/lib/server/core/config.ts";
 
 const require = createRequire(import.meta.url);
 const svelteClientEntry = join(
@@ -22,7 +22,7 @@ mock.module("$app/paths", () => ({
 		"/",
 }));
 
-configure({
+configuration.set({
 	appVersion: "0.0.0-test",
 	origin: undefined,
 	databasePath: ":memory:",

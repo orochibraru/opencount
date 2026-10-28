@@ -2,7 +2,7 @@ import { and, asc, count, eq, isNull } from "drizzle-orm";
 
 import type { CustomCategory } from "#lib/categories.js";
 import { BaseDTO } from "#lib/dto/base-dto.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { personalCategory, personalExpense } from "#lib/server/db/schema.js";
 
 const columns = {
@@ -14,7 +14,8 @@ const columns = {
 export class PersonalCategoryDTO extends BaseDTO<CustomCategory> {
 	/** The categories `userId` added to their personal ledger, oldest first. */
 	static forUser(userId: string): PersonalCategoryDTO[] {
-		return getDb()
+		return databaseConnection
+			.get()
 			.select(columns)
 			.from(personalCategory)
 			.where(eq(personalCategory.userId, userId))
@@ -28,7 +29,8 @@ export class PersonalCategoryDTO extends BaseDTO<CustomCategory> {
 		id: string,
 		userId: string,
 	): PersonalCategoryDTO | undefined {
-		const row = getDb()
+		const row = databaseConnection
+			.get()
 			.select(columns)
 			.from(personalCategory)
 			.where(
@@ -45,7 +47,8 @@ export class PersonalCategoryDTO extends BaseDTO<CustomCategory> {
 		icon: string,
 	): PersonalCategoryDTO {
 		return new PersonalCategoryDTO(
-			getDb()
+			databaseConnection
+				.get()
 				.insert(personalCategory)
 				.values({ userId, name, icon })
 				.returning(columns)
@@ -56,7 +59,8 @@ export class PersonalCategoryDTO extends BaseDTO<CustomCategory> {
 	/** How many of `userId`'s personal expenses sit in each category, built-in or not. */
 	static usage(userId: string): Record<string, number> {
 		return Object.fromEntries(
-			getDb()
+			databaseConnection
+				.get()
 				.select({ category: personalExpense.category, total: count() })
 				.from(personalExpense)
 				.where(
@@ -77,7 +81,8 @@ export class PersonalCategoryDTO extends BaseDTO<CustomCategory> {
 
 	/** Renames the category and changes its icon. */
 	update(name: string, icon: string): void {
-		getDb()
+		databaseConnection
+			.get()
 			.update(personalCategory)
 			.set({ name, icon })
 			.where(eq(personalCategory.id, this.row.id))
@@ -86,7 +91,7 @@ export class PersonalCategoryDTO extends BaseDTO<CustomCategory> {
 
 	/** Deletes the category and moves its expenses to Other, in one transaction. */
 	delete(): void {
-		getDb().transaction((transaction) => {
+		databaseConnection.get().transaction((transaction) => {
 			transaction
 				.update(personalExpense)
 				.set({ category: "other" })

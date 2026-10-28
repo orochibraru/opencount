@@ -1,10 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import { parseResourceAttributes } from "#lib/server/config.js";
-import {
-	isConfigMessage,
-	isReadyMessage,
-} from "#lib/server/worker-messages.js";
+import { configuration } from "#lib/server/core/config.js";
+import { workerMessages } from "#lib/server/worker/messages.js";
 
 import { variables } from "../../src/env.ts";
 
@@ -53,21 +50,21 @@ describe("env.ts", () => {
 describe("config helpers", () => {
 	test("OTel resource attributes are parsed and URL-decoded", () => {
 		expect(
-			parseResourceAttributes(
+			configuration.parseResourceAttributes(
 				"homerun.service.id=svc_1, deployment.environment=prod%20eu,broken",
 			),
 		).toEqual({
 			"homerun.service.id": "svc_1",
 			"deployment.environment": "prod eu",
 		});
-		expect(parseResourceAttributes(undefined)).toEqual({});
+		expect(configuration.parseResourceAttributes(undefined)).toEqual({});
 	});
 
 	test("worker IPC messages are recognised", () => {
-		expect(isReadyMessage({ type: "ready" })).toBe(true);
-		expect(isReadyMessage("ready")).toBe(false);
-		expect(isConfigMessage({ type: "config", config: {} })).toBe(true);
-		expect(isConfigMessage({ type: "config" })).toBe(false);
-		expect(isConfigMessage(null)).toBe(false);
+		expect(workerMessages.isReady({ type: "ready" })).toBe(true);
+		expect(workerMessages.isReady("ready")).toBe(false);
+		expect(workerMessages.isConfig({ type: "config", config: {} })).toBe(true);
+		expect(workerMessages.isConfig({ type: "config" })).toBe(false);
+		expect(workerMessages.isConfig(null)).toBe(false);
 	});
 });

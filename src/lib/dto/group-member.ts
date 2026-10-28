@@ -1,7 +1,7 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 
 import { BaseDTO } from "#lib/dto/base-dto.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import {
 	expense,
 	expenseShare,
@@ -28,7 +28,8 @@ const columns = {
 export class GroupMemberDTO extends BaseDTO<GroupMemberRow> {
 	/** The members of `groupId`, oldest first. */
 	static forGroup(groupId: string): GroupMemberDTO[] {
-		return getDb()
+		return databaseConnection
+			.get()
 			.select(columns)
 			.from(groupMember)
 			.leftJoin(user, eq(user.id, groupMember.userId))
@@ -43,7 +44,8 @@ export class GroupMemberDTO extends BaseDTO<GroupMemberRow> {
 		groupId: string,
 		memberId: string,
 	): GroupMemberDTO | undefined {
-		const row = getDb()
+		const row = databaseConnection
+			.get()
 			.select(columns)
 			.from(groupMember)
 			.leftJoin(user, eq(user.id, groupMember.userId))
@@ -60,7 +62,8 @@ export class GroupMemberDTO extends BaseDTO<GroupMemberRow> {
 		displayName: string,
 		userId: string | null = null,
 	): GroupMemberDTO {
-		const row = getDb()
+		const row = databaseConnection
+			.get()
 			.insert(groupMember)
 			.values({ groupId, displayName, userId })
 			.returning()
@@ -76,7 +79,8 @@ export class GroupMemberDTO extends BaseDTO<GroupMemberRow> {
 	/** Whether `userId` is already a member of `groupId`. */
 	static isMember(groupId: string, userId: string): boolean {
 		return (
-			getDb()
+			databaseConnection
+				.get()
 				.select({ id: groupMember.id })
 				.from(groupMember)
 				.where(
@@ -96,7 +100,8 @@ export class GroupMemberDTO extends BaseDTO<GroupMemberRow> {
 
 	/** Renames the member. */
 	rename(displayName: string): void {
-		getDb()
+		databaseConnection
+			.get()
 			.update(groupMember)
 			.set({ displayName })
 			.where(eq(groupMember.id, this.row.id))
@@ -105,7 +110,7 @@ export class GroupMemberDTO extends BaseDTO<GroupMemberRow> {
 
 	/** Whether the member paid for or shares in any expense or repeating expense, which keeps them in the group. */
 	isInvolved(): boolean {
-		const database = getDb();
+		const database = databaseConnection.get();
 		const paid = database
 			.select({ id: expense.id })
 			.from(expense)
@@ -133,12 +138,17 @@ export class GroupMemberDTO extends BaseDTO<GroupMemberRow> {
 
 	/** Removes the member from the group. */
 	remove(): void {
-		getDb().delete(groupMember).where(eq(groupMember.id, this.row.id)).run();
+		databaseConnection
+			.get()
+			.delete(groupMember)
+			.where(eq(groupMember.id, this.row.id))
+			.run();
 	}
 
 	/** Links this member, who has no account yet, to `userId`'s. */
 	linkTo(userId: string): void {
-		getDb()
+		databaseConnection
+			.get()
 			.update(groupMember)
 			.set({ userId })
 			.where(eq(groupMember.id, this.row.id))
@@ -147,7 +157,8 @@ export class GroupMemberDTO extends BaseDTO<GroupMemberRow> {
 
 	/** Unlinks the member from their account: their name and expenses stay, the account loses access to the group. */
 	unlink(): void {
-		getDb()
+		databaseConnection
+			.get()
 			.update(groupMember)
 			.set({ userId: null })
 			.where(eq(groupMember.id, this.row.id))
@@ -162,7 +173,7 @@ export class GroupMemberDTO extends BaseDTO<GroupMemberRow> {
 	takeOver(previous: GroupMemberDTO): void {
 		const target = this.row.id;
 		const source = previous.row.id;
-		getDb().transaction((transaction) => {
+		databaseConnection.get().transaction((transaction) => {
 			transaction
 				.update(expense)
 				.set({ paidBy: target })

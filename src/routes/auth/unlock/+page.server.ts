@@ -1,9 +1,9 @@
 import { resolve } from "$app/paths";
 import { fail, redirect } from "@sveltejs/kit";
 
-import { appLock } from "#lib/server/app-lock.js";
-import { getAuth } from "#lib/server/auth.js";
-import { safeRedirectTarget } from "#lib/server/guards.js";
+import { access } from "#lib/server/auth/access.js";
+import { appLock } from "#lib/server/auth/app-lock.js";
+import { authService } from "#lib/server/auth/auth.js";
 import { passcodeSchema } from "#lib/server/validation/auth.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
@@ -15,7 +15,7 @@ export const load = ({ locals }) => {
 export const actions = {
 	unlock: async ({ locals, request, url }) => {
 		if (locals.gate?.reason !== "locked") {
-			redirect(303, safeRedirectTarget(url));
+			redirect(303, access.safeRedirectTarget(url));
 		}
 		const parsed = parseForm(passcodeSchema, await request.formData());
 		if (!parsed.success) {
@@ -37,10 +37,10 @@ export const actions = {
 				},
 			});
 		}
-		redirect(303, safeRedirectTarget(url));
+		redirect(303, access.safeRedirectTarget(url));
 	},
 	signOut: async ({ request }) => {
-		await getAuth().api.signOut({ headers: request.headers });
+		await authService.get().api.signOut({ headers: request.headers });
 		redirect(303, resolve("/auth/sign-in"));
 	},
 };

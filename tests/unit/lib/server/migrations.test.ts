@@ -5,9 +5,9 @@ import { join } from "node:path";
 import { readMigrationFiles } from "drizzle-orm/migrator";
 
 import {
-	assertMigrationHistory,
+	databaseConnection,
 	MigrationHistoryError,
-} from "#lib/server/db/lib.js";
+} from "#lib/server/db/database.js";
 
 const migrations = readMigrationFiles({
 	migrationsFolder: join(process.cwd(), "drizzle"),
@@ -33,7 +33,11 @@ function databaseWithHistory(
 describe("migration history", () => {
 	test("a fresh database and a matching history pass", () => {
 		expect(() =>
-			assertMigrationHistory(new Database(":memory:"), migrations, ":memory:"),
+			databaseConnection.assertMigrationHistory(
+				new Database(":memory:"),
+				migrations,
+				":memory:",
+			),
 		).not.toThrow();
 		const matching = databaseWithHistory(
 			migrations.map((migration) => ({
@@ -42,7 +46,11 @@ describe("migration history", () => {
 			})),
 		);
 		expect(() =>
-			assertMigrationHistory(matching, migrations, ":memory:"),
+			databaseConnection.assertMigrationHistory(
+				matching,
+				migrations,
+				":memory:",
+			),
 		).not.toThrow();
 	});
 
@@ -53,13 +61,21 @@ describe("migration history", () => {
 			{ hash: "something-else", createdAt: first?.folderMillis ?? 0 },
 		]);
 		expect(() =>
-			assertMigrationHistory(edited, migrations, "./data/test.sqlite"),
+			databaseConnection.assertMigrationHistory(
+				edited,
+				migrations,
+				"./data/test.sqlite",
+			),
 		).toThrow(MigrationHistoryError);
 		const replaced = databaseWithHistory([
 			{ hash: first?.hash ?? "", createdAt: 1 },
 		]);
 		expect(() =>
-			assertMigrationHistory(replaced, migrations, "./data/test.sqlite"),
+			databaseConnection.assertMigrationHistory(
+				replaced,
+				migrations,
+				"./data/test.sqlite",
+			),
 		).toThrow("./data/test.sqlite");
 	});
 });

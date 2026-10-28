@@ -1,8 +1,8 @@
 import { JobDTO } from "#lib/dto/job.js";
-import { getConfig } from "#lib/server/config.js";
-import { closeDb } from "#lib/server/db/lib.js";
+import { configuration } from "#lib/server/core/config.js";
+import { Logger } from "#lib/server/core/logger.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { jobHandlers } from "#lib/server/jobs/handlers.js";
-import { Logger } from "#lib/server/logger.js";
 
 import { JobRunner } from "./runner.js";
 import { isProcessAlive } from "./watchdog.js";
@@ -27,8 +27,8 @@ if (!JobDTO.isQueued("bank.syncAll")) {
 }
 
 const runner = new JobRunner({
-	concurrency: getConfig().worker.concurrency,
-	pollIntervalMs: getConfig().worker.pollIntervalMs,
+	concurrency: configuration.get().worker.concurrency,
+	pollIntervalMs: configuration.get().worker.pollIntervalMs,
 	handlers: jobHandlers,
 	isParentAlive: () => isProcessAlive(parentPid),
 });
@@ -44,12 +44,14 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
 	});
 }
 
-logger.info("Worker ready", { concurrency: getConfig().worker.concurrency });
+logger.info("Worker ready", {
+	concurrency: configuration.get().worker.concurrency,
+});
 try {
 	await runner.run();
 } catch (error) {
 	logger.error("Worker loop crashed", error);
 	process.exitCode = 1;
 } finally {
-	closeDb();
+	databaseConnection.close();
 }

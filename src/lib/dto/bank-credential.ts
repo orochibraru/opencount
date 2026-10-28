@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { bankCredential } from "#lib/server/db/schema.js";
 
 export interface BankCredentials {
@@ -12,7 +12,8 @@ export interface BankCredentials {
 export function bankCredentialsFor(
 	userId: string,
 ): BankCredentials | undefined {
-	return getDb()
+	return databaseConnection
+		.get()
 		.select({
 			applicationId: bankCredential.applicationId,
 			encryptedPrivateKey: bankCredential.encryptedPrivateKey,
@@ -27,7 +28,8 @@ export function saveBankCredentials(
 	userId: string,
 	credentials: BankCredentials,
 ): void {
-	getDb()
+	databaseConnection
+		.get()
 		.insert(bankCredential)
 		.values({ ...credentials, userId })
 		.onConflictDoUpdate({
@@ -39,5 +41,9 @@ export function saveBankCredentials(
 
 /** Forgets `userId`'s Enable Banking application. */
 export function removeBankCredentials(userId: string): void {
-	getDb().delete(bankCredential).where(eq(bankCredential.userId, userId)).run();
+	databaseConnection
+		.get()
+		.delete(bankCredential)
+		.where(eq(bankCredential.userId, userId))
+		.run();
 }

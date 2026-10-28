@@ -1,9 +1,9 @@
 import { and, desc, eq, gt, isNull } from "drizzle-orm";
 
 import { BaseDTO } from "#lib/dto/base-dto.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { secrets } from "#lib/server/core/secrets.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { invite, user } from "#lib/server/db/schema.js";
-import { hashToken, randomToken } from "#lib/server/secrets.js";
 
 export interface InviteRow {
 	id: string;
@@ -22,8 +22,8 @@ export class InviteDTO extends BaseDTO<InviteRow> {
 		email: string,
 		invitedBy: string,
 	): { invite: InviteDTO; token: string } {
-		const token = randomToken();
-		const database = getDb();
+		const token = secrets.randomToken();
+		const database = databaseConnection.get();
 		database
 			.delete(invite)
 			.where(and(eq(invite.email, email), isNull(invite.acceptedAt)))
@@ -33,7 +33,7 @@ export class InviteDTO extends BaseDTO<InviteRow> {
 			.values({
 				email,
 				invitedBy,
-				tokenHash: hashToken(token),
+				tokenHash: secrets.hashToken(token),
 				expiresAt: new Date(Date.now() + inviteLifetimeMs),
 			})
 			.returning()
@@ -43,7 +43,8 @@ export class InviteDTO extends BaseDTO<InviteRow> {
 
 	/** The pending, unexpired invite `token` belongs to. */
 	static findByToken(token: string): InviteDTO | undefined {
-		const row = getDb()
+		const row = databaseConnection
+			.get()
 			.select({
 				id: invite.id,
 				email: invite.email,
@@ -56,7 +57,7 @@ export class InviteDTO extends BaseDTO<InviteRow> {
 			.leftJoin(user, eq(user.id, invite.invitedBy))
 			.where(
 				and(
-					eq(invite.tokenHash, hashToken(token)),
+					eq(invite.tokenHash, secrets.hashToken(token)),
 					isNull(invite.acceptedAt),
 					gt(invite.expiresAt, new Date()),
 				),
@@ -67,7 +68,8 @@ export class InviteDTO extends BaseDTO<InviteRow> {
 
 	/** Every invite, newest first. */
 	static list(): InviteDTO[] {
-		return getDb()
+		return databaseConnection
+			.get()
 			.select({
 				id: invite.id,
 				email: invite.email,
@@ -85,7 +87,8 @@ export class InviteDTO extends BaseDTO<InviteRow> {
 
 	/** How many invites are still waiting to be accepted. */
 	static pendingCount(): number {
-		return getDb()
+		return databaseConnection
+			.get()
 			.select({ id: invite.id })
 			.from(invite)
 			.where(and(isNull(invite.acceptedAt), gt(invite.expiresAt, new Date())))
@@ -94,7 +97,7 @@ export class InviteDTO extends BaseDTO<InviteRow> {
 
 	/** Deletes the invite `id`. */
 	static revoke(id: string): void {
-		getDb().delete(invite).where(eq(invite.id, id)).run();
+		databaseConnection.get().delete(invite).where(eq(invite.id, id)).run();
 	}
 
 	get email(): string {
@@ -103,7 +106,8 @@ export class InviteDTO extends BaseDTO<InviteRow> {
 
 	/** Marks the invite used. */
 	accept(): void {
-		getDb()
+		databaseConnection
+			.get()
 			.update(invite)
 			.set({ acceptedAt: new Date() })
 			.where(eq(invite.id, this.row.id))

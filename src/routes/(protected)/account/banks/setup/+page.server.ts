@@ -5,13 +5,13 @@ import { fail } from "@sveltejs/kit";
 import { z } from "zod";
 
 import { saveBankCredentials } from "#lib/dto/bank-credential.js";
-import { publicOrigin } from "#lib/server/auth.js";
-import { bankApplicationName, BankError } from "#lib/server/enable-banking.js";
-import { encryptSecret } from "#lib/server/secrets.js";
+import { authService } from "#lib/server/auth/auth.js";
+import { securityPolicy } from "#lib/server/auth/security-policy.js";
 import {
-	recentSignInMessage,
-	signedInRecently,
-} from "#lib/server/security-policy.js";
+	BankError,
+	EnableBankingClient,
+} from "#lib/server/banking/enable-banking.js";
+import { secrets } from "#lib/server/core/secrets.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
 const credentialsSchema = z.object({
@@ -34,7 +34,7 @@ export const load = async ({ parent, url }) => {
 	return {
 		redirectUrl: new URL(
 			resolve("/(protected)/personal/bank"),
-			publicOrigin() ?? url.origin,
+			authService.publicOrigin() ?? url.origin,
 		).href,
 	};
 };
@@ -44,8 +44,8 @@ export const actions = {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
 		}
-		if (!locals.session || !signedInRecently(locals.session)) {
-			return fail(403, { error: recentSignInMessage });
+		if (!locals.session || !securityPolicy.signedInRecently(locals.session)) {
+			return fail(403, { error: securityPolicy.recentSignInMessage });
 		}
 		const parsed = parseForm(credentialsSchema, await request.formData());
 		if (!parsed.success) {
@@ -53,10 +53,12 @@ export const actions = {
 		}
 		const credentials = {
 			applicationId: parsed.data.applicationId,
-			encryptedPrivateKey: encryptSecret(parsed.data.privateKey),
+			encryptedPrivateKey: secrets.encrypt(parsed.data.privateKey),
 		};
 		try {
-			const application = await bankApplicationName(credentials);
+			const application = await new EnableBankingClient(
+				credentials,
+			).applicationName();
 			saveBankCredentials(locals.user.id, credentials);
 			return { application };
 		} catch (error) {

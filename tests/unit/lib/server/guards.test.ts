@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 
-import { redirectToSignIn, safeRedirectTarget } from "#lib/server/guards.js";
+import { access } from "#lib/server/auth/access.js";
 
 import { createUser, resetDatabase } from "../../database.js";
 
 function redirectOf(url: string): unknown {
 	try {
-		redirectToSignIn(new URL(url));
+		access.redirectToSignIn(new URL(url));
 	} catch (thrown) {
 		return thrown;
 	}
@@ -33,12 +33,12 @@ describe("guards", () => {
 
 	test("safeRedirectTarget only allows local paths", () => {
 		expect(
-			safeRedirectTarget(
+			access.safeRedirectTarget(
 				new URL("https://example.com/auth/sign-in?redirectTo=/account"),
 			),
 		).toBe("/account");
 		expect(
-			safeRedirectTarget(
+			access.safeRedirectTarget(
 				new URL("https://example.com/auth/sign-in?redirectTo=//evil.test"),
 			),
 		).toBe("/");
@@ -48,18 +48,18 @@ describe("guards", () => {
 			"https://evil.test",
 		]) {
 			expect(
-				safeRedirectTarget(
+				access.safeRedirectTarget(
 					new URL(`https://example.com/auth/sign-in?redirectTo=${sneaky}`),
 				),
 			).toBe("/");
 		}
 		expect(
-			safeRedirectTarget(
+			access.safeRedirectTarget(
 				new URL("https://example.com/auth/sign-in?redirectTo=/groups%3Fq%3Da"),
 			),
 		).toBe("/groups?q=a");
 		expect(
-			safeRedirectTarget(new URL("https://example.com/auth/sign-in")),
+			access.safeRedirectTarget(new URL("https://example.com/auth/sign-in")),
 		).toBe("/");
 	});
 });

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, spyOn, test } from "bun:test";
 
 import { JobDTO } from "#lib/dto/job.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { job } from "#lib/server/db/schema.js";
 import { jobHandlers } from "#lib/server/jobs/handlers.js";
 
@@ -9,7 +9,11 @@ import { JobRunner } from "../../../src/worker/runner.js";
 import { resetDatabase } from "../database.js";
 
 function statuses() {
-	return getDb().select({ type: job.type, status: job.status }).from(job).all();
+	return databaseConnection
+		.get()
+		.select({ type: job.type, status: job.status })
+		.from(job)
+		.all();
 }
 
 describe("JobRunner", () => {
@@ -48,7 +52,7 @@ describe("JobRunner", () => {
 		if (claimed) {
 			await runner.process(claimed);
 		}
-		expect(getDb().select().from(job).get()).toMatchObject({
+		expect(databaseConnection.get().select().from(job).get()).toMatchObject({
 			status: "pending",
 			lastError: "nope",
 		});
@@ -91,7 +95,7 @@ describe("JobRunner", () => {
 		if (claimed) {
 			await runner.process(claimed);
 		}
-		expect(getDb().select().from(job).get()?.lastError).toBe(
+		expect(databaseConnection.get().select().from(job).get()?.lastError).toBe(
 			"No handler for job type jobs.prune",
 		);
 	});

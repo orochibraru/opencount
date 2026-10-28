@@ -7,13 +7,9 @@ import { hasPassword } from "#lib/dto/account.js";
 import { AppLockDTO } from "#lib/dto/app-lock.js";
 import { PasskeyDTO } from "#lib/dto/passkey.js";
 import { SessionDTO } from "#lib/dto/session.js";
-import { appLock } from "#lib/server/app-lock.js";
-import { getAuth } from "#lib/server/auth.js";
-import {
-	missingFactors,
-	recentSignInMessage,
-	signedInRecently,
-} from "#lib/server/security-policy.js";
+import { appLock } from "#lib/server/auth/app-lock.js";
+import { authService } from "#lib/server/auth/auth.js";
+import { securityPolicy } from "#lib/server/auth/security-policy.js";
 import {
 	appLockDelaySchema,
 	appLockSchema,
@@ -35,7 +31,7 @@ async function provesPasscode(
 		return false;
 	}
 	return (
-		signedInRecently(locals.session) ||
+		securityPolicy.signedInRecently(locals.session) ||
 		(currentPasscode !== undefined &&
 			(await appLock.matches(locals.user.id, currentPasscode)))
 	);
@@ -53,11 +49,13 @@ export const load = async ({ locals, parent }) => {
 	return {
 		twoFactorEnabled: locals.user?.twoFactorEnabled ?? false,
 		passkeys: PasskeyDTO.forUser(user.id).map((entry) => entry.toJSON()),
-		missing: locals.user ? missingFactors(locals.user) : [],
+		missing: locals.user ? securityPolicy.missingFactors(locals.user) : [],
 		hasPassword: hasPassword(user.id),
 		appLock: AppLockDTO.forUser(user.id)?.toJSON() ?? null,
 		appLockRemovable: appLock.canRemove(),
-		signedInRecently: locals.session ? signedInRecently(locals.session) : false,
+		signedInRecently: locals.session
+			? securityPolicy.signedInRecently(locals.session)
+			: false,
 		currentSessionId: locals.session?.id ?? "",
 		sessions: SessionDTO.forUser(user.id).map((entry) => entry.toJSON()),
 	};
@@ -84,7 +82,7 @@ export const actions = {
 		}
 		try {
 			if (existing) {
-				await getAuth().api.changePassword({
+				await authService.get().api.changePassword({
 					body: {
 						currentPassword,
 						newPassword: password,
@@ -93,10 +91,13 @@ export const actions = {
 					headers: request.headers,
 				});
 			} else {
-				if (!locals.session || !signedInRecently(locals.session)) {
-					return fail(403, { error: recentSignInMessage });
+				if (
+					!locals.session ||
+					!securityPolicy.signedInRecently(locals.session)
+				) {
+					return fail(403, { error: securityPolicy.recentSignInMessage });
 				}
-				await getAuth().api.setPassword({
+				await authService.get().api.setPassword({
 					body: { newPassword: password },
 					headers: request.headers,
 				});
@@ -113,7 +114,7 @@ export const actions = {
 			return fail(400, { errors: parsed.errors });
 		}
 		try {
-			const result = await getAuth().api.enableTwoFactor({
+			const result = await authService.get().api.enableTwoFactor({
 				body: { password: parsed.data.password },
 				headers: request.headers,
 			});
@@ -139,7 +140,7 @@ export const actions = {
 			return fail(400, { errors: parsed.errors });
 		}
 		try {
-			await getAuth().api.verifyTOTP({
+			await authService.get().api.verifyTOTP({
 				body: { code: parsed.data.code },
 				headers: request.headers,
 			});
@@ -157,7 +158,7 @@ export const actions = {
 			return fail(400, { errors: parsed.errors });
 		}
 		try {
-			await getAuth().api.disableTwoFactor({
+			await authService.get().api.disableTwoFactor({
 				body: { password: parsed.data.password },
 				headers: request.headers,
 			});
@@ -167,15 +168,15 @@ export const actions = {
 		}
 	},
 	deletePasskey: async ({ locals, request }) => {
-		if (!locals.session || !signedInRecently(locals.session)) {
-			return fail(403, { error: recentSignInMessage });
+		if (!locals.session || !securityPolicy.signedInRecently(locals.session)) {
+			return fail(403, { error: securityPolicy.recentSignInMessage });
 		}
 		const parsed = parseForm(passkeyIdSchema, await request.formData());
 		if (!parsed.success) {
 			return fail(400, { error: "Pick a passkey to remove." });
 		}
 		try {
-			await getAuth().api.deletePasskey({
+			await authService.get().api.deletePasskey({
 				body: { id: parsed.data.id },
 				headers: request.headers,
 			});

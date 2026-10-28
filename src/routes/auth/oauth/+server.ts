@@ -2,12 +2,12 @@ import { resolve } from "$app/paths";
 import { verifyOAuthQueryParams } from "@better-auth/oauth-provider";
 import { error, redirect } from "@sveltejs/kit";
 
-import { getAuth } from "#lib/server/auth.js";
+import { authService } from "#lib/server/auth/auth.js";
 
 const signatureParams = ["sig", "exp", "ba_iat", "ba_pl", "ba_param"];
 
 export const GET = async ({ locals, url }) => {
-	const { secret } = await getAuth().$context;
+	const { secret } = await authService.get().$context;
 	if (!(await verifyOAuthQueryParams(url.search.slice(1), secret))) {
 		error(400, "This sign-in link expired. Start again from your AI app.");
 	}

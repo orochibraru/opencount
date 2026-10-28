@@ -3,7 +3,7 @@ import { and, asc, eq, inArray, lte } from "drizzle-orm";
 import { BaseDTO } from "#lib/dto/base-dto.js";
 import type { ExpenseInput, ExpenseShareRow } from "#lib/dto/expense.js";
 import { nextOccurrence } from "#lib/recurrence.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import {
 	expense,
 	expenseShare,
@@ -51,7 +51,8 @@ type SelectedRow = Omit<RecurringExpenseRow, "shares"> & {
 function withShares(rows: SelectedRow[]): RecurringExpenseDTO[] {
 	const shares = new Map<string, ExpenseShareRow[]>();
 	if (rows.length > 0) {
-		for (const share of getDb()
+		for (const share of databaseConnection
+			.get()
 			.select()
 			.from(recurringShare)
 			.where(
@@ -100,7 +101,7 @@ export class RecurringExpenseDTO extends BaseDTO<RecurringExpenseRow> {
 		createdBy: string,
 	): RecurringExpenseDTO {
 		const anchorDay = Number(input.spentOn.slice(8, 10));
-		return getDb().transaction((transaction) => {
+		return databaseConnection.get().transaction((transaction) => {
 			const row = transaction
 				.insert(recurringExpense)
 				.values({
@@ -131,7 +132,8 @@ export class RecurringExpenseDTO extends BaseDTO<RecurringExpenseRow> {
 	/** The rules of `groupId`, next due first. */
 	static forGroup(groupId: string): RecurringExpenseDTO[] {
 		return withShares(
-			getDb()
+			databaseConnection
+				.get()
 				.select(columns)
 				.from(recurringExpense)
 				.where(eq(recurringExpense.groupId, groupId))
@@ -146,7 +148,8 @@ export class RecurringExpenseDTO extends BaseDTO<RecurringExpenseRow> {
 		id: string,
 	): RecurringExpenseDTO | undefined {
 		return withShares(
-			getDb()
+			databaseConnection
+				.get()
 				.select(columns)
 				.from(recurringExpense)
 				.where(
@@ -162,7 +165,8 @@ export class RecurringExpenseDTO extends BaseDTO<RecurringExpenseRow> {
 	/** The active rules with a copy due on or before `today`. */
 	static due(today: string): RecurringExpenseDTO[] {
 		return withShares(
-			getDb()
+			databaseConnection
+				.get()
 				.select(columns)
 				.from(recurringExpense)
 				.where(
@@ -192,7 +196,7 @@ export class RecurringExpenseDTO extends BaseDTO<RecurringExpenseRow> {
 				this.row.frequency,
 				this.row.anchorDay,
 			);
-			const landed = getDb().transaction((transaction) => {
+			const landed = databaseConnection.get().transaction((transaction) => {
 				const advanced = transaction
 					.update(recurringExpense)
 					.set({ nextOn })
@@ -249,7 +253,8 @@ export class RecurringExpenseDTO extends BaseDTO<RecurringExpenseRow> {
 		while (active && nextOn < today) {
 			nextOn = nextOccurrence(nextOn, this.row.frequency, this.row.anchorDay);
 		}
-		getDb()
+		databaseConnection
+			.get()
 			.update(recurringExpense)
 			.set({ active, nextOn })
 			.where(eq(recurringExpense.id, this.row.id))
@@ -260,7 +265,7 @@ export class RecurringExpenseDTO extends BaseDTO<RecurringExpenseRow> {
 
 	/** Deletes the rule; the copies it already added stay. */
 	delete(): void {
-		getDb().transaction((transaction) => {
+		databaseConnection.get().transaction((transaction) => {
 			transaction
 				.update(expense)
 				.set({ recurringId: null })

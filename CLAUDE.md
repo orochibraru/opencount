@@ -18,11 +18,11 @@ link or code (never for accounts with an authenticator app, which those would
 skip); email goes out over SMTP configured in the admin UI; push notifications
 go out from the worker through `web-push`, with VAPID keys made on first use and
 kept encrypted in the settings; receipt reading is optional and local: Tesseract
-in the image, run by the worker, its text parsed by `#lib/server/ocr.ts`; AI
-apps reach personal expenses over MCP at `/mcp`, behind better-auth's OAuth.
-Tailwind v4 and shadcn-svelte (vega, per-account accent, theme, font and
-corners), `bun lint` lints, `bun fmt` formats, prek runs every check as a git
-hook, mise pins the toolchain.
+in the image, run by the worker, its text parsed by
+`#lib/server/receipts/ocr.ts`; AI apps reach personal expenses over MCP at
+`/mcp`, behind better-auth's OAuth. Tailwind v4 and shadcn-svelte (vega,
+per-account accent, theme, font and corners), `bun lint` lints, `bun fmt`
+formats, prek runs every check as a git hook, mise pins the toolchain.
 
 ## How to work here
 
@@ -47,21 +47,21 @@ Each is a hard rule.
   `: PageServerLoad`, `: Actions` or `import type ... from "./$types"`. Shared
   modules under `#lib/` are typed explicitly.
 - Every signed-in page lives under `src/routes/(protected)/`, whose
-  `+layout.server.ts` sends signed-out visitors to sign-in through
-  `redirectToSignIn()`. Sign-in and sign-up live under `src/routes/auth/`.
+  `+layout.server.ts` sends signed-out visitors to `access.redirectToSignIn()`.
+  Sign-in and sign-up live under `src/routes/auth/`.
 - Redirects are thrown from `+layout.server.ts`, `+page.server.ts` and form
   actions, never from hooks. `hooks.server.ts` only populates `locals`, runs
   migrations and starts the worker in `init`, logs requests, sets the security
   headers, and hands better-auth its own API paths.
 - Loads under `(protected)/` start with `await parent()`
   (`guarded-loads.test.ts`), never re-check `locals.user`. Actions keep their
-  own guard; remote functions call `requireUser()`.
+  own guard; remote functions call `access.requireUser()`.
 - Admin is the `role` column on `user` (`admin` or `member`), declared to
   better-auth with `input: false` so no sign-up can set it. The first account,
   made by the setup flow, is the admin; admins promote and demote others from
   the users tab, never themselves. Admin routes live under `(protected)/admin/`,
   whose layout 404s anyone else, and every admin form action re-checks with
-  `adminFrom(locals)`.
+  `access.adminFrom(locals)`.
 - Accounts only come from the setup flow, the sign-up stepper (email,
   verification code, then name and password typed twice against
   `#lib/password-policy.ts`) or an admin invite; better-auth's public
@@ -71,13 +71,13 @@ Each is a hard rule.
   from the server log (printed at boot, reprintable), then the first account,
   which becomes the admin. Once an account exists the route sends visitors to
   sign-in and its actions refuse.
-- Missing factors and a locked session are `locals.gate` (`sessionGate()`):
-  `locals.user` stays null and `redirectToSignIn()` picks security or unlock.
-  better-auth answers HTTP only on `browserPaths`. Handing out access (passkeys,
-  passwords, emails, bank keys, roles) needs `signedInRecently()`.
+- `locals.gate` (`securityPolicy.sessionGate()`) holds missing factors or a
+  lock: `locals.user` stays null, `access.redirectToSignIn()` picks security or
+  unlock; better-auth answers HTTP only on `browserPaths`. Handing out access
+  needs `securityPolicy.signedInRecently()`.
 - Instance settings (sign-ups, required factors, SMTP, OCR) live in the
   `setting` table through `getSetting`/`setSetting`; secrets in them are
-  encrypted with `encryptSecret`, never sent back. Bank keys are per account.
+  encrypted with `secrets.encrypt`, never sent back. Bank keys are per account.
 - Group data is scoped to the group's members: a group id from the URL or a form
   is never trusted until membership is checked.
 - A tabbed page is one real route per tab under a `TabSection` layout, each tab
@@ -133,21 +133,21 @@ Each is a hard rule.
   pathname without the leading slash.
 - `handleError` handles `kind === "unknown"` only and never returns the real
   message.
-- `publicOrigin()` is `ORIGIN`, else the setting recorded at setup (Admin >
-  Access); auth, emails and passkeys use it, never a request's Host. Plain HTTP
-  without a proxy needs `ORIGIN`. `csrfHandler` accepts the request's origin or
-  `publicOrigin()`, Kit's check is off. Ignored in dev.
+- `authService.publicOrigin()` is `ORIGIN`, else the setting recorded at setup
+  (Admin > Access); auth, emails and passkeys use it, never a request's Host.
+  Plain HTTP without a proxy needs `ORIGIN`. `csrfHandler` accepts the request's
+  origin or the public one, Kit's check is off. Ignored in dev.
 - Environment variables are declared once in `src/env.ts` (`defineEnvVars`, a
   zod schema and a description each), typed by Kit's generated declaration and
-  read only from `$app/env/private` in `#lib/server/env.ts`, which builds the
-  `Config` that `instrumentation.server.ts` passes to `configure()`. Everything
-  else calls `getConfig()`. The worker never reads its environment: the server
-  sends it the same `Config` over IPC. `process.env`, `Bun.env` and
-  `import.meta.env` are a prek error.
+  read only from `$app/env/private` in `#lib/server/core/env.ts`, which builds
+  the `Config` that `instrumentation.server.ts` passes to `configuration.set()`.
+  Everything else calls `configuration.get()`; the worker gets the same `Config`
+  from the server over IPC. `process.env`, `Bun.env` and `import.meta.env` are a
+  prek error.
 - A file built for a person (export, backup) is a worker `download`, served to
   its owner only. Outbound HTTP: SMTP, OIDC, Frankfurter, Tricount, CIMD only.
-- Errors the user doesn't cause go through `reportError` (Sentry when
-  `SENTRY_DSN` is set); slow units of work get a `withSpan`.
+- Errors the user doesn't cause go through `telemetry.reportError` (Sentry when
+  `SENTRY_DSN` is set); slow units of work get a `telemetry.withSpan`.
 - CSS-only packages are devDependencies.
 - Logging through `Logger`, structured context as a plain object; `console.*` is
   a lint error.
@@ -159,9 +159,9 @@ Each is a hard rule.
   required JSDoc block above every class method and exported function (what it
   does, side effects, throws, never the types), one or two lines. Tool
   directives with a reason are fine.
-- Real OOP: a stateful service is an instance singleton, mixins when concerns
-  call each other behind one symbol, composition otherwise, plain functions for
-  stateless transforms; DTO static finders are the exception.
+- Real OOP: a `#lib/server/` module is a class exported as one singleton,
+  helpers `#private`; schemas, the job table and `Handle`s stay plain, a caller
+  builds per-use state (`EnableBankingClient`), DTOs keep static finders.
 - No abbreviated names.
 
 ## Reference notes

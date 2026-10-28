@@ -2,9 +2,9 @@ import { fail } from "@sveltejs/kit";
 import { z } from "zod";
 
 import { getSetting, setSetting, smtpSecurityModes } from "#lib/dto/setting.js";
-import { adminFrom } from "#lib/server/admin.js";
-import { queueEmail, testEmail } from "#lib/server/emails.js";
-import { encryptSecret } from "#lib/server/secrets.js";
+import { access } from "#lib/server/auth/access.js";
+import { secrets } from "#lib/server/core/secrets.js";
+import { emails } from "#lib/server/notifications/emails.js";
 import { emailSchema } from "#lib/server/validation/auth.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
@@ -40,7 +40,7 @@ export const load = async ({ parent }) => {
 
 export const actions = {
 	save: async ({ locals, request }) => {
-		const admin = adminFrom(locals);
+		const admin = access.adminFrom(locals);
 		if (!("id" in admin)) {
 			return admin;
 		}
@@ -51,24 +51,24 @@ export const actions = {
 		const { password, ...rest } = parsed.data;
 		const current = getSetting("smtp");
 		const encryptedPassword = password
-			? encryptSecret(password)
+			? secrets.encrypt(password)
 			: (current?.encryptedPassword ?? "");
 		setSetting("smtp", { ...rest, encryptedPassword });
 		return { saved: true };
 	},
 	test: ({ locals }) => {
-		const admin = adminFrom(locals);
+		const admin = access.adminFrom(locals);
 		if (!("id" in admin)) {
 			return admin;
 		}
 		if (!getSetting("smtp")) {
 			return fail(400, { error: "Save the SMTP settings first." });
 		}
-		queueEmail(testEmail(admin.email));
+		emails.queue(emails.test(admin.email));
 		return { queued: true };
 	},
 	remove: ({ locals }) => {
-		const admin = adminFrom(locals);
+		const admin = access.adminFrom(locals);
 		if (!("id" in admin)) {
 			return admin;
 		}

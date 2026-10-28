@@ -9,10 +9,10 @@ import { JobDTO } from "#lib/dto/job.js";
 import { MerchantDTO } from "#lib/dto/merchant.js";
 import { RecurringExpenseDTO } from "#lib/dto/recurring-expense.js";
 import { formatMoney } from "#lib/money.js";
-import { publicOrigin } from "#lib/server/auth.js";
-import { groupForMember } from "#lib/server/group-access.js";
-import { isOcrConfigured } from "#lib/server/ocr.js";
-import { readUploadedReceipt } from "#lib/server/receipt-upload.js";
+import { authService } from "#lib/server/auth/auth.js";
+import { groupAccess } from "#lib/server/expenses/group-access.js";
+import { receiptReader } from "#lib/server/receipts/ocr.js";
+import { receiptUpload } from "#lib/server/receipts/receipt-upload.js";
 import { parseExpenseForm } from "#lib/server/validation/expense.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
@@ -58,7 +58,7 @@ export const load = async ({ parent, url }) => {
 				? ExpenseDTO.summary(group.id, { category, search }, myMemberId)
 				: null,
 		merchants: MerchantDTO.forGroup(group.id).map((entry) => entry.toJSON()),
-		receiptsEnabled: isOcrConfigured(),
+		receiptsEnabled: receiptReader.isConfigured(),
 	};
 };
 
@@ -67,7 +67,7 @@ export const actions = {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
 		}
-		const { group } = groupForMember(params.groupId, locals.user.id);
+		const { group } = groupAccess.forMember(params.groupId, locals.user.id);
 		if (!group.inviteToken()) {
 			group.resetInvite();
 		}
@@ -77,7 +77,7 @@ export const actions = {
 					groupId: group.id,
 					token: group.inviteToken() ?? "",
 				}),
-				publicOrigin() ?? url.origin,
+				authService.publicOrigin() ?? url.origin,
 			).href,
 		};
 	},
@@ -85,7 +85,10 @@ export const actions = {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
 		}
-		const { group, members } = groupForMember(params.groupId, locals.user.id);
+		const { group, members } = groupAccess.forMember(
+			params.groupId,
+			locals.user.id,
+		);
 		const parsed = parseExpenseForm(await request.formData(), {
 			currency: group.currency,
 			memberIds: members.map((member) => member.id),
@@ -135,7 +138,10 @@ export const actions = {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
 		}
-		const { group, members } = groupForMember(params.groupId, locals.user.id);
+		const { group, members } = groupAccess.forMember(
+			params.groupId,
+			locals.user.id,
+		);
 		const formData = await request.formData();
 		const target = parseForm(expenseIdSchema, formData);
 		const existing =
@@ -184,7 +190,7 @@ export const actions = {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
 		}
-		const { group } = groupForMember(params.groupId, locals.user.id);
+		const { group } = groupAccess.forMember(params.groupId, locals.user.id);
 		const formData = await request.formData();
 		const parsed = applyCategorySchema.safeParse({
 			category: formData.get("category"),
@@ -210,7 +216,7 @@ export const actions = {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
 		}
-		const { group } = groupForMember(params.groupId, locals.user.id);
+		const { group } = groupAccess.forMember(params.groupId, locals.user.id);
 		const parsed = expenseIdSchema.safeParse(
 			Object.fromEntries(await request.formData()),
 		);
@@ -227,11 +233,11 @@ export const actions = {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
 		}
-		groupForMember(params.groupId, locals.user.id);
-		if (!isOcrConfigured()) {
+		groupAccess.forMember(params.groupId, locals.user.id);
+		if (!receiptReader.isConfigured()) {
 			return fail(400, { error: "Receipt reading is off on this server." });
 		}
-		const result = await readUploadedReceipt(await request.formData());
+		const result = await receiptUpload.read(await request.formData());
 		if ("error" in result) {
 			return fail(400, { error: result.error });
 		}

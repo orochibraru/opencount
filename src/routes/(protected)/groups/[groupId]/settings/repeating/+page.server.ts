@@ -2,7 +2,7 @@ import { fail } from "@sveltejs/kit";
 
 import { MerchantDTO } from "#lib/dto/merchant.js";
 import { RecurringExpenseDTO } from "#lib/dto/recurring-expense.js";
-import { groupForMember } from "#lib/server/group-access.js";
+import { groupAccess } from "#lib/server/expenses/group-access.js";
 import {
 	activeRuleSchema,
 	idSchema,
@@ -24,7 +24,7 @@ export const actions = {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
 		}
-		const { group } = groupForMember(params.groupId, locals.user.id);
+		const { group } = groupAccess.forMember(params.groupId, locals.user.id);
 		const parsed = parseForm(activeRuleSchema, await request.formData());
 		const rule =
 			parsed.success &&
@@ -40,7 +40,7 @@ export const actions = {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
 		}
-		const { group } = groupForMember(params.groupId, locals.user.id);
+		const { group } = groupAccess.forMember(params.groupId, locals.user.id);
 		const parsed = parseForm(idSchema, await request.formData());
 		const rule =
 			parsed.success &&

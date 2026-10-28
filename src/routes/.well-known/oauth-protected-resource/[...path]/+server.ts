@@ -1,3 +1,3 @@
-import { getAuth } from "#lib/server/auth.js";
+import { authService } from "#lib/server/auth/auth.js";
 
-export const GET = ({ request }) => getAuth().handler(request);
+export const GET = ({ request }) => authService.get().handler(request);

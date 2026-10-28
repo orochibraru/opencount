@@ -1,9 +1,9 @@
-import { type Config, configure } from "#lib/server/config.js";
-import { Logger } from "#lib/server/logger.js";
+import { type Config, configuration } from "#lib/server/core/config.js";
+import { Logger } from "#lib/server/core/logger.js";
 import {
-	isConfigMessage,
+	workerMessages,
 	type WorkerReadyMessage,
-} from "#lib/server/worker-messages.js";
+} from "#lib/server/worker/messages.js";
 
 import { isProcessAlive } from "./watchdog.js";
 
@@ -40,7 +40,7 @@ function receiveConfig(): Promise<Config> {
 			configTimeoutMs,
 		);
 		process.on("message", (message) => {
-			if (isConfigMessage(message)) {
+			if (workerMessages.isConfig(message)) {
 				clearTimeout(timeout);
 				resolve(message.config);
 			}
@@ -50,11 +50,11 @@ function receiveConfig(): Promise<Config> {
 }
 
 try {
-	configure(await receiveConfig());
+	configuration.set(await receiveConfig());
 	try {
-		const telemetry = await import("#lib/server/telemetry.js");
-		telemetry.startTelemetry("worker");
-		flushTelemetry = telemetry.flushTelemetry;
+		const { telemetry } = await import("#lib/server/core/telemetry.js");
+		telemetry.start("worker");
+		flushTelemetry = () => telemetry.flush();
 	} catch (error) {
 		logger.error("Telemetry failed to start, running without it", error);
 	}

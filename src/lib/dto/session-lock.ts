@@ -1,7 +1,7 @@
 import { and, eq, ne, sql } from "drizzle-orm";
 
 import { BaseDTO } from "#lib/dto/base-dto.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { session, sessionLock } from "#lib/server/db/schema.js";
 
 export interface SessionLockRow {
@@ -13,7 +13,8 @@ export interface SessionLockRow {
 export class SessionLockDTO extends BaseDTO<SessionLockRow> {
 	/** The lock state of `sessionId`, or `undefined` when it was never tracked. */
 	static forSession(sessionId: string): SessionLockDTO | undefined {
-		const row = getDb()
+		const row = databaseConnection
+			.get()
 			.select({
 				lastActiveAt: sessionLock.lastActiveAt,
 				locked: sessionLock.locked,
@@ -27,7 +28,8 @@ export class SessionLockDTO extends BaseDTO<SessionLockRow> {
 
 	/** Records activity on `sessionId` at `at`, creating its row if needed. */
 	static touch(sessionId: string, at: Date): void {
-		getDb()
+		databaseConnection
+			.get()
 			.insert(sessionLock)
 			.values({ sessionId, lastActiveAt: at })
 			.onConflictDoUpdate({
@@ -39,7 +41,8 @@ export class SessionLockDTO extends BaseDTO<SessionLockRow> {
 
 	/** Locks `sessionId` until its passcode is entered. */
 	static lock(sessionId: string): void {
-		getDb()
+		databaseConnection
+			.get()
 			.insert(sessionLock)
 			.values({ sessionId, lastActiveAt: new Date(), locked: true })
 			.onConflictDoUpdate({
@@ -52,13 +55,15 @@ export class SessionLockDTO extends BaseDTO<SessionLockRow> {
 	/** Locks every session of `userId` but `keepId`, so a new passcode is asked on their other devices. */
 	static lockOthers(userId: string, keepId: string): void {
 		const now = new Date();
-		const others = getDb()
+		const others = databaseConnection
+			.get()
 			.select({ id: session.id })
 			.from(session)
 			.where(and(eq(session.userId, userId), ne(session.id, keepId)))
 			.all();
 		for (const { id } of others) {
-			getDb()
+			databaseConnection
+				.get()
 				.insert(sessionLock)
 				.values({ sessionId: id, lastActiveAt: now, locked: true })
 				.onConflictDoUpdate({
@@ -71,7 +76,8 @@ export class SessionLockDTO extends BaseDTO<SessionLockRow> {
 
 	/** Unlocks `sessionId` and clears its failed attempts. */
 	static unlock(sessionId: string): void {
-		getDb()
+		databaseConnection
+			.get()
 			.update(sessionLock)
 			.set({ locked: false, failedAttempts: 0, lastActiveAt: new Date() })
 			.where(eq(sessionLock.sessionId, sessionId))
@@ -81,7 +87,8 @@ export class SessionLockDTO extends BaseDTO<SessionLockRow> {
 	/** Counts one wrong passcode on `sessionId` and returns the new total. */
 	static recordFailure(sessionId: string): number {
 		return (
-			getDb()
+			databaseConnection
+				.get()
 				.update(sessionLock)
 				.set({ failedAttempts: sql`${sessionLock.failedAttempts} + 1` })
 				.where(eq(sessionLock.sessionId, sessionId))

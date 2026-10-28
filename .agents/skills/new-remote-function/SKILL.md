@@ -2,12 +2,12 @@
 name: new-remote-function
 description: >-
   Workflow for adding a query or command under src/lib/remote/*.remote.ts
-  (SvelteKit remote functions): requireUser() auth plus a group membership
-  check, zod-validated arguments, the refresh-in-place versus one-shot
-  consumption split, and which data belongs here versus in a route's load. Use
-  when adding a panel that loads behind a skeleton, a poll, a picker's on-demand
-  lookup, or a small mutation a self-loading component fires; not for data a
-  page's own correctness depends on.
+  (SvelteKit remote functions): access.requireUser() auth plus a group
+  membership check, zod-validated arguments, the refresh-in-place versus
+  one-shot consumption split, and which data belongs here versus in a route's
+  load. Use when adding a panel that loads behind a skeleton, a poll, a picker's
+  on-demand lookup, or a small mutation a self-loading component fires; not for
+  data a page's own correctness depends on.
 ---
 
 # new-remote-function
@@ -22,21 +22,21 @@ it's a `load`.
 ## 2. File and auth
 
 A new or existing `src/lib/remote/<name>.remote.ts`. Every `query` and `command`
-starts with `requireUser()` (`#lib/server/remote-auth.ts`): a remote function is
-its own endpoint and never runs the `(protected)` layout's guard.
-`requireUser()` is also where an unauthenticated call redirects; nothing in
-`hooks.server.ts` does.
+starts with `access.requireUser()` (`#lib/server/auth/access.ts`): a remote
+function is its own endpoint and never runs the `(protected)` layout's guard.
+`access.requireUser()` is also where an unauthenticated call redirects; nothing
+in `hooks.server.ts` does.
 
 ```ts
 export const getGroupBalances = query(z.string(), async (groupId) => {
-  const user = requireUser();
+  const user = access.requireUser();
   ...
 });
 ```
 
 A function that takes a group id checks that the user is a member of that group
-before reading or writing anything: `requireUser()` alone lets any signed-in
-user read any group.
+before reading or writing anything: `access.requireUser()` alone lets any
+signed-in user read any group.
 
 ## 3. Validate arguments, don't cast
 

@@ -4,16 +4,12 @@ import { AppLockDTO } from "#lib/dto/app-lock.js";
 import { SessionLockDTO } from "#lib/dto/session-lock.js";
 import { SessionDTO } from "#lib/dto/session.js";
 import { setSetting } from "#lib/dto/setting.js";
-import { recentAdminFrom } from "#lib/server/admin.js";
-import { appLock } from "#lib/server/app-lock.js";
-import type { Session } from "#lib/server/auth.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { access } from "#lib/server/auth/access.js";
+import { appLock } from "#lib/server/auth/app-lock.js";
+import type { Session } from "#lib/server/auth/auth.js";
+import { securityPolicy } from "#lib/server/auth/security-policy.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { session } from "#lib/server/db/schema.js";
-import {
-	missingFactors,
-	sessionGate,
-	signedInRecently,
-} from "#lib/server/security-policy.js";
 
 import { createUser, resetDatabase } from "../../database.js";
 
@@ -21,7 +17,8 @@ function createSession(
 	id: string,
 	userId = "ada",
 ): { id: string; userId: string } {
-	getDb()
+	databaseConnection
+		.get()
 		.insert(session)
 		.values({
 			id,
@@ -114,7 +111,7 @@ describe("app lock storage", () => {
 		const current = createSession("one");
 		await appLock.save("ada", current.id, "123456", 5);
 		const fresh = createSession("fresh");
-		getDb().delete(session).run();
+		databaseConnection.get().delete(session).run();
 		createSession("fresh");
 		expect(appLock.isLocked(fresh)).toBe(false);
 		expect(SessionLockDTO.forSession(fresh.id)?.locked).toBe(false);
@@ -168,19 +165,26 @@ describe("session gate", () => {
 
 	test("lets a plain session through, gates a locked one and one missing a factor", async () => {
 		createSession("one");
-		expect(sessionGate(current("one"), "/(protected)")).toBeUndefined();
+		expect(
+			securityPolicy.sessionGate(current("one"), "/(protected)"),
+		).toBeUndefined();
 		setSetting("requireAppLock", true);
-		expect(missingFactors({ id: "ada" })).toEqual(["app-lock"]);
-		expect(sessionGate(current("one"), "/(protected)")).toEqual({
+		expect(securityPolicy.missingFactors({ id: "ada" })).toEqual(["app-lock"]);
+		expect(securityPolicy.sessionGate(current("one"), "/(protected)")).toEqual({
 			reason: "factors",
 			missing: ["app-lock"],
 		});
 		expect(
-			sessionGate(current("one"), "/(protected)/account/security"),
+			securityPolicy.sessionGate(
+				current("one"),
+				"/(protected)/account/security",
+			),
 		).toBeUndefined();
 		await appLock.save("ada", "one", "123456", 5);
 		appLock.lock("one");
-		expect(sessionGate(current("one"), "/(protected)")).toMatchObject({
+		expect(
+			securityPolicy.sessionGate(current("one"), "/(protected)"),
+		).toMatchObject({
 			reason: "locked",
 			sessionId: "one",
 		});
@@ -188,27 +192,36 @@ describe("session gate", () => {
 
 	test("a recent sign-in lasts 15 minutes, and admin grants need one", () => {
 		const now = Date.now();
-		expect(signedInRecently({ createdAt: new Date(now - 60_000) }, now)).toBe(
-			true,
-		);
 		expect(
-			signedInRecently({ createdAt: new Date(now - 16 * 60_000) }, now),
+			securityPolicy.signedInRecently(
+				{ createdAt: new Date(now - 60_000) },
+				now,
+			),
+		).toBe(true);
+		expect(
+			securityPolicy.signedInRecently(
+				{ createdAt: new Date(now - 16 * 60_000) },
+				now,
+			),
 		).toBe(false);
 		const admin = { id: "ada", role: "admin" } as unknown as Session["user"];
 		expect(
-			recentAdminFrom({
+			access.recentAdminFrom({
 				user: admin,
 				session: { createdAt: new Date() },
 			} as unknown as App.Locals),
 		).toBe(admin);
 		expect(
-			recentAdminFrom({
+			access.recentAdminFrom({
 				user: admin,
 				session: { createdAt: new Date(now - 3_600_000) },
 			} as unknown as App.Locals),
 		).toMatchObject({ status: 403 });
 		expect(
-			recentAdminFrom({ user: null, session: null } as unknown as App.Locals),
+			access.recentAdminFrom({
+				user: null,
+				session: null,
+			} as unknown as App.Locals),
 		).toMatchObject({ status: 403 });
 	});
 });

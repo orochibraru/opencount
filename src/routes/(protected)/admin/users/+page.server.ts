@@ -2,7 +2,7 @@ import { fail } from "@sveltejs/kit";
 import { z } from "zod";
 
 import { UserDTO } from "#lib/dto/user.js";
-import { adminFrom, recentAdminFrom } from "#lib/server/admin.js";
+import { access } from "#lib/server/auth/access.js";
 import { emailSchema } from "#lib/server/validation/auth.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
@@ -21,7 +21,7 @@ export const load = async ({ parent }) => {
 
 export const actions = {
 	promote: async ({ locals, request }) => {
-		const admin = recentAdminFrom(locals);
+		const admin = access.recentAdminFrom(locals);
 		if (!("id" in admin)) {
 			return admin;
 		}
@@ -33,7 +33,7 @@ export const actions = {
 		return { promoted: true };
 	},
 	demote: async ({ locals, request }) => {
-		const admin = adminFrom(locals);
+		const admin = access.adminFrom(locals);
 		if (!("id" in admin)) {
 			return admin;
 		}
@@ -50,7 +50,7 @@ export const actions = {
 		return { demoted: true };
 	},
 	revokeSessions: async ({ locals, request }) => {
-		const admin = adminFrom(locals);
+		const admin = access.adminFrom(locals);
 		if (!("id" in admin)) {
 			return admin;
 		}
@@ -62,7 +62,7 @@ export const actions = {
 		return { revoked: true };
 	},
 	changeEmail: async ({ locals, request }) => {
-		const admin = recentAdminFrom(locals);
+		const admin = access.recentAdminFrom(locals);
 		if (!("id" in admin)) {
 			return admin;
 		}
@@ -80,7 +80,7 @@ export const actions = {
 		return { emailChanged: true };
 	},
 	resetFactors: async ({ locals, request }) => {
-		const admin = recentAdminFrom(locals);
+		const admin = access.recentAdminFrom(locals);
 		if (!("id" in admin)) {
 			return admin;
 		}
@@ -97,7 +97,7 @@ export const actions = {
 		return { factorsReset: true };
 	},
 	delete: async ({ locals, request }) => {
-		const admin = recentAdminFrom(locals);
+		const admin = access.recentAdminFrom(locals);
 		if (!("id" in admin)) {
 			return admin;
 		}

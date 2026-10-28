@@ -1,7 +1,7 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 
 import { BaseDTO } from "#lib/dto/base-dto.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { merchant } from "#lib/server/db/schema.js";
 
 export interface MerchantRow {
@@ -19,7 +19,8 @@ const columns = {
 export class MerchantDTO extends BaseDTO<MerchantRow> {
 	/** The merchants `groupId` has paid, most used first. */
 	static forGroup(groupId: string): MerchantDTO[] {
-		return getDb()
+		return databaseConnection
+			.get()
 			.select(columns)
 			.from(merchant)
 			.where(eq(merchant.groupId, groupId))
@@ -31,7 +32,8 @@ export class MerchantDTO extends BaseDTO<MerchantRow> {
 
 	/** Merchant `id`, only when it belongs to `groupId`. */
 	static findInGroup(groupId: string, id: string): MerchantDTO | undefined {
-		const row = getDb()
+		const row = databaseConnection
+			.get()
 			.select(columns)
 			.from(merchant)
 			.where(and(eq(merchant.groupId, groupId), eq(merchant.id, id)))
@@ -41,7 +43,8 @@ export class MerchantDTO extends BaseDTO<MerchantRow> {
 
 	/** The merchant of `groupId` saved under `name`, whatever its case. */
 	static findByName(groupId: string, name: string): MerchantDTO | undefined {
-		const row = getDb()
+		const row = databaseConnection
+			.get()
 			.select(columns)
 			.from(merchant)
 			.where(
@@ -60,7 +63,8 @@ export class MerchantDTO extends BaseDTO<MerchantRow> {
 	 */
 	static remember(groupId: string, name: string, category: string): string {
 		const trimmed = name.trim();
-		return getDb()
+		return databaseConnection
+			.get()
 			.insert(merchant)
 			.values({
 				groupId,

@@ -3,20 +3,11 @@ import { fail, redirect } from "@sveltejs/kit";
 import { APIError } from "better-auth/api";
 
 import { UserDTO } from "#lib/dto/user.js";
-import { rememberPublicOrigin } from "#lib/server/auth.js";
-import { setupCodeAttempts } from "#lib/server/rate-limit.js";
-import {
-	issueSetupCode,
-	needsSetup,
-	SetupError,
-	verifySetupCode,
-} from "#lib/server/setup.js";
-import {
-	clearSetupTicket,
-	grantSetupTicket,
-	hasSetupTicket,
-} from "#lib/server/sign-up-cookies.js";
-import { createVerifiedAccount } from "#lib/server/sign-up.js";
+import { authService } from "#lib/server/auth/auth.js";
+import { rateLimits } from "#lib/server/auth/rate-limit.js";
+import { instanceSetup, SetupError } from "#lib/server/auth/setup.js";
+import { signUpCookies } from "#lib/server/auth/sign-up-cookies.js";
+import { signUp } from "#lib/server/auth/sign-up.js";
 import {
 	codeSchema,
 	emailSchema,
@@ -27,16 +18,18 @@ import { parseForm } from "#lib/server/validation/form.js";
 const alreadySetUp = "This server already has an admin. Sign in instead.";
 
 export const load = ({ cookies }) => ({
-	step: hasSetupTicket(cookies) ? ("account" as const) : ("code" as const),
+	step: signUpCookies.hasSetupTicket(cookies)
+		? ("account" as const)
+		: ("code" as const),
 });
 
 export const actions = {
 	newCode: () => {
-		if (!needsSetup()) {
+		if (!instanceSetup.needed()) {
 			return fail(400, { error: alreadySetUp });
 		}
 		try {
-			issueSetupCode();
+			instanceSetup.issueCode();
 			return { sent: true };
 		} catch (error) {
 			if (error instanceof SetupError) {
@@ -46,7 +39,7 @@ export const actions = {
 		}
 	},
 	verify: async ({ cookies, getClientAddress, request, url }) => {
-		if (!needsSetup()) {
+		if (!instanceSetup.needed()) {
 			return fail(400, { error: alreadySetUp });
 		}
 		const parsed = parseForm(codeSchema, await request.formData());
@@ -54,25 +47,25 @@ export const actions = {
 			return fail(400, { errors: parsed.errors });
 		}
 		const client = getClientAddress();
-		if (setupCodeAttempts.blocked(client)) {
+		if (rateLimits.setupCodeAttempts.blocked(client)) {
 			return fail(429, { error: "Too many tries. Wait an hour." });
 		}
-		setupCodeAttempts.hit(client);
-		if (!verifySetupCode(parsed.data.code)) {
+		rateLimits.setupCodeAttempts.hit(client);
+		if (!instanceSetup.verifyCode(parsed.data.code)) {
 			return fail(400, {
 				errors: {
 					code: ["That code isn't right, or it expired. Print a new one."],
 				},
 			});
 		}
-		grantSetupTicket(cookies, url);
+		signUpCookies.grantSetupTicket(cookies, url);
 		return { verified: true };
 	},
 	create: async ({ cookies, request, url }) => {
-		if (!needsSetup()) {
+		if (!instanceSetup.needed()) {
 			return fail(400, { error: alreadySetUp });
 		}
-		if (!hasSetupTicket(cookies)) {
+		if (!signUpCookies.hasSetupTicket(cookies)) {
 			return fail(400, { error: "Enter the setup code first." });
 		}
 		const formData = await request.formData();
@@ -84,9 +77,9 @@ export const actions = {
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
 		}
-		rememberPublicOrigin(url.origin);
+		authService.rememberPublicOrigin(url.origin);
 		try {
-			const userId = await createVerifiedAccount({
+			const userId = await signUp.createVerifiedAccount({
 				email: email.data,
 				name: parsed.data.name,
 				password: parsed.data.password,
@@ -101,7 +94,7 @@ export const actions = {
 			}
 			throw error;
 		}
-		clearSetupTicket(cookies);
+		signUpCookies.clearSetupTicket(cookies);
 		redirect(303, resolve("/(protected)/admin/overview"));
 	},
 };

@@ -1,10 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import {
-	fetchTricount,
-	parseTricount,
-	tricountKey,
-} from "#lib/server/tricount.js";
+import { tricountImporter } from "#lib/server/expenses/tricount.js";
 
 const link = Bun.env.TRICOUNT_TEST_LINK ?? "";
 
@@ -30,10 +26,10 @@ function cents(value: string): number {
 
 describe.skipIf(!link)("a real Tricount share link", () => {
 	test("imports with the balances Tricount itself has", async () => {
-		const key = tricountKey(link);
+		const key = tricountImporter.key(link);
 		expect(key).toBeDefined();
-		const raw = await fetchTricount(key ?? "");
-		const imported = parseTricount(raw);
+		const raw = await tricountImporter.fetch(key ?? "");
+		const imported = tricountImporter.parse(raw);
 		expect(imported.entries.length).toBeGreaterThan(0);
 		expect(imported.participants.length).toBeGreaterThan(0);
 

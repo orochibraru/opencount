@@ -4,15 +4,11 @@ import { APIError } from "better-auth/api";
 import { z } from "zod";
 
 import { getSetting } from "#lib/dto/setting.js";
-import { getAuth } from "#lib/server/auth.js";
-import { safeRedirectTarget } from "#lib/server/guards.js";
-import { isEmailConfigured } from "#lib/server/mailer.js";
-import {
-	addressAttempts,
-	mayEmail,
-	passwordAttempts,
-} from "#lib/server/rate-limit.js";
-import { enabledSignInMethods } from "#lib/server/sign-in-methods.js";
+import { access } from "#lib/server/auth/access.js";
+import { authService } from "#lib/server/auth/auth.js";
+import { rateLimits } from "#lib/server/auth/rate-limit.js";
+import { signInMethods } from "#lib/server/auth/sign-in-methods.js";
+import { mailer } from "#lib/server/notifications/mailer.js";
 import {
 	emailCodeSignInSchema,
 	emailSignInSchema,
@@ -23,10 +19,10 @@ import { parseForm } from "#lib/server/validation/form.js";
 const ssoSchema = z.object({ provider: z.string().min(1) });
 
 export const load = ({ url }) => ({
-	redirectTo: safeRedirectTarget(url),
+	redirectTo: access.safeRedirectTarget(url),
 	signUpsOpen: getSetting("signUpsEnabled"),
-	methods: enabledSignInMethods(),
-	passwordReset: getSetting("passwordSignIn") && isEmailConfigured(),
+	methods: signInMethods.enabled(),
+	passwordReset: getSetting("passwordSignIn") && mailer.isConfigured(),
 });
 
 export const actions = {
@@ -37,23 +33,26 @@ export const actions = {
 		}
 		const account = parsed.data.email.toLowerCase();
 		const address = getClientAddress();
-		if (passwordAttempts.blocked(account) || addressAttempts.blocked(address)) {
+		if (
+			rateLimits.passwordAttempts.blocked(account) ||
+			rateLimits.addressAttempts.blocked(address)
+		) {
 			return fail(429, {
 				error: "Too many tries. Wait 15 minutes, or reset your password.",
 			});
 		}
 		let result: Awaited<
-			ReturnType<ReturnType<typeof getAuth>["api"]["signInEmail"]>
+			ReturnType<ReturnType<typeof authService.get>["api"]["signInEmail"]>
 		>;
 		try {
-			result = await getAuth().api.signInEmail({
+			result = await authService.get().api.signInEmail({
 				body: parsed.data,
 				headers: request.headers,
 			});
 		} catch (error) {
 			if (error instanceof APIError) {
-				passwordAttempts.hit(account);
-				addressAttempts.hit(address);
+				rateLimits.passwordAttempts.hit(account);
+				rateLimits.addressAttempts.hit(address);
 				return fail(400, {
 					error:
 						error.status === "FORBIDDEN"
@@ -63,33 +62,33 @@ export const actions = {
 			}
 			throw error;
 		}
-		passwordAttempts.reset(account);
+		rateLimits.passwordAttempts.reset(account);
 		if ("twoFactorRedirect" in result && result.twoFactorRedirect) {
 			redirect(
 				303,
-				`${resolve("/auth/two-factor")}?redirectTo=${encodeURIComponent(safeRedirectTarget(url))}`,
+				`${resolve("/auth/two-factor")}?redirectTo=${encodeURIComponent(access.safeRedirectTarget(url))}`,
 			);
 		}
-		redirect(303, safeRedirectTarget(url));
+		redirect(303, access.safeRedirectTarget(url));
 	},
 	emailLink: async ({ getClientAddress, request, url }) => {
-		if (!enabledSignInMethods().magicLink) {
+		if (!signInMethods.enabled().magicLink) {
 			return fail(400, { error: "That sign-in method is turned off." });
 		}
 		const parsed = parseForm(emailSignInSchema, await request.formData());
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
 		}
-		if (!mayEmail(parsed.data.email, getClientAddress())) {
+		if (!rateLimits.mayEmail(parsed.data.email, getClientAddress())) {
 			return fail(429, {
 				error: "Too many emails asked for. Wait a while and try again.",
 			});
 		}
 		try {
-			await getAuth().api.signInMagicLink({
+			await authService.get().api.signInMagicLink({
 				body: {
 					email: parsed.data.email,
-					callbackURL: safeRedirectTarget(url),
+					callbackURL: access.safeRedirectTarget(url),
 					errorCallbackURL: `${resolve("/auth/sign-in")}?link=expired`,
 				},
 				headers: request.headers,
@@ -108,20 +107,20 @@ export const actions = {
 		return { linkSent: parsed.data.email };
 	},
 	emailCode: async ({ getClientAddress, request }) => {
-		if (!enabledSignInMethods().emailCode) {
+		if (!signInMethods.enabled().emailCode) {
 			return fail(400, { error: "That sign-in method is turned off." });
 		}
 		const parsed = parseForm(emailSignInSchema, await request.formData());
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
 		}
-		if (!mayEmail(parsed.data.email, getClientAddress())) {
+		if (!rateLimits.mayEmail(parsed.data.email, getClientAddress())) {
 			return fail(429, {
 				error: "Too many emails asked for. Wait a while and try again.",
 			});
 		}
 		try {
-			await getAuth().api.sendVerificationOTP({
+			await authService.get().api.sendVerificationOTP({
 				body: { email: parsed.data.email, type: "sign-in" },
 				headers: request.headers,
 			});
@@ -139,7 +138,7 @@ export const actions = {
 		return { codeSent: parsed.data.email };
 	},
 	verifyCode: async ({ request, url }) => {
-		if (!enabledSignInMethods().emailCode) {
+		if (!signInMethods.enabled().emailCode) {
 			return fail(400, { error: "That sign-in method is turned off." });
 		}
 		const parsed = parseForm(emailCodeSignInSchema, await request.formData());
@@ -147,7 +146,7 @@ export const actions = {
 			return fail(400, { errors: parsed.errors });
 		}
 		try {
-			await getAuth().api.signInEmailOTP({
+			await authService.get().api.signInEmailOTP({
 				body: { email: parsed.data.email, otp: parsed.data.code },
 				headers: request.headers,
 			});
@@ -165,24 +164,24 @@ export const actions = {
 			}
 			throw error;
 		}
-		redirect(303, safeRedirectTarget(url));
+		redirect(303, access.safeRedirectTarget(url));
 	},
 	sso: async ({ request, url }) => {
 		const parsed = parseForm(ssoSchema, await request.formData());
 		if (
 			!parsed.success ||
-			!enabledSignInMethods().sso.some(
-				(provider) => provider.id === parsed.data.provider,
-			)
+			!signInMethods
+				.enabled()
+				.sso.some((provider) => provider.id === parsed.data.provider)
 		) {
 			return fail(400, { error: "That sign-in method is turned off." });
 		}
 		let target: string | undefined;
 		try {
-			const result = await getAuth().api.signInSocial({
+			const result = await authService.get().api.signInSocial({
 				body: {
 					provider: parsed.data.provider,
-					callbackURL: safeRedirectTarget(url),
+					callbackURL: access.safeRedirectTarget(url),
 					errorCallbackURL: resolve("/auth/sign-in"),
 				},
 				headers: request.headers,

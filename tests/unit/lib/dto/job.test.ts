@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 
 import { JobDTO } from "#lib/dto/job.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { job } from "#lib/server/db/schema.js";
 
 import { resetDatabase } from "../../database.js";
@@ -9,7 +9,8 @@ import { resetDatabase } from "../../database.js";
 const payload = { olderThanDays: 7 };
 
 function rowOf(id: number) {
-	return getDb()
+	return databaseConnection
+		.get()
 		.select()
 		.from(job)
 		.all()

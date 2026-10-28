@@ -1,8 +1,8 @@
 import "reflect-metadata";
 
-import { configure } from "#lib/server/config.js";
-import { configFromEnv } from "#lib/server/env.js";
-import { startTelemetry } from "#lib/server/telemetry.js";
+import { configuration } from "#lib/server/core/config.js";
+import { environmentConfig } from "#lib/server/core/env.js";
+import { telemetry } from "#lib/server/core/telemetry.js";
 
-configure(configFromEnv());
-startTelemetry("server");
+configuration.set(environmentConfig.build());
+telemetry.start("server");

@@ -15,7 +15,7 @@ import {
 
 import { BaseDTO } from "#lib/dto/base-dto.js";
 import { monthStartOn, shiftMonth } from "#lib/pay-month.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import {
 	bankConnection,
 	expense,
@@ -99,7 +99,8 @@ export interface PersonalStats {
 }
 
 function select() {
-	return getDb()
+	return databaseConnection
+		.get()
 		.select({
 			id: personalExpense.id,
 			description: personalExpense.description,
@@ -182,7 +183,8 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 				.all()
 				.map((row) => new PersonalExpenseDTO(toRow(row))),
 			total:
-				getDb()
+				databaseConnection
+					.get()
 					.select({ total: count() })
 					.from(personalExpense)
 					.where(scope)
@@ -202,7 +204,7 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 			today = new Date().toISOString().slice(0, 10),
 		}: { startDay?: number; today?: string } = {},
 	): PersonalStats {
-		const database = getDb();
+		const database = databaseConnection.get();
 		const matching = visible(userId, filter);
 		const spent = and(matching, eq(personalExpense.kind, "expense"));
 		const scope = and(spent, eq(personalExpense.aside, false));
@@ -274,7 +276,8 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 	/** The oldest day each of `userId`'s bank links brought a line for, keyed by link id: how far back its history goes. */
 	static historyFromBank(userId: string): Record<string, string> {
 		return Object.fromEntries(
-			getDb()
+			databaseConnection
+				.get()
 				.select({
 					connectionId: personalExpense.bankConnectionId,
 					oldest: sql<string>`min(${personalExpense.spentOn})`,
@@ -294,7 +297,8 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 
 	/** Every expense of `userId`, oldest first, reduced to what spending charts need. */
 	static spending(userId: string): SpendingRow[] {
-		return getDb()
+		return databaseConnection
+			.get()
 			.select({
 				description: personalExpense.description,
 				category: personalExpense.category,
@@ -314,7 +318,8 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 	/** For each description `userId` filed outside Other (keyed by `similarKey`), the category they used most. */
 	static categoryHistory(userId: string): Map<string, string> {
 		const counts = new Map<string, Map<string, number>>();
-		for (const row of getDb()
+		for (const row of databaseConnection
+			.get()
 			.select({
 				description: personalExpense.description,
 				category: personalExpense.category,
@@ -347,7 +352,7 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 		userId: string,
 		guess: (description: string) => string | undefined,
 	): number {
-		const database = getDb();
+		const database = databaseConnection.get();
 		let moved = 0;
 		database.transaction((transaction) => {
 			for (const row of transaction
@@ -383,7 +388,7 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 		userId: string,
 		isAside: (description: string) => boolean,
 	): number {
-		const database = getDb();
+		const database = databaseConnection.get();
 		let marked = 0;
 		database.transaction((transaction) => {
 			for (const row of transaction
@@ -457,7 +462,8 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 		if (ids.length === 0) {
 			return 0;
 		}
-		return getDb()
+		return databaseConnection
+			.get()
 			.update(personalExpense)
 			.set({ category })
 			.where(
@@ -472,7 +478,8 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 
 	/** Records an expense `userId` typed in. */
 	static create(userId: string, input: PersonalExpenseInput): string {
-		return getDb()
+		return databaseConnection
+			.get()
 			.insert(personalExpense)
 			.values({ ...input, userId })
 			.returning({ id: personalExpense.id })
@@ -488,7 +495,8 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 		if (expenses.length === 0) {
 			return 0;
 		}
-		return getDb()
+		return databaseConnection
+			.get()
 			.insert(personalExpense)
 			.values(
 				expenses.map((entry) => ({
@@ -506,7 +514,8 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 
 	/** Moves `userId`'s lines of bank account `fromUid` to `toUid`, its uid under a new consent, references included. */
 	static moveBankAccount(userId: string, fromUid: string, toUid: string): void {
-		getDb()
+		databaseConnection
+			.get()
 			.update(personalExpense)
 			.set({
 				bankAccountUid: toUid,
@@ -527,7 +536,8 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 
 	/** Replaces the expense's fields. */
 	update(input: PersonalExpenseInput): void {
-		getDb()
+		databaseConnection
+			.get()
 			.update(personalExpense)
 			.set({ folderId: null, ...input })
 			.where(eq(personalExpense.id, this.row.id))
@@ -536,7 +546,8 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 
 	/** Moves the expense into folder `folderId`, or out of every folder when null. */
 	moveTo(folderId: string | null): void {
-		getDb()
+		databaseConnection
+			.get()
 			.update(personalExpense)
 			.set({ folderId })
 			.where(eq(personalExpense.id, this.row.id))
@@ -545,7 +556,8 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 
 	/** Remembers the group expense this one was split into. */
 	markShared(expenseId: string): void {
-		getDb()
+		databaseConnection
+			.get()
 			.update(personalExpense)
 			.set({ sharedExpenseId: expenseId })
 			.where(eq(personalExpense.id, this.row.id))
@@ -559,13 +571,14 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 	delete(): void {
 		const scope = eq(personalExpense.id, this.row.id);
 		if (this.row.fromBank) {
-			getDb()
+			databaseConnection
+				.get()
 				.update(personalExpense)
 				.set({ hiddenAt: new Date() })
 				.where(scope)
 				.run();
 		} else {
-			getDb().delete(personalExpense).where(scope).run();
+			databaseConnection.get().delete(personalExpense).where(scope).run();
 		}
 	}
 }

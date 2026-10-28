@@ -7,7 +7,7 @@ import { ExpenseDTO } from "#lib/dto/expense.js";
 import { GroupMemberDTO } from "#lib/dto/group-member.js";
 import { GroupDTO } from "#lib/dto/group.js";
 import { homePages } from "#lib/server/db/schema.js";
-import { groupForMember } from "#lib/server/group-access.js";
+import { groupAccess } from "#lib/server/expenses/group-access.js";
 import { parseForm } from "#lib/server/validation/form.js";
 import { newGroupSchema } from "#lib/server/validation/group.js";
 
@@ -81,7 +81,7 @@ export const actions = {
 		if (!parsed.success) {
 			return fail(400, { error: "Pick a group." });
 		}
-		const { group } = groupForMember(parsed.data.id, locals.user.id);
+		const { group } = groupAccess.forMember(parsed.data.id, locals.user.id);
 		if (!group.isOwnedBy(locals.user.id)) {
 			return fail(403, {
 				error: "Only the person who created the group can delete it.",

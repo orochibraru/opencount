@@ -1,16 +1,16 @@
 import { describe, expect, test } from "bun:test";
 
-import { mcpResource } from "#lib/server/auth.js";
+import { authService } from "#lib/server/auth/auth.js";
 
 describe("mcpResource", () => {
 	test("serves AI apps over HTTPS, or localhost while developing", () => {
-		expect(mcpResource("https://money.example")).toBe(
+		expect(authService.mcpResource("https://money.example")).toBe(
 			"https://money.example/mcp",
 		);
-		expect(mcpResource("http://localhost:5173")).toBe(
+		expect(authService.mcpResource("http://localhost:5173")).toBe(
 			"http://localhost:5173/mcp",
 		);
-		expect(mcpResource("http://192.168.1.20:3000")).toBeUndefined();
-		expect(mcpResource(undefined)).toBeUndefined();
+		expect(authService.mcpResource("http://192.168.1.20:3000")).toBeUndefined();
+		expect(authService.mcpResource(undefined)).toBeUndefined();
 	});
 });

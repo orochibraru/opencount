@@ -1,7 +1,7 @@
 import { and, asc, count, eq, isNull } from "drizzle-orm";
 
 import { BaseDTO } from "#lib/dto/base-dto.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { personalExpense, personalFolder } from "#lib/server/db/schema.js";
 
 export interface PersonalFolderRow {
@@ -13,7 +13,8 @@ export interface PersonalFolderRow {
 export class PersonalFolderDTO extends BaseDTO<PersonalFolderRow> {
 	/** `userId`'s folders, oldest first, with how many expenses each holds. */
 	static forUser(userId: string): PersonalFolderDTO[] {
-		return getDb()
+		return databaseConnection
+			.get()
 			.select({
 				id: personalFolder.id,
 				name: personalFolder.name,
@@ -44,7 +45,8 @@ export class PersonalFolderDTO extends BaseDTO<PersonalFolderRow> {
 
 	/** Makes a folder called `name` for `userId` and returns its id. */
 	static create(userId: string, name: string): string {
-		return getDb()
+		return databaseConnection
+			.get()
 			.insert(personalFolder)
 			.values({ userId, name })
 			.returning({ id: personalFolder.id })
@@ -57,7 +59,8 @@ export class PersonalFolderDTO extends BaseDTO<PersonalFolderRow> {
 
 	/** Renames the folder. */
 	rename(name: string): void {
-		getDb()
+		databaseConnection
+			.get()
 			.update(personalFolder)
 			.set({ name })
 			.where(eq(personalFolder.id, this.row.id))
@@ -66,7 +69,7 @@ export class PersonalFolderDTO extends BaseDTO<PersonalFolderRow> {
 
 	/** Deletes the folder; its expenses stay, out of any folder, in one transaction. */
 	delete(): void {
-		getDb().transaction((transaction) => {
+		databaseConnection.get().transaction((transaction) => {
 			transaction
 				.update(personalExpense)
 				.set({ folderId: null })

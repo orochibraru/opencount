@@ -1,7 +1,7 @@
 import { and, count, desc, eq, inArray, ne, or, sql, sum } from "drizzle-orm";
 
 import { BaseDTO } from "#lib/dto/base-dto.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import {
 	expense,
 	type expenseKinds,
@@ -52,7 +52,8 @@ function sharesFor(expenseIds: string[]): Map<string, ExpenseShareRow[]> {
 	if (expenseIds.length === 0) {
 		return byExpense;
 	}
-	const rows = getDb()
+	const rows = databaseConnection
+		.get()
 		.select()
 		.from(expenseShare)
 		.where(inArray(expenseShare.expenseId, expenseIds))
@@ -106,7 +107,8 @@ function matching(groupId: string, { category, search, kind }: ExpenseFilter) {
 					sql`lower(${expense.description}) like ${pattern} escape '\\'`,
 					inArray(
 						expense.merchantId,
-						getDb()
+						databaseConnection
+							.get()
 							.select({ id: merchant.id })
 							.from(merchant)
 							.where(
@@ -124,7 +126,8 @@ function matching(groupId: string, { category, search, kind }: ExpenseFilter) {
 export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 	/** Every expense and transfer of `groupId`, newest first, with its shares. */
 	static forGroup(groupId: string): ExpenseDTO[] {
-		const rows = getDb()
+		const rows = databaseConnection
+			.get()
 			.select(columns)
 			.from(expense)
 			.where(eq(expense.groupId, groupId))
@@ -139,7 +142,8 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 	/** Whether `groupId` already recorded the expense a device submitted as `clientId`, so a retry can be ignored. */
 	static hasClientId(groupId: string, clientId: string): boolean {
 		return (
-			getDb()
+			databaseConnection
+				.get()
 				.select({ id: expense.id })
 				.from(expense)
 				.where(
@@ -163,7 +167,7 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 		}: { limit: number; offset?: number } & ExpenseFilter,
 	): { entries: ExpenseDTO[]; total: number } {
 		const scope = matching(groupId, filter);
-		const database = getDb();
+		const database = databaseConnection.get();
 		const rows = database
 			.select(columns)
 			.from(expense)
@@ -193,7 +197,8 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 		category: string,
 	): ExpenseDTO[] {
 		const key = similarKey(source.description);
-		return getDb()
+		return databaseConnection
+			.get()
 			.select(columns)
 			.from(expense)
 			.where(
@@ -218,7 +223,8 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 	/** The category each description of `groupId` is filed under most often, by `similarKey`, Other left out. */
 	static categoryHistory(groupId: string): Map<string, string> {
 		const counts = new Map<string, Map<string, number>>();
-		for (const row of getDb()
+		for (const row of databaseConnection
+			.get()
 			.select({ description: expense.description, category: expense.category })
 			.from(expense)
 			.where(
@@ -253,7 +259,8 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 		if (ids.length === 0) {
 			return 0;
 		}
-		return getDb()
+		return databaseConnection
+			.get()
 			.update(expense)
 			.set({ merchantId })
 			.where(
@@ -276,7 +283,8 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 		if (ids.length === 0) {
 			return 0;
 		}
-		return getDb()
+		return databaseConnection
+			.get()
 			.update(expense)
 			.set({ category })
 			.where(
@@ -299,7 +307,7 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 		filter: ExpenseFilter,
 		memberId: string | null,
 	): { spentMinor: number; balanceMinor: number } {
-		const database = getDb();
+		const database = databaseConnection.get();
 		const scope = matching(groupId, filter);
 		const total = (value: unknown) => Number(value ?? 0);
 		const spentMinor = total(
@@ -333,7 +341,8 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 	/** What `groupId` spent in all, transfers left out. */
 	static spentTotal(groupId: string): number {
 		return Number(
-			getDb()
+			databaseConnection
+				.get()
 				.select({ total: sum(expense.amountMinor) })
 				.from(expense)
 				.where(and(eq(expense.groupId, groupId), eq(expense.kind, "expense")))
@@ -346,7 +355,7 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 	 * database instead of loading every expense.
 	 */
 	static balances(groupId: string, memberIds: string[]): Map<string, number> {
-		const database = getDb();
+		const database = databaseConnection.get();
 		const balances = new Map(memberIds.map((memberId) => [memberId, 0]));
 		for (const row of database
 			.select({
@@ -379,7 +388,8 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 		groupId: string,
 		expenseId: string,
 	): ExpenseDTO | undefined {
-		const row = getDb()
+		const row = databaseConnection
+			.get()
 			.select(columns)
 			.from(expense)
 			.where(and(eq(expense.groupId, groupId), eq(expense.id, expenseId)))
@@ -399,7 +409,7 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 		createdBy: string,
 		clientId?: string,
 	): ExpenseDTO {
-		return getDb().transaction((transaction) => {
+		return databaseConnection.get().transaction((transaction) => {
 			const { shares, ...fields } = input;
 			const row = transaction
 				.insert(expense)
@@ -424,7 +434,7 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 		createdBy: string,
 		newMembers: Record<string, string> = {},
 	): number {
-		getDb().transaction((transaction) => {
+		databaseConnection.get().transaction((transaction) => {
 			const ids = new Map<string, string>();
 			for (const [placeholder, displayName] of Object.entries(newMembers)) {
 				const member = transaction
@@ -472,7 +482,7 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 			merchantId: string | null,
 		) => string | undefined,
 	): number {
-		const database = getDb();
+		const database = databaseConnection.get();
 		let moved = 0;
 		database.transaction((transaction) => {
 			for (const row of transaction
@@ -510,7 +520,7 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 
 	/** Replaces the expense's fields and shares, in one transaction. */
 	update(input: ExpenseInput): void {
-		getDb().transaction((transaction) => {
+		databaseConnection.get().transaction((transaction) => {
 			const { shares, ...fields } = input;
 			transaction
 				.update(expense)
@@ -530,6 +540,10 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 
 	/** Deletes the expense and its shares. */
 	delete(): void {
-		getDb().delete(expense).where(eq(expense.id, this.row.id)).run();
+		databaseConnection
+			.get()
+			.delete(expense)
+			.where(eq(expense.id, this.row.id))
+			.run();
 	}
 }

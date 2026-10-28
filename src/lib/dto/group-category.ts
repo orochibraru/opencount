@@ -2,7 +2,7 @@ import { and, asc, count, eq } from "drizzle-orm";
 
 import type { CustomCategory } from "#lib/categories.js";
 import { BaseDTO } from "#lib/dto/base-dto.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import {
 	expense,
 	groupCategory,
@@ -19,7 +19,8 @@ const columns = {
 export class GroupCategoryDTO extends BaseDTO<CustomCategory> {
 	/** The categories `groupId` added, oldest first. */
 	static forGroup(groupId: string): GroupCategoryDTO[] {
-		return getDb()
+		return databaseConnection
+			.get()
 			.select(columns)
 			.from(groupCategory)
 			.where(eq(groupCategory.groupId, groupId))
@@ -33,7 +34,8 @@ export class GroupCategoryDTO extends BaseDTO<CustomCategory> {
 		groupId: string,
 		id: string,
 	): GroupCategoryDTO | undefined {
-		const row = getDb()
+		const row = databaseConnection
+			.get()
 			.select(columns)
 			.from(groupCategory)
 			.where(and(eq(groupCategory.groupId, groupId), eq(groupCategory.id, id)))
@@ -44,7 +46,8 @@ export class GroupCategoryDTO extends BaseDTO<CustomCategory> {
 	/** Adds a category to `groupId`. */
 	static create(groupId: string, name: string, icon: string): GroupCategoryDTO {
 		return new GroupCategoryDTO(
-			getDb()
+			databaseConnection
+				.get()
 				.insert(groupCategory)
 				.values({ groupId, name, icon })
 				.returning(columns)
@@ -55,7 +58,8 @@ export class GroupCategoryDTO extends BaseDTO<CustomCategory> {
 	/** How many expenses of `groupId` sit in each category, built-in or not. */
 	static usage(groupId: string): Record<string, number> {
 		return Object.fromEntries(
-			getDb()
+			databaseConnection
+				.get()
 				.select({ category: expense.category, total: count() })
 				.from(expense)
 				.where(and(eq(expense.groupId, groupId), eq(expense.kind, "expense")))
@@ -71,7 +75,8 @@ export class GroupCategoryDTO extends BaseDTO<CustomCategory> {
 
 	/** Renames the category and changes its icon. */
 	update(name: string, icon: string): void {
-		getDb()
+		databaseConnection
+			.get()
 			.update(groupCategory)
 			.set({ name, icon })
 			.where(eq(groupCategory.id, this.row.id))
@@ -80,7 +85,7 @@ export class GroupCategoryDTO extends BaseDTO<CustomCategory> {
 
 	/** Deletes the category; its expenses, repeating expenses and merchants move to Other. One transaction. */
 	delete(): void {
-		getDb().transaction((transaction) => {
+		databaseConnection.get().transaction((transaction) => {
 			for (const table of [expense, recurringExpense, merchant]) {
 				transaction
 					.update(table)

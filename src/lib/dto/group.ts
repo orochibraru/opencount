@@ -1,9 +1,9 @@
 import { and, count, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 
 import { BaseDTO } from "#lib/dto/base-dto.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { secrets } from "#lib/server/core/secrets.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { expense, group, groupMember } from "#lib/server/db/schema.js";
-import { hashToken, randomToken } from "#lib/server/secrets.js";
 
 export interface GroupRow {
 	id: string;
@@ -22,11 +22,12 @@ export interface NewGroup {
 }
 
 function inviteToken(groupId: string, nonce: string): string {
-	return hashToken(`group-invite:${groupId}:${nonce}`);
+	return secrets.hashToken(`group-invite:${groupId}:${nonce}`);
 }
 
 function memberCounts() {
-	return getDb()
+	return databaseConnection
+		.get()
 		.select({
 			groupId: groupMember.groupId,
 			memberCount: count().as("member_count"),
@@ -40,7 +41,8 @@ export class GroupDTO extends BaseDTO<GroupRow> {
 	/** The groups `userId` is a member of and hasn't archived (or only the archived ones), newest first. */
 	static forMember(userId: string, { archived = false } = {}): GroupDTO[] {
 		const counts = memberCounts();
-		return getDb()
+		return databaseConnection
+			.get()
 			.select({
 				id: group.id,
 				name: group.name,
@@ -71,7 +73,8 @@ export class GroupDTO extends BaseDTO<GroupRow> {
 	/** Group `groupId`, only when `userId` is one of its members. */
 	static findForMember(groupId: string, userId: string): GroupDTO | undefined {
 		const counts = memberCounts();
-		const row = getDb()
+		const row = databaseConnection
+			.get()
 			.select({
 				id: group.id,
 				name: group.name,
@@ -99,7 +102,8 @@ export class GroupDTO extends BaseDTO<GroupRow> {
 		groupId: string,
 		token: string,
 	): { id: string; name: string; currency: string } | undefined {
-		const row = getDb()
+		const row = databaseConnection
+			.get()
 			.select({
 				id: group.id,
 				name: group.name,
@@ -117,7 +121,7 @@ export class GroupDTO extends BaseDTO<GroupRow> {
 
 	/** Creates a group with its owner as the first member, in one transaction. */
 	static create({ name, currency, owner }: NewGroup): GroupDTO {
-		return getDb().transaction((transaction) => {
+		return databaseConnection.get().transaction((transaction) => {
 			const created = transaction
 				.insert(group)
 				.values({ name, currency, createdBy: owner.id })
@@ -158,7 +162,8 @@ export class GroupDTO extends BaseDTO<GroupRow> {
 
 	/** Archives the group for `userId` only, or brings it back: the others keep seeing it as before. */
 	setArchived(userId: string, archived: boolean): void {
-		getDb()
+		databaseConnection
+			.get()
 			.update(groupMember)
 			.set({ archivedAt: archived ? new Date() : null })
 			.where(
@@ -172,13 +177,19 @@ export class GroupDTO extends BaseDTO<GroupRow> {
 
 	/** Renames the group. */
 	rename(name: string): void {
-		getDb().update(group).set({ name }).where(eq(group.id, this.row.id)).run();
+		databaseConnection
+			.get()
+			.update(group)
+			.set({ name })
+			.where(eq(group.id, this.row.id))
+			.run();
 	}
 
 	/** Whether any expense was recorded, which freezes the currency. */
 	hasExpenses(): boolean {
 		return (
-			getDb()
+			databaseConnection
+				.get()
 				.select({ id: expense.id })
 				.from(expense)
 				.where(eq(expense.groupId, this.row.id))
@@ -188,7 +199,8 @@ export class GroupDTO extends BaseDTO<GroupRow> {
 
 	/** Changes the currency. */
 	setCurrency(currency: string): void {
-		getDb()
+		databaseConnection
+			.get()
 			.update(group)
 			.set({ currency })
 			.where(eq(group.id, this.row.id))
@@ -197,7 +209,8 @@ export class GroupDTO extends BaseDTO<GroupRow> {
 
 	/** The token of the group's invite link, or `undefined` while it has none. */
 	inviteToken(): string | undefined {
-		const nonce = getDb()
+		const nonce = databaseConnection
+			.get()
 			.select({ nonce: group.inviteNonce })
 			.from(group)
 			.where(eq(group.id, this.row.id))
@@ -207,16 +220,18 @@ export class GroupDTO extends BaseDTO<GroupRow> {
 
 	/** Makes a new invite link, which stops the previous one working. */
 	resetInvite(): void {
-		getDb()
+		databaseConnection
+			.get()
 			.update(group)
-			.set({ inviteNonce: randomToken() })
+			.set({ inviteNonce: secrets.randomToken() })
 			.where(eq(group.id, this.row.id))
 			.run();
 	}
 
 	/** Turns the invite link off. */
 	disableInvite(): void {
-		getDb()
+		databaseConnection
+			.get()
 			.update(group)
 			.set({ inviteNonce: null })
 			.where(eq(group.id, this.row.id))
@@ -225,7 +240,7 @@ export class GroupDTO extends BaseDTO<GroupRow> {
 
 	/** Deletes the group with its members and expenses. */
 	delete(): void {
-		getDb().transaction((transaction) => {
+		databaseConnection.get().transaction((transaction) => {
 			transaction.delete(expense).where(eq(expense.groupId, this.row.id)).run();
 			transaction.delete(group).where(eq(group.id, this.row.id)).run();
 		});

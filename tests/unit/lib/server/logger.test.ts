@@ -1,19 +1,19 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 
-import { getConfig } from "#lib/server/config.js";
-import { Logger } from "#lib/server/logger.js";
+import { configuration } from "#lib/server/core/config.js";
+import { Logger } from "#lib/server/core/logger.js";
 
-const original = { ...getConfig() };
+const original = { ...configuration.get() };
 
 afterEach(() => {
-	getConfig().logFormat = original.logFormat;
-	getConfig().logLevel = original.logLevel;
+	configuration.get().logFormat = original.logFormat;
+	configuration.get().logLevel = original.logLevel;
 });
 
 describe("Logger", () => {
 	test("json lines merge plain objects, keep other params and serialise errors", () => {
-		getConfig().logFormat = "json";
-		getConfig().logLevel = "trace";
+		configuration.get().logFormat = "json";
+		configuration.get().logLevel = "trace";
 		const output = spyOn(console, "log").mockImplementation(() => {});
 		const errors = spyOn(console, "error").mockImplementation(() => {});
 		const logger = new Logger("Test");
@@ -34,8 +34,8 @@ describe("Logger", () => {
 	});
 
 	test("drops lines under the configured level", () => {
-		getConfig().logFormat = "console";
-		getConfig().logLevel = "warn";
+		configuration.get().logFormat = "console";
+		configuration.get().logLevel = "warn";
 		const output = spyOn(console, "log").mockImplementation(() => {});
 		const errors = spyOn(console, "error").mockImplementation(() => {});
 		const logger = new Logger("Test");
@@ -52,11 +52,11 @@ describe("Logger", () => {
 	});
 
 	test("request lines log 5xx at error level and others at info", () => {
-		getConfig().logLevel = "info";
+		configuration.get().logLevel = "info";
 		const output = spyOn(console, "log").mockImplementation(() => {});
 		const errors = spyOn(console, "error").mockImplementation(() => {});
 		const logger = new Logger("Test");
-		getConfig().logFormat = "console";
+		configuration.get().logFormat = "console";
 		logger.request({ method: "GET", path: "/", status: 200, durationMs: 3 });
 		logger.request({
 			method: "GET",
@@ -65,7 +65,7 @@ describe("Logger", () => {
 			durationMs: 1,
 		});
 		logger.request({ method: "POST", path: "/", status: 400, durationMs: 1 });
-		getConfig().logFormat = "json";
+		configuration.get().logFormat = "json";
 		logger.request({ method: "POST", path: "/", status: 500, durationMs: 9 });
 		const infoCalls = output.mock.calls.length;
 		const lastError = JSON.parse(String(errors.mock.calls.at(-1)?.[0]));

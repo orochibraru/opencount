@@ -2,26 +2,22 @@ import { describe, expect, test } from "bun:test";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import {
-	nextRestartDelay,
-	workerCommand,
-	WorkerSupervisor,
-} from "#lib/server/worker-process.js";
+import { WorkerSupervisor } from "#lib/server/worker/supervisor.js";
 
 describe("worker process", () => {
 	test("workerCommand runs the source in dev and the binary otherwise", () => {
-		expect(workerCommand(true)).toEqual([
+		expect(WorkerSupervisor.command(true)).toEqual([
 			process.execPath,
 			"--watch",
 			"src/worker/index.ts",
 		]);
-		expect(workerCommand(false)[0]?.endsWith("/worker")).toBe(true);
+		expect(WorkerSupervisor.command(false)[0]?.endsWith("/worker")).toBe(true);
 	});
 
 	test("nextRestartDelay backs off and resets after a stable run", () => {
-		expect(nextRestartDelay(500, 10)).toBe(1000);
-		expect(nextRestartDelay(20_000, 10)).toBe(30_000);
-		expect(nextRestartDelay(30_000, 120_000)).toBe(1000);
+		expect(WorkerSupervisor.nextRestartDelay(500, 10)).toBe(1000);
+		expect(WorkerSupervisor.nextRestartDelay(20_000, 10)).toBe(30_000);
+		expect(WorkerSupervisor.nextRestartDelay(30_000, 120_000)).toBe(1000);
 	});
 
 	test("restarts the worker when it exits, and stops for good on stop()", async () => {

@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { PersonalCategoryDTO } from "#lib/dto/personal-category.js";
 import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
-import { personalGuess } from "#lib/server/bank-sync.js";
+import { bankSync } from "#lib/server/banking/bank-sync.js";
 import {
 	categoryNameTaken,
 	categorySchema,
@@ -32,7 +32,7 @@ export const actions = {
 		const aside = PersonalExpenseDTO.markAside(userId, isMoneyAside);
 		const moved = PersonalExpenseDTO.categorizeUncategorized(
 			userId,
-			personalGuess(userId),
+			bankSync.personalGuess(userId),
 		);
 		return { moved, aside };
 	},

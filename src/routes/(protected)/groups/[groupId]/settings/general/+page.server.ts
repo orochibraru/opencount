@@ -3,7 +3,7 @@ import { fail, redirect } from "@sveltejs/kit";
 import { z } from "zod";
 
 import { currencies } from "#lib/currencies.js";
-import { groupForMember } from "#lib/server/group-access.js";
+import { groupAccess } from "#lib/server/expenses/group-access.js";
 import { archivedSchema, parseForm } from "#lib/server/validation/form.js";
 
 const settingsSchema = z.object({
@@ -18,7 +18,9 @@ const settingsSchema = z.object({
 export const load = async ({ parent }) => {
 	const { group, user } = await parent();
 	return {
-		currencyLocked: groupForMember(group.id, user.id).group.hasExpenses(),
+		currencyLocked: groupAccess
+			.forMember(group.id, user.id)
+			.group.hasExpenses(),
 	};
 };
 
@@ -27,7 +29,7 @@ export const actions = {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
 		}
-		const { group } = groupForMember(params.groupId, locals.user.id);
+		const { group } = groupAccess.forMember(params.groupId, locals.user.id);
 		const parsed = parseForm(settingsSchema, await request.formData());
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
@@ -49,7 +51,7 @@ export const actions = {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
 		}
-		const { group } = groupForMember(params.groupId, locals.user.id);
+		const { group } = groupAccess.forMember(params.groupId, locals.user.id);
 		if (!group.isOwnedBy(locals.user.id)) {
 			return fail(403, {
 				error: "Only the person who created the group can delete it.",
@@ -62,7 +64,7 @@ export const actions = {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
 		}
-		const { group } = groupForMember(params.groupId, locals.user.id);
+		const { group } = groupAccess.forMember(params.groupId, locals.user.id);
 		const parsed = parseForm(archivedSchema, await request.formData());
 		if (!parsed.success) {
 			return fail(400, { error: "Pick archived or not." });

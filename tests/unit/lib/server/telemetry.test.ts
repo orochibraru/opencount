@@ -2,13 +2,8 @@ import { afterAll, describe, expect, test } from "bun:test";
 
 import { diag } from "@opentelemetry/api";
 
-import { getConfig } from "#lib/server/config.js";
-import {
-	flushTelemetry,
-	reportError,
-	startTelemetry,
-	withSpan,
-} from "#lib/server/telemetry.js";
+import { configuration } from "#lib/server/core/config.js";
+import { telemetry } from "#lib/server/core/telemetry.js";
 
 const received: { path: string; bytes: number }[] = [];
 
@@ -32,25 +27,27 @@ afterAll(() => collector.stop(true));
 describe("telemetry", () => {
 	test("exports spans over OTLP and errors to the Sentry DSN, Homerun-style", async () => {
 		received.length = 0;
-		getConfig().telemetry.otlpEndpoint = endpoint;
-		getConfig().telemetry.resourceAttributes = {
+		configuration.get().telemetry.otlpEndpoint = endpoint;
+		configuration.get().telemetry.resourceAttributes = {
 			"homerun.service.id": "svc_1",
 		};
-		getConfig().telemetry.sentryDsn = `http://publickey@localhost:${collector.port}/42`;
-		startTelemetry("worker");
-		startTelemetry("worker");
+		configuration.get().telemetry.sentryDsn = `http://publickey@localhost:${collector.port}/42`;
+		telemetry.start("worker");
+		telemetry.start("worker");
 
 		expect(
-			await withSpan("job test", { "job.id": 1 }, () =>
+			await telemetry.withSpan("job test", { "job.id": 1 }, () =>
 				Promise.resolve("done"),
 			),
 		).toBe("done");
 		expect(
-			withSpan("job broken", {}, () => Promise.reject(new Error("boom"))),
+			telemetry.withSpan("job broken", {}, () =>
+				Promise.reject(new Error("boom")),
+			),
 		).rejects.toThrow("boom");
-		expect(reportError(new Error("reported"), { job: "test" })).toMatch(
-			/^[0-9a-f]{32}$/,
-		);
+		expect(
+			telemetry.reportError(new Error("reported"), { job: "test" }),
+		).toMatch(/^[0-9a-f]{32}$/);
 
 		for (const level of [
 			"error",
@@ -62,7 +59,7 @@ describe("telemetry", () => {
 			diag[level]("collector unreachable");
 		}
 
-		await flushTelemetry();
+		await telemetry.flush();
 		const paths = received.map((request) => request.path);
 		expect(paths).toContain("/v1/traces");
 		expect(paths).toContain("/api/42/envelope/");
@@ -71,12 +68,12 @@ describe("telemetry", () => {
 
 	test("stays off without an endpoint or a DSN", async () => {
 		received.length = 0;
-		getConfig().telemetry.otlpEndpoint = undefined;
-		getConfig().telemetry.sentryDsn = undefined;
-		startTelemetry("server");
-		await withSpan("ignored", {}, () => Promise.resolve());
-		reportError(new Error("ignored"));
-		await flushTelemetry();
+		configuration.get().telemetry.otlpEndpoint = undefined;
+		configuration.get().telemetry.sentryDsn = undefined;
+		telemetry.start("server");
+		await telemetry.withSpan("ignored", {}, () => Promise.resolve());
+		telemetry.reportError(new Error("ignored"));
+		await telemetry.flush();
 		expect(received).toEqual([]);
 	});
 });

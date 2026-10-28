@@ -1,7 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 
 import { BaseDTO } from "#lib/dto/base-dto.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { pushSubscription } from "#lib/server/db/schema.js";
 
 export interface PushSubscriptionRow {
@@ -31,7 +31,8 @@ export class PushSubscriptionDTO extends BaseDTO<PushSubscriptionRow> {
 			"endpoint" | "p256dh" | "auth" | "device"
 		>,
 	): void {
-		getDb()
+		databaseConnection
+			.get()
 			.insert(pushSubscription)
 			.values({ userId, ...subscription })
 			.onConflictDoUpdate({
@@ -43,7 +44,8 @@ export class PushSubscriptionDTO extends BaseDTO<PushSubscriptionRow> {
 
 	/** The devices `userId` turned notifications on for, newest first. */
 	static forUser(userId: string): PushSubscriptionDTO[] {
-		return getDb()
+		return databaseConnection
+			.get()
 			.select(columns)
 			.from(pushSubscription)
 			.where(eq(pushSubscription.userId, userId))
@@ -59,7 +61,8 @@ export class PushSubscriptionDTO extends BaseDTO<PushSubscriptionRow> {
 		if (userIds.length === 0) {
 			return [];
 		}
-		return getDb()
+		return databaseConnection
+			.get()
 			.select(columns)
 			.from(pushSubscription)
 			.where(inArray(pushSubscription.userId, userIds))
@@ -69,7 +72,8 @@ export class PushSubscriptionDTO extends BaseDTO<PushSubscriptionRow> {
 
 	/** Forgets `endpoint`, but only when it belongs to `userId`. */
 	static removeFor(userId: string, endpoint: string): void {
-		getDb()
+		databaseConnection
+			.get()
 			.delete(pushSubscription)
 			.where(
 				and(
@@ -82,7 +86,8 @@ export class PushSubscriptionDTO extends BaseDTO<PushSubscriptionRow> {
 
 	/** Forgets `endpoint`, which the push service said is gone. */
 	static removeEndpoint(endpoint: string): void {
-		getDb()
+		databaseConnection
+			.get()
 			.delete(pushSubscription)
 			.where(eq(pushSubscription.endpoint, endpoint))
 			.run();

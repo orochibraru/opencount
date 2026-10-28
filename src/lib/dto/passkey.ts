@@ -1,7 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 
 import { BaseDTO } from "#lib/dto/base-dto.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { passkey } from "#lib/server/db/schema.js";
 
 export interface PasskeyRow {
@@ -15,7 +15,8 @@ export interface PasskeyRow {
 export class PasskeyDTO extends BaseDTO<PasskeyRow> {
 	/** `userId`'s passkeys, newest first. */
 	static forUser(userId: string): PasskeyDTO[] {
-		return getDb()
+		return databaseConnection
+			.get()
 			.select({
 				id: passkey.id,
 				name: passkey.name,

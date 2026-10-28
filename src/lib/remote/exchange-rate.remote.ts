@@ -2,8 +2,8 @@ import { query } from "$app/server";
 import { z } from "zod";
 
 import { currencies } from "#lib/currencies.js";
-import { exchangeRate } from "#lib/server/exchange-rates.js";
-import { requireUser } from "#lib/server/remote-auth.js";
+import { access } from "#lib/server/auth/access.js";
+import { exchangeRates } from "#lib/server/expenses/exchange-rates.js";
 
 export const getExchangeRate = query(
 	z.object({
@@ -12,7 +12,7 @@ export const getExchangeRate = query(
 		date: z.iso.date(),
 	}),
 	async ({ from, to, date }) => {
-		requireUser();
-		return (await exchangeRate(from, to, date)) ?? null;
+		access.requireUser();
+		return (await exchangeRates.rate(from, to, date)) ?? null;
 	},
 );

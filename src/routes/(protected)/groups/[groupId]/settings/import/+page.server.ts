@@ -4,14 +4,12 @@ import { z } from "zod";
 
 import { GroupCategoryDTO } from "#lib/dto/group-category.js";
 import { JobDTO } from "#lib/dto/job.js";
-import { groupForMember } from "#lib/server/group-access.js";
-import { Logger } from "#lib/server/logger.js";
+import { Logger } from "#lib/server/core/logger.js";
+import { groupAccess } from "#lib/server/expenses/group-access.js";
 import {
-	fetchTricount,
-	parseTricount,
 	TricountError,
-	tricountKey,
-} from "#lib/server/tricount.js";
+	tricountImporter,
+} from "#lib/server/expenses/tricount.js";
 import { parseForm } from "#lib/server/validation/form.js";
 import { parseTricountForm } from "#lib/server/validation/tricount.js";
 import { guessCategory } from "#lib/smart-category.js";
@@ -35,12 +33,14 @@ async function readSource(formData: FormData): Promise<unknown> {
 		}
 	}
 	const parsed = parseForm(linkSchema, formData);
-	const key = parsed.success ? tricountKey(parsed.data.link) : undefined;
+	const key = parsed.success
+		? tricountImporter.key(parsed.data.link)
+		: undefined;
 	if (!key) {
 		throw new TricountError("Paste the Tricount's share link, or pick a file.");
 	}
 	try {
-		return await fetchTricount(key);
+		return await tricountImporter.fetch(key);
 	} catch (error) {
 		if (error instanceof TricountError) {
 			throw error;
@@ -55,9 +55,11 @@ export const actions = {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
 		}
-		const { group } = groupForMember(params.groupId, locals.user.id);
+		const { group } = groupAccess.forMember(params.groupId, locals.user.id);
 		try {
-			const preview = parseTricount(await readSource(await request.formData()));
+			const preview = tricountImporter.parse(
+				await readSource(await request.formData()),
+			);
 			if (preview.currency !== group.currency) {
 				return fail(400, {
 					error: `This Tricount is in ${preview.currency}. Import it into a ${preview.currency} group.`,
@@ -75,7 +77,10 @@ export const actions = {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
 		}
-		const { group, members } = groupForMember(params.groupId, locals.user.id);
+		const { group, members } = groupAccess.forMember(
+			params.groupId,
+			locals.user.id,
+		);
 		const parsed = parseTricountForm(await request.formData(), {
 			currency: group.currency,
 			memberIds: members.map((member) => member.id),

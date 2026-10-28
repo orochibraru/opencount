@@ -5,25 +5,25 @@
 - A file the worker builds for a person (a database backup, a group's CSV or
   PDF) is a `download` row plus a file in a `downloads` folder next to the
   database (the system temporary folder for an in-memory one).
-  `DownloadDTO.request()` enqueues `download.build`; `buildDownload()` writes
+  `DownloadDTO.request()` enqueues `download.build`; `downloads.build()` writes
   the file and marks the row ready or failed. `/downloads/[id]` serves it to its
   owner only.
 - `jobs.prune` deletes downloads older than a day, and any file no row owns.
 - PDFs are drawn with `pdf-lib` and `@pdf-lib/fontkit`, embedding Noto Sans
   (regular and bold, subset) read from the working directory's `fonts/`, which
   the image ships next to `drizzle/`. A grapheme with any glyph missing from the
-  font prints as `?` (CJK, emoji). Exports read through `exportSource()` so CSV
-  and PDF agree.
+  font prints as `?` (CJK, emoji). Exports read through `groupExport.source()`
+  so CSV and PDF agree.
 
 ## Backup and restore
 
 - A backup is `VACUUM INTO` a fresh file, built by the worker.
-- `restoreDatabase()` checks the file (an OpenCount database, `integrity_check`
-  ok, a migration history this server knows), migrates a copy, then deletes and
-  reinserts every table's rows inside one transaction with foreign keys off,
-  checking `foreign_key_check` before commit. `job`, `download` and the
-  migration table are kept. Everyone is signed in again afterwards, since
-  sessions are rows too.
+- `databaseConnection.restore()` checks the file (an OpenCount database,
+  `integrity_check` ok, a migration history this server knows), migrates a copy,
+  then deletes and reinserts every table's rows inside one transaction with
+  foreign keys off, checking `foreign_key_check` before commit. `job`,
+  `download` and the migration table are kept. Everyone is signed in again
+  afterwards, since sessions are rows too.
 
 ## Import
 
@@ -40,7 +40,7 @@
   its amount and shares are in the group currency, converted once with a rate
   frozen on the expense. Balances never convert.
 - The suggested rate comes from the `getExchangeRate` remote query, backed by
-  `exchangeRate()` (Frankfurter, cached per process, `undefined` when the
+  `exchangeRates.rate()` (Frankfurter, cached per process, `undefined` when the
   service fails: the form then asks for a rate). It, the Tricount import and
   Enable Banking are the only outbound calls besides SMTP and OIDC; keep it that
   way and document any new one in `docs/configuration.md`.
@@ -79,8 +79,8 @@
   against last month, forecast, yesterday, the biggest habit, top category
   change, monthly repeats and the daily series.
 - "Split in a group" adds a group expense paid by the account, split equally
-  among all members, converted with `exchangeRate()` when the currencies differ,
-  and marks the personal one as split in that group.
+  among all members, converted with `exchangeRates.rate()` when the currencies
+  differ, and marks the personal one as split in that group.
 
 - Folders (`personal_folder`) are projects inside Personal: created from the
   Personal menu, reached through the Filter sheet (a folder filter navigates to
@@ -115,15 +115,15 @@
   excluded from lint and typos, regenerate rather than edit). The spec says
   nothing is nullable, but the API does send `null`: keep the `??` and `?.`.
 - An account's `uid` only lives as long as its consent and `bankRef` is
-  `uid:transaction`, so relinking (`relinkBank`) moves each account's lines to
-  its new uid, matched on `identification_hash` (stable across consents). Links
-  saved before the hash was kept read it from the old session, else fall back to
-  a unique name and currency. Then `syncedAt` is cleared so the next sync
-  fetches the full history without doubles.
+  `uid:transaction`, so relinking (`bankSync.relink`) moves each account's lines
+  to its new uid, matched on `identification_hash` (stable across consents).
+  Links saved before the hash was kept read it from the old session, else fall
+  back to a unique name and currency. Then `syncedAt` is cleared so the next
+  sync fetches the full history without doubles.
 - A person links a bank under Account > Bank sync (country, bank, the bank's
   consent screen, 90 days of consent); Personal only shows a filter pill per
   link. `bank.syncAll` runs daily (queued at worker start if absent) and queues
-  a `bank.sync` per link through `queueBankSync` (`maxAttempts: 1`): Enable
+  a `bank.sync` per link through `bankSync.queue` (`maxAttempts: 1`): Enable
   Banking's `strategy=longest` the first time or with `full`, then from 3 days
   before the last sync. The link carries `syncState` (`queued`, `running`,
   `idle`) with `syncStateAt`, `lastAdded`, `lastError` and the bank's logo;
@@ -176,7 +176,7 @@
 - `loginPage` is `/auth/oauth`: it checks the signed query, strips the signature
   params and sends the person through the normal sign-in with `redirectTo` back
   at `/oauth2/authorize`, so every sign-in method works. The consent page posts
-  to better-auth through `getAuth().handler()` with a real `Request`:
+  to better-auth through `authService.get().handler()` with a real `Request`:
   `auth.api.oauth2Consent` has no request and fails.
 - `/mcp` verifies the JWT in-process against `getJwks()` (no HTTP call to
   itself), then `AiAppDTO.allowed()`: an approval older than 30 days is deleted
@@ -193,4 +193,4 @@
   (`authorize`, `token`, `register`, `consent`, `revoke`, `userinfo`, `/jwks`,
   `/.well-known/`) through the 404 every other direct better-auth call gets.
 - The root `/.well-known/oauth-*` routes hand the request to
-  `getAuth().handler`, which only gets `/api/auth/*` from the hook.
+  `authService.get().handler`, which only gets `/api/auth/*` from the hook.

@@ -2,10 +2,10 @@ import { fail } from "@sveltejs/kit";
 import { z } from "zod";
 
 import { getSetting, sessionDayOptions, setSetting } from "#lib/dto/setting.js";
-import { adminFrom } from "#lib/server/admin.js";
-import { publicOrigin } from "#lib/server/auth.js";
-import { getConfig } from "#lib/server/config.js";
-import { isEmailConfigured } from "#lib/server/mailer.js";
+import { access } from "#lib/server/auth/access.js";
+import { authService } from "#lib/server/auth/auth.js";
+import { configuration } from "#lib/server/core/config.js";
+import { mailer } from "#lib/server/notifications/mailer.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
 const accessSchema = z.object({
@@ -33,15 +33,15 @@ export const load = async ({ parent }) => {
 		requirePasskey: getSetting("requirePasskey"),
 		requireAppLock: getSetting("requireAppLock"),
 		sessionDays: getSetting("sessionDays"),
-		publicOrigin: publicOrigin() ?? "",
-		originPinned: getConfig().origin !== undefined,
-		emailConfigured: isEmailConfigured(),
+		publicOrigin: authService.publicOrigin() ?? "",
+		originPinned: configuration.get().origin !== undefined,
+		emailConfigured: mailer.isConfigured(),
 	};
 };
 
 export const actions = {
 	default: async ({ locals, request }) => {
-		const admin = adminFrom(locals);
+		const admin = access.adminFrom(locals);
 		if (!("id" in admin)) {
 			return admin;
 		}
@@ -49,7 +49,7 @@ export const actions = {
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
 		}
-		if (parsed.data.signUpsEnabled && !isEmailConfigured()) {
+		if (parsed.data.signUpsEnabled && !mailer.isConfigured()) {
 			return fail(400, {
 				error: "Set up email first: sign-ups verify addresses by email.",
 			});

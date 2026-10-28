@@ -1,6 +1,6 @@
 import { oauthProviderAuthServerMetadata } from "@better-auth/oauth-provider";
 
-import { getAuth } from "#lib/server/auth.js";
+import { authService } from "#lib/server/auth/auth.js";
 
 export const GET = ({ request }) =>
-	oauthProviderAuthServerMetadata(getAuth())(request);
+	oauthProviderAuthServerMetadata(authService.get())(request);

@@ -1,40 +1,32 @@
 import { describe, expect, test } from "bun:test";
 
-import {
-	decryptSecret,
-	encryptSecret,
-	hashToken,
-	randomCode,
-	randomToken,
-	signPayload,
-	verifyPayload,
-} from "#lib/server/secrets.js";
+import { secrets } from "#lib/server/core/secrets.js";
 
 describe("secrets", () => {
 	test("encrypts and decrypts, and refuses a tampered value", () => {
-		const stored = encryptSecret("smtp-password");
+		const stored = secrets.encrypt("smtp-password");
 		expect(stored).not.toContain("smtp-password");
-		expect(decryptSecret(stored)).toBe("smtp-password");
+		expect(secrets.decrypt(stored)).toBe("smtp-password");
 		const [iv, body, tag] = stored.split(".");
-		expect(() => decryptSecret(`${iv}.${body}x.${tag}`)).toThrow();
-		expect(() => decryptSecret("broken")).toThrow("Malformed");
+		expect(() => secrets.decrypt(`${iv}.${body}x.${tag}`)).toThrow();
+		expect(() => secrets.decrypt("broken")).toThrow("Malformed");
 	});
 
 	test("tokens and codes look right and hash stably", () => {
-		expect(randomToken()).toMatch(/^[\w-]{43}$/);
-		expect(randomCode()).toMatch(/^\d{6}$/);
-		expect(hashToken("abc")).toBe(hashToken("abc"));
-		expect(hashToken("abc")).not.toBe(hashToken("xyz"));
+		expect(secrets.randomToken()).toMatch(/^[\w-]{43}$/);
+		expect(secrets.randomCode()).toMatch(/^\d{6}$/);
+		expect(secrets.hashToken("abc")).toBe(secrets.hashToken("abc"));
+		expect(secrets.hashToken("abc")).not.toBe(secrets.hashToken("xyz"));
 	});
 
 	test("signed payloads check purpose, signature and expiry", () => {
-		const signed = signPayload({ email: "a@b.c" }, "ticket", 60_000);
-		expect(verifyPayload(signed, "ticket")).toMatchObject({ email: "a@b.c" });
-		expect(verifyPayload(signed, "other")).toBeUndefined();
-		expect(verifyPayload(`${signed}x`, "ticket")).toBeUndefined();
-		expect(verifyPayload(undefined, "ticket")).toBeUndefined();
+		const signed = secrets.sign({ email: "a@b.c" }, "ticket", 60_000);
+		expect(secrets.verify(signed, "ticket")).toMatchObject({ email: "a@b.c" });
+		expect(secrets.verify(signed, "other")).toBeUndefined();
+		expect(secrets.verify(`${signed}x`, "ticket")).toBeUndefined();
+		expect(secrets.verify(undefined, "ticket")).toBeUndefined();
 		expect(
-			verifyPayload(signPayload({}, "ticket", -1), "ticket"),
+			secrets.verify(secrets.sign({}, "ticket", -1), "ticket"),
 		).toBeUndefined();
 	});
 });

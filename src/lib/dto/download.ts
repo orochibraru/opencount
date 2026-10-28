@@ -2,7 +2,7 @@ import { and, desc, eq, inArray, lt } from "drizzle-orm";
 
 import { BaseDTO } from "#lib/dto/base-dto.js";
 import { JobDTO } from "#lib/dto/job.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { download, type downloadKinds } from "#lib/server/db/schema.js";
 
 export type DownloadKind = (typeof downloadKinds)[number];
@@ -17,7 +17,8 @@ export class DownloadDTO extends BaseDTO<DownloadRow> {
 		fileName: string,
 		groupId: string | null = null,
 	): DownloadDTO {
-		const row = getDb()
+		const row = databaseConnection
+			.get()
 			.insert(download)
 			.values({ userId, kind, fileName, groupId })
 			.returning()
@@ -32,7 +33,8 @@ export class DownloadDTO extends BaseDTO<DownloadRow> {
 
 	/** Download `id`, whoever asked for it: for the worker. */
 	static find(id: string): DownloadDTO | undefined {
-		const row = getDb()
+		const row = databaseConnection
+			.get()
 			.select()
 			.from(download)
 			.where(eq(download.id, id))
@@ -42,7 +44,8 @@ export class DownloadDTO extends BaseDTO<DownloadRow> {
 
 	/** Download `id`, only when `userId` asked for it. */
 	static findForUser(id: string, userId: string): DownloadDTO | undefined {
-		const row = getDb()
+		const row = databaseConnection
+			.get()
 			.select()
 			.from(download)
 			.where(and(eq(download.id, id), eq(download.userId, userId)))
@@ -56,7 +59,8 @@ export class DownloadDTO extends BaseDTO<DownloadRow> {
 		kinds: DownloadKind[],
 		groupId?: string,
 	): DownloadDTO[] {
-		return getDb()
+		return databaseConnection
+			.get()
 			.select()
 			.from(download)
 			.where(
@@ -75,7 +79,8 @@ export class DownloadDTO extends BaseDTO<DownloadRow> {
 	/** Every download id still on record, to tell kept files from leftovers. */
 	static ids(): Set<string> {
 		return new Set(
-			getDb()
+			databaseConnection
+				.get()
 				.select({ id: download.id })
 				.from(download)
 				.all()
@@ -85,7 +90,8 @@ export class DownloadDTO extends BaseDTO<DownloadRow> {
 
 	/** Deletes the records made before `before` and returns their ids, so their files can go too. */
 	static pruneBefore(before: Date): string[] {
-		return getDb()
+		return databaseConnection
+			.get()
 			.delete(download)
 			.where(lt(download.createdAt, before))
 			.returning({ id: download.id })
@@ -119,7 +125,8 @@ export class DownloadDTO extends BaseDTO<DownloadRow> {
 
 	/** Marks the file built. */
 	markReady(): void {
-		getDb()
+		databaseConnection
+			.get()
 			.update(download)
 			.set({ status: "ready", error: null })
 			.where(eq(download.id, this.row.id))
@@ -128,7 +135,8 @@ export class DownloadDTO extends BaseDTO<DownloadRow> {
 
 	/** Marks the file failed with `message`. */
 	markFailed(message: string): void {
-		getDb()
+		databaseConnection
+			.get()
 			.update(download)
 			.set({ status: "failed", error: message })
 			.where(eq(download.id, this.row.id))

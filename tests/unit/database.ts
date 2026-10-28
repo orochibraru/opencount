@@ -1,4 +1,4 @@
-import { getDb, migrateDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import {
 	appearance,
 	expense,
@@ -14,8 +14,8 @@ import {
 } from "#lib/server/db/schema.js";
 
 export function resetDatabase(): void {
-	migrateDb();
-	const database = getDb();
+	databaseConnection.migrate();
+	const database = databaseConnection.get();
 	for (const table of [job, invite, setting, appearance, verification]) {
 		database.delete(table).run();
 	}
@@ -31,7 +31,8 @@ export function createUser(
 	id: string,
 	name = "Ada",
 ): { id: string; name: string } {
-	getDb()
+	databaseConnection
+		.get()
 		.insert(user)
 		.values({ id, name, email: `${id}@example.com` })
 		.run();

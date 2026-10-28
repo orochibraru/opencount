@@ -18,8 +18,8 @@ import { GroupDTO } from "#lib/dto/group.js";
 import { MerchantDTO } from "#lib/dto/merchant.js";
 import { RecurringExpenseDTO } from "#lib/dto/recurring-expense.js";
 import { setSetting } from "#lib/dto/setting.js";
-import { configure } from "#lib/server/config.js";
-import { closeDb, getDb, migrateDb } from "#lib/server/db/lib.js";
+import { configuration } from "#lib/server/core/config.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { account, user } from "#lib/server/db/schema.js";
 import { splitByWeight } from "#lib/split.js";
 
@@ -39,7 +39,7 @@ await mkdir(images, { recursive: true });
 process.stdout.write("Building the app\n");
 await $`bun run build`.cwd(root).quiet();
 
-configure({
+configuration.set({
 	appVersion: "0.0.0",
 	origin,
 	databasePath: join(work, "opencount.sqlite"),
@@ -56,7 +56,7 @@ configure({
 		sentryEnvironment: "screenshots",
 	},
 });
-migrateDb();
+databaseConnection.migrate();
 
 process.stdout.write("Seeding the demo\n");
 const day = (offset: number) => {
@@ -66,7 +66,8 @@ const day = (offset: number) => {
 };
 
 function person(id: string, name: string, role: "admin" | "member" = "member") {
-	getDb()
+	databaseConnection
+		.get()
 		.insert(user)
 		.values({
 			id,
@@ -82,7 +83,8 @@ function person(id: string, name: string, role: "admin" | "member" = "member") {
 const ada = person("ada", "Ada", "admin");
 const grace = person("grace", "Grace");
 const linus = person("linus", "Linus");
-getDb()
+databaseConnection
+	.get()
 	.insert(account)
 	.values({
 		id: "ada-credential",
@@ -221,7 +223,7 @@ for (const entry of [
 ] as const) {
 	spend(flat.id, flatMembers, [...entry]);
 }
-closeDb();
+databaseConnection.close();
 
 process.stdout.write("Starting the server\n");
 const server = Bun.spawn([join(root, "build", "server")], {

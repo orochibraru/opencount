@@ -52,16 +52,16 @@ Read the changed files, don't just grep: these rules have narrow triggers.
   sign-up live under `src/routes/auth/`. A new page reading `locals.user`
   outside `(protected)/` is a finding.
 - **Redirects are thrown from `+layout.server.ts`, `+page.server.ts` or a remote
-  function (via `requireUser()`), never from hooks.** `hooks.server.ts` only
-  populates `locals`, runs the migrations in `init`, logs requests through the
-  Logger, and hands specific requests to their handler (better-auth's API). Any
-  `redirect(`, route-based auth check or path allowlist in `src/hooks*.ts` is a
-  finding.
+  function (via `access.requireUser()`), never from hooks.** `hooks.server.ts`
+  only populates `locals`, runs the migrations in `init`, logs requests through
+  the Logger, and hands specific requests to their handler (better-auth's API).
+  Any `redirect(`, route-based auth check or path allowlist in `src/hooks*.ts`
+  is a finding.
 - **Nested loads under `(protected)/`** use `const { user } = await parent();`
   instead of re-checking `!locals.user`. Form actions keep their own guard.
-- **Remote functions** start with `requireUser()`, validate arguments with a zod
-  schema (never `"unchecked"`), and check group membership before touching a
-  group's data.
+- **Remote functions** start with `access.requireUser()`, validate arguments
+  with a zod schema (never `"unchecked"`), and check group membership before
+  touching a group's data.
 - **Group data** (expenses, shares, members, settlements, balances) read or
   written by a DTO finder, route or remote function without checking the current
   user belongs to that group is a finding: a group id from the URL or a form is

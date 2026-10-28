@@ -1,6 +1,6 @@
 import type { ExpenseInput } from "#lib/dto/expense.js";
-import type { EmailMessage } from "#lib/server/mailer.js";
-import type { PushNotification } from "#lib/server/push.js";
+import type { EmailMessage } from "#lib/server/notifications/mailer.js";
+import type { PushNotification } from "#lib/server/notifications/push.js";
 
 export interface JobPayloads {
 	"jobs.prune": { olderThanDays: number };

@@ -3,14 +3,13 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { base64UrlBytes, deviceName } from "#lib/device-name.js";
 import { PushSubscriptionDTO } from "#lib/dto/push-subscription.js";
 import { getSetting } from "#lib/dto/setting.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { secrets } from "#lib/server/core/secrets.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { pushSubscription } from "#lib/server/db/schema.js";
 import {
-	deliverPush,
+	pushNotifications,
 	type SendPush,
-	vapidPublicKey,
-} from "#lib/server/push.js";
-import { decryptSecret } from "#lib/server/secrets.js";
+} from "#lib/server/notifications/push.js";
 
 import { createUser, resetDatabase } from "../../database.js";
 
@@ -48,16 +47,16 @@ describe("device names", () => {
 describe("push", () => {
 	beforeEach(() => {
 		resetDatabase();
-		getDb().delete(pushSubscription).run();
+		databaseConnection.get().delete(pushSubscription).run();
 	});
 
 	test("the VAPID keys are made once and kept encrypted", () => {
-		const first = vapidPublicKey();
-		expect(vapidPublicKey()).toBe(first);
+		const first = pushNotifications.vapidPublicKey();
+		expect(pushNotifications.vapidPublicKey()).toBe(first);
 		const stored = getSetting("vapid");
 		expect(stored?.publicKey).toBe(first);
 		expect(
-			decryptSecret(stored?.encryptedPrivateKey ?? "").length,
+			secrets.decrypt(stored?.encryptedPrivateKey ?? "").length,
 		).toBeGreaterThan(20);
 	});
 
@@ -95,10 +94,12 @@ describe("push", () => {
 				body: "Grace added dinner",
 				url: "/groups/one",
 			});
-			expect(options.vapidDetails?.publicKey).toBe(vapidPublicKey());
+			expect(options.vapidDetails?.publicKey).toBe(
+				pushNotifications.vapidPublicKey(),
+			);
 			return Promise.resolve();
 		};
-		const delivered = await deliverPush(
+		const delivered = await pushNotifications.deliver(
 			["ada"],
 			{ title: "Lisbon trip", body: "Grace added dinner", url: "/groups/one" },
 			send,
@@ -109,7 +110,11 @@ describe("push", () => {
 			PushSubscriptionDTO.forUser("ada").map((entry) => entry.endpoint),
 		).toEqual(["https://push.example/live"]);
 		expect(
-			await deliverPush(["nobody"], { title: "", body: "", url: "/" }, send),
+			await pushNotifications.deliver(
+				["nobody"],
+				{ title: "", body: "", url: "/" },
+				send,
+			),
 		).toBe(0);
 	});
 
@@ -119,7 +124,11 @@ describe("push", () => {
 		const send: SendPush = () =>
 			Promise.reject(Object.assign(new Error("Busy"), { statusCode: 503 }));
 		expect(
-			deliverPush(["ada"], { title: "t", body: "b", url: "/" }, send),
+			pushNotifications.deliver(
+				["ada"],
+				{ title: "t", body: "b", url: "/" },
+				send,
+			),
 		).rejects.toThrow("Busy");
 		expect(PushSubscriptionDTO.forUser("ada")).toHaveLength(1);
 	});

@@ -1,7 +1,7 @@
 import { and, eq, gt, ne } from "drizzle-orm";
 
 import { BaseDTO } from "#lib/dto/base-dto.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { session, sessionLock } from "#lib/server/db/schema.js";
 
 export interface SessionRow {
@@ -14,7 +14,8 @@ export interface SessionRow {
 export class SessionDTO extends BaseDTO<SessionRow> {
 	/** `userId`'s live sessions, the most recently used first, without their tokens. */
 	static forUser(userId: string): SessionDTO[] {
-		return getDb()
+		return databaseConnection
+			.get()
 			.select({
 				id: session.id,
 				createdAt: session.createdAt,
@@ -44,7 +45,8 @@ export class SessionDTO extends BaseDTO<SessionRow> {
 	/** Signs out the session `sessionId` if it belongs to `userId`, and returns whether it did. */
 	static revokeForUser(sessionId: string, userId: string): boolean {
 		return (
-			getDb()
+			databaseConnection
+				.get()
 				.delete(session)
 				.where(and(eq(session.id, sessionId), eq(session.userId, userId)))
 				.returning({ id: session.id })
@@ -54,7 +56,8 @@ export class SessionDTO extends BaseDTO<SessionRow> {
 
 	/** Signs out every session of `userId` except `keepId`. */
 	static revokeOthers(userId: string, keepId: string): void {
-		getDb()
+		databaseConnection
+			.get()
 			.delete(session)
 			.where(and(eq(session.userId, userId), ne(session.id, keepId)))
 			.run();
@@ -62,6 +65,10 @@ export class SessionDTO extends BaseDTO<SessionRow> {
 
 	/** Signs out the session `sessionId`. */
 	static revoke(sessionId: string): void {
-		getDb().delete(session).where(eq(session.id, sessionId)).run();
+		databaseConnection
+			.get()
+			.delete(session)
+			.where(eq(session.id, sessionId))
+			.run();
 	}
 }

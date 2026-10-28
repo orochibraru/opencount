@@ -1,7 +1,7 @@
 import { JobDTO } from "#lib/dto/job.js";
+import { Logger } from "#lib/server/core/logger.js";
+import { telemetry } from "#lib/server/core/telemetry.js";
 import type { JobHandlers } from "#lib/server/jobs/handlers.js";
-import { Logger } from "#lib/server/logger.js";
-import { reportError, withSpan } from "#lib/server/telemetry.js";
 
 const logger = new Logger("Worker");
 
@@ -53,7 +53,7 @@ export class JobRunner {
 	async process(job: JobDTO): Promise<void> {
 		const startedAt = performance.now();
 		try {
-			await withSpan(
+			await telemetry.withSpan(
 				`job ${job.type}`,
 				{ "job.id": job.id, "job.type": job.type },
 				async () => {
@@ -72,7 +72,7 @@ export class JobRunner {
 				durationMs: Math.round(performance.now() - startedAt),
 			});
 		} catch (error) {
-			const errorId = reportError(error, { job: job.type });
+			const errorId = telemetry.reportError(error, { job: job.type });
 			logger.error(
 				"Job failed",
 				{ id: job.id, type: job.type, errorId },

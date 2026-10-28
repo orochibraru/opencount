@@ -7,18 +7,11 @@ import { hasPassword } from "#lib/dto/account.js";
 import { CodeChallengeDTO } from "#lib/dto/code-challenge.js";
 import { SessionDTO } from "#lib/dto/session.js";
 import { UserDTO } from "#lib/dto/user.js";
-import { isAdmin } from "#lib/server/admin.js";
-import { getAuth } from "#lib/server/auth.js";
-import {
-	emailChangeCodeEmail,
-	emailChangedEmail,
-	queueEmail,
-} from "#lib/server/emails.js";
-import { isEmailConfigured } from "#lib/server/mailer.js";
-import {
-	recentSignInMessage,
-	signedInRecently,
-} from "#lib/server/security-policy.js";
+import { access } from "#lib/server/auth/access.js";
+import { authService } from "#lib/server/auth/auth.js";
+import { securityPolicy } from "#lib/server/auth/security-policy.js";
+import { emails } from "#lib/server/notifications/emails.js";
+import { mailer } from "#lib/server/notifications/mailer.js";
 import {
 	emailChangeCodeSchema,
 	emailChangeSchema,
@@ -39,13 +32,13 @@ function emailChangeIdentifier(userId: string, email: string): string {
 }
 
 function isLastAdmin(user: { role?: string | null }): boolean {
-	return isAdmin(user) && UserDTO.adminCount() <= 1;
+	return access.isAdmin(user) && UserDTO.adminCount() <= 1;
 }
 
 export const load = async ({ locals, parent }) => {
 	await parent();
 	return {
-		emailChangeAvailable: isEmailConfigured(),
+		emailChangeAvailable: mailer.isConfigured(),
 		hasPassword: locals.user ? hasPassword(locals.user.id) : false,
 		lastAdmin: locals.user ? isLastAdmin(locals.user) : false,
 	};
@@ -60,7 +53,7 @@ export const actions = {
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
 		}
-		await getAuth().api.updateUser({
+		await authService.get().api.updateUser({
 			body: { name: parsed.data.name },
 			headers: request.headers,
 		});
@@ -70,11 +63,11 @@ export const actions = {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
 		}
-		if (!isEmailConfigured()) {
+		if (!mailer.isConfigured()) {
 			return fail(400, { error: "Email isn't set up here. Ask an admin." });
 		}
-		if (!locals.session || !signedInRecently(locals.session)) {
-			return fail(403, { error: recentSignInMessage });
+		if (!locals.session || !securityPolicy.signedInRecently(locals.session)) {
+			return fail(403, { error: securityPolicy.recentSignInMessage });
 		}
 		const parsed = parseForm(emailChangeSchema, await request.formData());
 		if (!parsed.success) {
@@ -99,7 +92,7 @@ export const actions = {
 				error: error instanceof Error ? error.message : String(error),
 			});
 		}
-		queueEmail(emailChangeCodeEmail(email, code));
+		emails.queue(emails.emailChangeCode(email, code));
 		return { codeSentTo: email };
 	},
 	confirmEmailChange: async ({ locals, request }) => {
@@ -128,7 +121,7 @@ export const actions = {
 		if (locals.session) {
 			SessionDTO.revokeOthers(locals.user.id, locals.session.id);
 		}
-		queueEmail(emailChangedEmail(locals.user.email, email));
+		emails.queue(emails.emailChanged(locals.user.email, email));
 		return { emailChanged: true };
 	},
 	deleteAccount: async ({ locals, request }) => {
@@ -146,13 +139,13 @@ export const actions = {
 		}
 		if (
 			!hasPassword(locals.user.id) &&
-			(!locals.session || !signedInRecently(locals.session))
+			(!locals.session || !securityPolicy.signedInRecently(locals.session))
 		) {
-			return fail(403, { error: recentSignInMessage });
+			return fail(403, { error: securityPolicy.recentSignInMessage });
 		}
 		if (hasPassword(locals.user.id)) {
 			try {
-				await getAuth().api.verifyPassword({
+				await authService.get().api.verifyPassword({
 					body: { password: parsed.data.password },
 					headers: request.headers,
 				});

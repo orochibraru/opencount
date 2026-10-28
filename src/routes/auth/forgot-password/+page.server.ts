@@ -3,14 +3,14 @@ import { error, fail } from "@sveltejs/kit";
 import { APIError } from "better-auth/api";
 
 import { getSetting } from "#lib/dto/setting.js";
-import { getAuth } from "#lib/server/auth.js";
-import { isEmailConfigured } from "#lib/server/mailer.js";
-import { resetRequests } from "#lib/server/rate-limit.js";
+import { authService } from "#lib/server/auth/auth.js";
+import { rateLimits } from "#lib/server/auth/rate-limit.js";
+import { mailer } from "#lib/server/notifications/mailer.js";
 import { passwordResetRequestSchema } from "#lib/server/validation/auth.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
 function assertResetsOpen(): void {
-	if (!getSetting("passwordSignIn") || !isEmailConfigured()) {
+	if (!getSetting("passwordSignIn") || !mailer.isConfigured()) {
 		error(404, "Password resets are turned off on this server. Ask an admin.");
 	}
 }
@@ -30,12 +30,12 @@ export const actions = {
 			return fail(400, { errors: parsed.errors });
 		}
 		const account = parsed.data.email.toLowerCase();
-		if (resetRequests.blocked(account)) {
+		if (rateLimits.resetRequests.blocked(account)) {
 			return { sentTo: parsed.data.email };
 		}
-		resetRequests.hit(account);
+		rateLimits.resetRequests.hit(account);
 		try {
-			await getAuth().api.requestPasswordReset({
+			await authService.get().api.requestPasswordReset({
 				body: {
 					email: parsed.data.email,
 					redirectTo: resolve("/auth/reset-password"),

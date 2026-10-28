@@ -1,9 +1,9 @@
 import { eq } from "drizzle-orm";
 
 import { BaseDTO } from "#lib/dto/base-dto.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { secrets } from "#lib/server/core/secrets.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { verification } from "#lib/server/db/schema.js";
-import { hashToken, randomCode } from "#lib/server/secrets.js";
 
 type VerificationRow = typeof verification.$inferSelect;
 
@@ -22,7 +22,7 @@ export class CodeChallengeDTO extends BaseDTO<VerificationRow> {
 	 *
 	 * @throws When a code for that identifier was issued less than a minute ago.
 	 */
-	static start(identifier: string, code = randomCode()): string {
+	static start(identifier: string, code = secrets.randomCode()): string {
 		const existing = CodeChallengeDTO.find(identifier, {
 			includeExpired: true,
 		});
@@ -34,12 +34,15 @@ export class CodeChallengeDTO extends BaseDTO<VerificationRow> {
 				"A code was just sent. Wait a minute before asking for another.",
 			);
 		}
-		const database = getDb();
+		const database = databaseConnection.get();
 		database
 			.delete(verification)
 			.where(eq(verification.identifier, identifier))
 			.run();
-		const value: ChallengeValue = { codeHash: hashToken(code), attempts: 0 };
+		const value: ChallengeValue = {
+			codeHash: secrets.hashToken(code),
+			attempts: 0,
+		};
 		database
 			.insert(verification)
 			.values({
@@ -57,7 +60,8 @@ export class CodeChallengeDTO extends BaseDTO<VerificationRow> {
 		identifier: string,
 		{ includeExpired = false } = {},
 	): CodeChallengeDTO | undefined {
-		const row = getDb()
+		const row = databaseConnection
+			.get()
 			.select()
 			.from(verification)
 			.where(eq(verification.identifier, identifier))
@@ -70,9 +74,9 @@ export class CodeChallengeDTO extends BaseDTO<VerificationRow> {
 
 	/** Checks `code`: the challenge is consumed on success and dropped after too many wrong tries. */
 	verify(code: string): boolean {
-		const database = getDb();
+		const database = databaseConnection.get();
 		const value = JSON.parse(this.row.value) as ChallengeValue;
-		if (value.codeHash === hashToken(code)) {
+		if (value.codeHash === secrets.hashToken(code)) {
 			database
 				.delete(verification)
 				.where(eq(verification.id, this.row.id))

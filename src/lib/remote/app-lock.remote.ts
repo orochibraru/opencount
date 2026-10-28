@@ -1,10 +1,10 @@
 import { command, getRequestEvent } from "$app/server";
 
-import { appLock } from "#lib/server/app-lock.js";
-import { requireUser } from "#lib/server/remote-auth.js";
+import { access } from "#lib/server/auth/access.js";
+import { appLock } from "#lib/server/auth/app-lock.js";
 
 export const lockApp = command(() => {
-	requireUser();
+	access.requireUser();
 	const { session } = getRequestEvent().locals;
 	if (session) {
 		appLock.lock(session.id);
@@ -12,5 +12,5 @@ export const lockApp = command(() => {
 });
 
 export const keepUnlocked = command(() => {
-	requireUser();
+	access.requireUser();
 });

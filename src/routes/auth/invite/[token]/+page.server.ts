@@ -4,7 +4,7 @@ import { APIError } from "better-auth/api";
 
 import { InviteDTO } from "#lib/dto/invite.js";
 import { UserDTO } from "#lib/dto/user.js";
-import { createVerifiedAccount } from "#lib/server/sign-up.js";
+import { signUp } from "#lib/server/auth/sign-up.js";
 import { newAccountSchema } from "#lib/server/validation/auth.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
@@ -37,7 +37,7 @@ export const actions = {
 			return fail(400, { errors: parsed.errors });
 		}
 		try {
-			await createVerifiedAccount({
+			await signUp.createVerifiedAccount({
 				email: invite.email,
 				name: parsed.data.name,
 				password: parsed.data.password,

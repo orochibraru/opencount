@@ -6,10 +6,10 @@ import { resolve } from "$app/paths";
 import { fail, redirect } from "@sveltejs/kit";
 
 import { DownloadDTO } from "#lib/dto/download.js";
-import { adminFrom } from "#lib/server/admin.js";
-import { restoreDatabase, RestoreError } from "#lib/server/db/lib.js";
-import { downloadFileName } from "#lib/server/downloads.js";
-import { Logger } from "#lib/server/logger.js";
+import { access } from "#lib/server/auth/access.js";
+import { Logger } from "#lib/server/core/logger.js";
+import { databaseConnection, RestoreError } from "#lib/server/db/database.js";
+import { downloads } from "#lib/server/jobs/downloads.js";
 
 const logger = new Logger("Backup");
 
@@ -26,14 +26,14 @@ export const load = async ({ parent }) => {
 
 export const actions = {
 	backup: ({ locals }) => {
-		const admin = adminFrom(locals);
+		const admin = access.adminFrom(locals);
 		if (!("id" in admin)) {
 			return admin;
 		}
 		DownloadDTO.request(
 			admin.id,
 			"database",
-			downloadFileName(
+			downloads.fileName(
 				"opencount",
 				new Date().toISOString().slice(0, 10),
 				"sqlite",
@@ -42,7 +42,7 @@ export const actions = {
 		return { requested: true };
 	},
 	restore: async ({ locals, request }) => {
-		const admin = adminFrom(locals);
+		const admin = access.adminFrom(locals);
 		if (!("id" in admin)) {
 			return admin;
 		}
@@ -60,7 +60,7 @@ export const actions = {
 		);
 		await Bun.write(path, bytes);
 		try {
-			restoreDatabase(path);
+			databaseConnection.restore(path);
 		} catch (error) {
 			if (error instanceof RestoreError) {
 				return fail(400, { error: error.message });

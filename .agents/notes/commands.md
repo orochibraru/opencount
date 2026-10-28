@@ -82,11 +82,11 @@ Plain `bun install` works without mise.
 - `bun test` with `tests/unit/app/svelte-loader.ts` preloaded: it compiles
   `.svelte` and `.svelte.ts` for the client, registers happy-dom per test and
   mocks `$app/paths` (`resolve` adds the leading slash and drops route groups).
-- The preload calls `configure()` with a test `Config` (in-memory SQLite, a test
-  `AUTH_SECRET`, telemetry off); tests change it through `getConfig()`.
-  `resetDatabase()` in `tests/unit/database.ts` migrates and empties the tables.
-  `src/env.ts`'s schemas are tested directly through their `~standard`
-  validators.
+- The preload calls `configuration.set()` with a test `Config` (in-memory
+  SQLite, a test `AUTH_SECRET`, telemetry off); tests change it through
+  `configuration.get()`. `resetDatabase()` in `tests/unit/database.ts` migrates
+  and empties the tables. `src/env.ts`'s schemas are tested directly through
+  their `~standard` validators.
 - The preload mocks `$app/env` and `$app/server`. happy-dom is registered only
   by component tests (`GlobalRegistrator` in `beforeAll`): registered globally
   it replaces `fetch`, `Request` and `Headers`, which strip `Origin` and break

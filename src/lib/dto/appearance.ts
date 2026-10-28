@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import { BaseDTO } from "#lib/dto/base-dto.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { appearance, type homePages } from "#lib/server/db/schema.js";
 
 export type Appearance = Omit<
@@ -22,7 +22,8 @@ export const defaultAppearance: Appearance = {
 export class AppearanceDTO extends BaseDTO<Appearance> {
 	/** `userId`'s appearance, or the defaults when they never changed it. */
 	static forUser(userId: string): AppearanceDTO {
-		const row = getDb()
+		const row = databaseConnection
+			.get()
 			.select({
 				accent: appearance.accent,
 				theme: appearance.theme,
@@ -39,7 +40,8 @@ export class AppearanceDTO extends BaseDTO<Appearance> {
 	/** What `userId` picked as their home page, or `null` when they were never asked. */
 	static homeFor(userId: string): HomePage | null {
 		return (
-			getDb()
+			databaseConnection
+				.get()
 				.select({ home: appearance.home })
 				.from(appearance)
 				.where(eq(appearance.userId, userId))
@@ -49,7 +51,8 @@ export class AppearanceDTO extends BaseDTO<Appearance> {
 
 	/** Stores `userId`'s choice of home page, keeping the rest of their appearance. */
 	static saveHome(userId: string, home: HomePage): void {
-		getDb()
+		databaseConnection
+			.get()
 			.insert(appearance)
 			.values({ userId, ...defaultAppearance, home })
 			.onConflictDoUpdate({
@@ -62,7 +65,8 @@ export class AppearanceDTO extends BaseDTO<Appearance> {
 	/** The day `userId`'s month starts on, 1 for calendar months or their payday for pay-to-pay months. */
 	static monthStartFor(userId: string): number {
 		return (
-			getDb()
+			databaseConnection
+				.get()
 				.select({ monthStartDay: appearance.monthStartDay })
 				.from(appearance)
 				.where(eq(appearance.userId, userId))
@@ -72,7 +76,8 @@ export class AppearanceDTO extends BaseDTO<Appearance> {
 
 	/** Stores the day `userId`'s month starts on, keeping the rest of their appearance. */
 	static saveMonthStart(userId: string, monthStartDay: number): void {
-		getDb()
+		databaseConnection
+			.get()
 			.insert(appearance)
 			.values({ userId, ...defaultAppearance, monthStartDay })
 			.onConflictDoUpdate({
@@ -84,7 +89,8 @@ export class AppearanceDTO extends BaseDTO<Appearance> {
 
 	/** Stores `userId`'s appearance. */
 	static save(userId: string, values: Appearance): void {
-		getDb()
+		databaseConnection
+			.get()
 			.insert(appearance)
 			.values({ userId, ...values })
 			.onConflictDoUpdate({

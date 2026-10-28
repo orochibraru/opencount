@@ -1,8 +1,8 @@
 import { fail } from "@sveltejs/kit";
 
 import { DownloadDTO } from "#lib/dto/download.js";
-import { downloadFileName } from "#lib/server/downloads.js";
-import { groupForMember } from "#lib/server/group-access.js";
+import { groupAccess } from "#lib/server/expenses/group-access.js";
+import { downloads } from "#lib/server/jobs/downloads.js";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -22,11 +22,11 @@ export const actions = {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
 		}
-		const { group } = groupForMember(params.groupId, locals.user.id);
+		const { group } = groupAccess.forMember(params.groupId, locals.user.id);
 		DownloadDTO.request(
 			locals.user.id,
 			"group-csv",
-			downloadFileName(group.toJSON().name, today(), "csv"),
+			downloads.fileName(group.toJSON().name, today(), "csv"),
 			group.id,
 		);
 		return { requested: true };
@@ -35,11 +35,11 @@ export const actions = {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
 		}
-		const { group } = groupForMember(params.groupId, locals.user.id);
+		const { group } = groupAccess.forMember(params.groupId, locals.user.id);
 		DownloadDTO.request(
 			locals.user.id,
 			"group-pdf",
-			downloadFileName(group.toJSON().name, today(), "pdf"),
+			downloads.fileName(group.toJSON().name, today(), "pdf"),
 			group.id,
 		);
 		return { requested: true };

@@ -2,7 +2,7 @@ import { fail } from "@sveltejs/kit";
 import { z } from "zod";
 
 import { AiAppDTO } from "#lib/dto/ai-app.js";
-import { mcpResource, publicOrigin } from "#lib/server/auth.js";
+import { authService } from "#lib/server/auth/auth.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
 const revokeSchema = z.object({ clientId: z.string().min(1) });
@@ -10,7 +10,8 @@ const revokeSchema = z.object({ clientId: z.string().min(1) });
 export const load = async ({ parent, url }) => {
 	const { user } = await parent();
 	return {
-		mcpUrl: mcpResource(publicOrigin() ?? url.origin) ?? null,
+		mcpUrl:
+			authService.mcpResource(authService.publicOrigin() ?? url.origin) ?? null,
 		apps: AiAppDTO.forUser(user.id).map((entry) => entry.toJSON()),
 	};
 };

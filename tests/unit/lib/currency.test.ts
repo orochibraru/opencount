@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 
 import { convertMinor, minorToDecimal } from "#lib/money.js";
-import { exchangeRate } from "#lib/server/exchange-rates.js";
+import { exchangeRates } from "#lib/server/expenses/exchange-rates.js";
 import { parseExpenseForm } from "#lib/server/validation/expense.js";
 
 function form(fields: Record<string, string | string[]>): FormData {
@@ -124,8 +124,8 @@ describe("exchangeRate", () => {
 		);
 		runs.__rateTestRuns = (runs.__rateTestRuns ?? 0) + 1;
 		const day = `2026-04-${String(runs.__rateTestRuns).padStart(2, "0")}`;
-		expect(await exchangeRate("USD", "EUR", day)).toBe(0.92);
-		expect(await exchangeRate("USD", "EUR", day)).toBe(0.92);
+		expect(await exchangeRates.rate("USD", "EUR", day)).toBe(0.92);
+		expect(await exchangeRates.rate("USD", "EUR", day)).toBe(0.92);
 		expect(fetched).toHaveBeenCalledTimes(1);
 	});
 
@@ -133,7 +133,9 @@ describe("exchangeRate", () => {
 		spyOn(globalThis, "fetch").mockResolvedValue(
 			new Response("down", { status: 503 }),
 		);
-		expect(await exchangeRate("GBP", "EUR", "2026-03-02")).toBeUndefined();
+		expect(
+			await exchangeRates.rate("GBP", "EUR", "2026-03-02"),
+		).toBeUndefined();
 	});
 });
 

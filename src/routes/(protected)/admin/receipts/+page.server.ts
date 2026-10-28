@@ -2,31 +2,27 @@ import { fail } from "@sveltejs/kit";
 import { z } from "zod";
 
 import { getSetting, setSetting } from "#lib/dto/setting.js";
-import { adminFrom } from "#lib/server/admin.js";
-import {
-	installedLanguages,
-	isPopplerInstalled,
-	isTesseractInstalled,
-} from "#lib/server/ocr.js";
-import { readUploadedReceipt } from "#lib/server/receipt-upload.js";
+import { access } from "#lib/server/auth/access.js";
+import { receiptReader } from "#lib/server/receipts/ocr.js";
+import { receiptUpload } from "#lib/server/receipts/receipt-upload.js";
 
 export const load = async ({ parent }) => {
 	await parent();
 	return {
-		installed: isTesseractInstalled(),
-		pdfReadable: isPopplerInstalled(),
-		availableLanguages: await installedLanguages(),
+		installed: receiptReader.isTesseractInstalled(),
+		pdfReadable: receiptReader.isPopplerInstalled(),
+		availableLanguages: await receiptReader.installedLanguages(),
 		ocr: getSetting("ocr"),
 	};
 };
 
 export const actions = {
 	save: async ({ locals, request }) => {
-		const admin = adminFrom(locals);
+		const admin = access.adminFrom(locals);
 		if (!("id" in admin)) {
 			return admin;
 		}
-		const available = await installedLanguages();
+		const available = await receiptReader.installedLanguages();
 		if (available.length === 0) {
 			return fail(400, { error: "Tesseract isn't installed on this server." });
 		}
@@ -44,7 +40,7 @@ export const actions = {
 		return { saved: true };
 	},
 	remove: ({ locals }) => {
-		const admin = adminFrom(locals);
+		const admin = access.adminFrom(locals);
 		if (!("id" in admin)) {
 			return admin;
 		}
@@ -52,14 +48,14 @@ export const actions = {
 		return { removed: true };
 	},
 	scan: async ({ locals, request }) => {
-		const admin = adminFrom(locals);
+		const admin = access.adminFrom(locals);
 		if (!("id" in admin)) {
 			return admin;
 		}
 		if (!getSetting("ocr")) {
 			return fail(400, { error: "Turn receipt reading on first." });
 		}
-		const result = await readUploadedReceipt(await request.formData());
+		const result = await receiptUpload.read(await request.formData());
 		if ("error" in result) {
 			return fail(400, { error: result.error });
 		}

@@ -1,7 +1,7 @@
 import { and, desc, eq } from "drizzle-orm";
 
 import { BaseDTO } from "#lib/dto/base-dto.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import {
 	oauthAccessToken,
 	oauthClient,
@@ -42,7 +42,8 @@ function toApp(row: {
 export class AiAppDTO extends BaseDTO<AiApp> {
 	/** The AI apps `userId` let in over MCP, latest first, the expired ones included until they next knock. */
 	static forUser(userId: string): AiAppDTO[] {
-		return getDb()
+		return databaseConnection
+			.get()
 			.select(columns)
 			.from(oauthConsent)
 			.innerJoin(oauthClient, eq(oauthClient.clientId, oauthConsent.clientId))
@@ -57,7 +58,8 @@ export class AiAppDTO extends BaseDTO<AiApp> {
 	 * its tokens, so the app has to send them through sign-in and consent again.
 	 */
 	static allowed(userId: string, clientId: string, now = new Date()): boolean {
-		const row = getDb()
+		const row = databaseConnection
+			.get()
 			.select(columns)
 			.from(oauthConsent)
 			.innerJoin(oauthClient, eq(oauthClient.clientId, oauthConsent.clientId))
@@ -81,7 +83,7 @@ export class AiAppDTO extends BaseDTO<AiApp> {
 
 	/** Cuts AI app `clientId` off from `userId`'s data: drops the approval and every token it holds for them. */
 	static revoke(userId: string, clientId: string): void {
-		getDb().transaction((transaction) => {
+		databaseConnection.get().transaction((transaction) => {
 			for (const table of [oauthAccessToken, oauthRefreshToken, oauthConsent]) {
 				transaction
 					.delete(table)

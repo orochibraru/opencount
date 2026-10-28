@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { JobDTO } from "#lib/dto/job.js";
 import { PushSubscriptionDTO } from "#lib/dto/push-subscription.js";
-import { vapidPublicKey } from "#lib/server/push.js";
+import { pushNotifications } from "#lib/server/notifications/push.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
 const pushServices = [
@@ -31,7 +31,7 @@ const endpointSchema = z.object({ endpoint: z.string().min(1) });
 export const load = async ({ parent }) => {
 	const { user } = await parent();
 	return {
-		publicKey: vapidPublicKey(),
+		publicKey: pushNotifications.vapidPublicKey(),
 		devices: PushSubscriptionDTO.forUser(user.id).map((device) => {
 			const { endpoint, device: name, createdAt } = device.toJSON();
 			return { endpoint, name, createdAt };

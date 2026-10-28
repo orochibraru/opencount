@@ -1,12 +1,9 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 
 import {
-	fetchTricount,
-	importCategory,
-	parseTricount,
 	TricountError,
-	tricountKey,
-} from "#lib/server/tricount.js";
+	tricountImporter,
+} from "#lib/server/expenses/tricount.js";
 import { parseTricountForm } from "#lib/server/validation/tricount.js";
 
 function member(name: string) {
@@ -66,35 +63,46 @@ function form(fields: Record<string, string>): FormData {
 
 describe("tricountKey", () => {
 	test("takes the key from a link or as typed", () => {
-		expect(tricountKey("https://tricount.com/tSharedKey")).toBe("tSharedKey");
-		expect(tricountKey("https://tricount.com/en/tSharedKey/")).toBe(
+		expect(tricountImporter.key("https://tricount.com/tSharedKey")).toBe(
 			"tSharedKey",
 		);
-		expect(tricountKey(" tSharedKey ")).toBe("tSharedKey");
-		expect(tricountKey("not a key")).toBeUndefined();
-		expect(tricountKey("https://")).toBeUndefined();
+		expect(tricountImporter.key("https://tricount.com/en/tSharedKey/")).toBe(
+			"tSharedKey",
+		);
+		expect(tricountImporter.key(" tSharedKey ")).toBe("tSharedKey");
+		expect(tricountImporter.key("not a key")).toBeUndefined();
+		expect(tricountImporter.key("https://")).toBeUndefined();
 	});
 });
 
 describe("importCategory", () => {
 	test("matches Tricount categories and names, Other otherwise", () => {
-		expect(importCategory("RESTAURANTS_BARS")).toBe("food");
-		expect(importCategory(null, "GROCERIES")).toBe("groceries");
-		expect(importCategory("ACCOMMODATION")).toBe("lodging");
-		expect(importCategory(null, "Speeding fine")).toBe("taxes");
-		expect(importCategory("UNCATEGORIZED", "Taxi to the airport")).toBe(
-			"transport",
-		);
-		expect(importCategory("UNCATEGORIZED", "Courses au supermarché")).toBe(
+		expect(tricountImporter.importCategory("RESTAURANTS_BARS")).toBe("food");
+		expect(tricountImporter.importCategory(null, "GROCERIES")).toBe(
 			"groceries",
 		);
-		expect(importCategory(undefined, "Something")).toBe("other");
+		expect(tricountImporter.importCategory("ACCOMMODATION")).toBe("lodging");
+		expect(tricountImporter.importCategory(null, "Speeding fine")).toBe(
+			"taxes",
+		);
+		expect(
+			tricountImporter.importCategory("UNCATEGORIZED", "Taxi to the airport"),
+		).toBe("transport");
+		expect(
+			tricountImporter.importCategory(
+				"UNCATEGORIZED",
+				"Courses au supermarché",
+			),
+		).toBe("groceries");
+		expect(tricountImporter.importCategory(undefined, "Something")).toBe(
+			"other",
+		);
 	});
 });
 
 describe("parseTricount", () => {
 	test("reads expenses, payments and incomes with their shares", () => {
-		const parsed = parseTricount(
+		const parsed = tricountImporter.parse(
 			registry([
 				entry({ category: "FOOD_AND_DRINK" }),
 				entry({
@@ -164,7 +172,7 @@ describe("parseTricount", () => {
 	});
 
 	test("keeps the original currency and fixes rounding on the first share", () => {
-		const [parsed] = parseTricount(
+		const [parsed] = tricountImporter.parse(
 			registry([
 				entry({
 					amount: { value: "-10.00", currency: "EUR" },
@@ -193,7 +201,7 @@ describe("parseTricount", () => {
 	});
 
 	test("turns an entry described as a reimbursement into a payment", () => {
-		const [payment] = parseTricount(
+		const [payment] = tricountImporter.parse(
 			registry([
 				entry({
 					description: "Remboursement",
@@ -213,14 +221,16 @@ describe("parseTricount", () => {
 	});
 
 	test("refuses what isn't a Tricount, or holds nothing", () => {
-		expect(() => parseTricount({ hello: "world" })).toThrow(TricountError);
-		expect(() => parseTricount(registry([]))).toThrow("no expenses");
+		expect(() => tricountImporter.parse({ hello: "world" })).toThrow(
+			TricountError,
+		);
+		expect(() => tricountImporter.parse(registry([]))).toThrow("no expenses");
 	});
 });
 
 describe("parseTricountForm", () => {
 	const preview = () =>
-		parseTricount(
+		tricountImporter.parse(
 			registry([
 				entry({}),
 				entry({
@@ -331,9 +341,9 @@ describe("fetchTricount", () => {
 				}),
 			)
 			.mockResolvedValueOnce(Response.json(registry([entry({})])));
-		expect(parseTricount(await fetchTricount("tSharedKey")).title).toBe(
-			"Lisbon",
-		);
+		expect(
+			tricountImporter.parse(await tricountImporter.fetch("tSharedKey")).title,
+		).toBe("Lisbon");
 		const registryUrl = new URL(String(fetched.mock.calls[1]?.[0]));
 		expect(registryUrl.pathname).toBe("/v1/user/42/registry");
 		expect(registryUrl.searchParams.get("public_identifier_token")).toBe(
@@ -345,7 +355,9 @@ describe("fetchTricount", () => {
 		spyOn(globalThis, "fetch").mockResolvedValueOnce(
 			new Response("nope", { status: 500 }),
 		);
-		await expect(fetchTricount("tSharedKey")).rejects.toThrow(TricountError);
+		await expect(tricountImporter.fetch("tSharedKey")).rejects.toThrow(
+			TricountError,
+		);
 	});
 
 	test("says so when the link is unknown", async () => {
@@ -359,6 +371,8 @@ describe("fetchTricount", () => {
 				}),
 			)
 			.mockResolvedValueOnce(new Response("", { status: 404 }));
-		await expect(fetchTricount("tSharedKey")).rejects.toThrow("doesn't know");
+		await expect(tricountImporter.fetch("tSharedKey")).rejects.toThrow(
+			"doesn't know",
+		);
 	});
 });

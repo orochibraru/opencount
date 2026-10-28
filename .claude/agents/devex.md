@@ -5,10 +5,10 @@ description: >-
   to fix. Walks the contributor path end to end (fresh clone, mise bootstrap,
   bun install, dev, worker, tests, check, lint, prek hooks, CI) and records the
   friction: documented commands that don't exist, scripts nobody documents,
-  .env.example drifting from config.ts, local gates that disagree with CI, stale
-  CLAUDE.md or note claims, skills and agents pointing at moved files, dead
-  dependencies, slow or flaky tests, unclear boot errors, Svelte files over 400
-  lines. Finds work, does not do it. Not for operator docs content or UI.
+  .env.example drifting from core/config.ts, local gates that disagree with CI,
+  stale CLAUDE.md or note claims, skills and agents pointing at moved files,
+  dead dependencies, slow or flaky tests, unclear boot errors, Svelte files over
+  400 lines. Finds work, does not do it. Not for operator docs content or UI.
 tools: Read, Grep, Glob, Bash, Edit
 ---
 
@@ -29,12 +29,12 @@ what `TODO.md` already has.
    there exists (`jq -r '.scripts|keys[]' package.json`, `mise tasks`). Run the
    cheap ones (`bun run check`, `bunx prek run --all-files`, `bun run circular`,
    `bun run test`) and read the output: warnings, deprecations and noise count.
-2. **Fresh clone works.** `.env.example` matches what `#lib/server/config.ts`
-   and the worker read, no more, no less (compare key names only, never print
-   `.env` values). `mise run bootstrap`, `preinstall`, `prepare` and the
-   post-checkout hook do what they claim. An unwritable `DATABASE_PATH`
-   directory fails with a message naming it, not a stack trace, and a worker
-   that dies at boot says why in the server's log.
+2. **Fresh clone works.** `.env.example` matches what
+   `#lib/server/core/config.ts` and the worker read, no more, no less (compare
+   key names only, never print `.env` values). `mise run bootstrap`,
+   `preinstall`, `prepare` and the post-checkout hook do what they claim. An
+   unwritable `DATABASE_PATH` directory fails with a message naming it, not a
+   stack trace, and a worker that dies at boot says why in the server's log.
 3. **Local gates match CI.** `.pre-commit-config.yaml` versus
    `.github/workflows/*.yaml`: a CI step with no local equivalent, or a local
    gate CI skips, is a finding. The Bun version agrees between `mise.toml`,

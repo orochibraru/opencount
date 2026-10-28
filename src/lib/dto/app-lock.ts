@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import { BaseDTO } from "#lib/dto/base-dto.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { appLock } from "#lib/server/db/schema.js";
 
 export interface AppLockRow {
@@ -19,7 +19,8 @@ export class AppLockDTO extends BaseDTO<AppLockRow> {
 
 	/** `userId`'s app lock, or `undefined` when they have none. */
 	static forUser(userId: string): AppLockDTO | undefined {
-		const row = getDb()
+		const row = databaseConnection
+			.get()
 			.select({
 				passcodeHash: appLock.passcodeHash,
 				lockAfterMinutes: appLock.lockAfterMinutes,
@@ -35,7 +36,8 @@ export class AppLockDTO extends BaseDTO<AppLockRow> {
 		userId: string,
 		values: AppLockRow & { passcodeHash: string },
 	): void {
-		getDb()
+		databaseConnection
+			.get()
 			.insert(appLock)
 			.values({ userId, ...values })
 			.onConflictDoUpdate({
@@ -47,7 +49,8 @@ export class AppLockDTO extends BaseDTO<AppLockRow> {
 
 	/** Changes how long `userId` can stay idle before the app locks. */
 	static saveDelay(userId: string, lockAfterMinutes: number): void {
-		getDb()
+		databaseConnection
+			.get()
 			.update(appLock)
 			.set({ lockAfterMinutes, updatedAt: new Date() })
 			.where(eq(appLock.userId, userId))
@@ -56,7 +59,11 @@ export class AppLockDTO extends BaseDTO<AppLockRow> {
 
 	/** Removes `userId`'s app lock. */
 	static remove(userId: string): void {
-		getDb().delete(appLock).where(eq(appLock.userId, userId)).run();
+		databaseConnection
+			.get()
+			.delete(appLock)
+			.where(eq(appLock.userId, userId))
+			.run();
 	}
 
 	/** The stored passcode hash, which never leaves the server. */

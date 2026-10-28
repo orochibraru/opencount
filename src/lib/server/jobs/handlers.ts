@@ -4,12 +4,12 @@ import { ExpenseDTO } from "#lib/dto/expense.js";
 import { GroupDTO } from "#lib/dto/group.js";
 import { JobDTO } from "#lib/dto/job.js";
 import { RecurringExpenseDTO } from "#lib/dto/recurring-expense.js";
-import { queueBankSync, syncBank } from "#lib/server/bank-sync.js";
-import { buildDownload, pruneDownloads } from "#lib/server/downloads.js";
+import { bankSync } from "#lib/server/banking/bank-sync.js";
+import { Logger } from "#lib/server/core/logger.js";
+import { downloads } from "#lib/server/jobs/downloads.js";
 import type { JobPayloads, JobType } from "#lib/server/jobs/types.js";
-import { Logger } from "#lib/server/logger.js";
-import { deliverEmail } from "#lib/server/mailer.js";
-import { deliverPush } from "#lib/server/push.js";
+import { mailer } from "#lib/server/notifications/mailer.js";
+import { pushNotifications } from "#lib/server/notifications/push.js";
 
 const logger = new Logger("Jobs");
 
@@ -22,11 +22,11 @@ export type JobHandlers = {
 
 export const jobHandlers: JobHandlers = {
 	"push.send": async ({ userIds, ...notification }) => {
-		const delivered = await deliverPush(userIds, notification);
+		const delivered = await pushNotifications.deliver(userIds, notification);
 		logger.debug("Push sent", { delivered });
 	},
 	"email.send": async (message) => {
-		await deliverEmail(message);
+		await mailer.deliver(message);
 		logger.info("Email sent", { subject: message.subject });
 	},
 	"recurring.run": () => {
@@ -46,7 +46,7 @@ export const jobHandlers: JobHandlers = {
 			logger.warn("Bank link gone before it was synced", { connectionId });
 			return;
 		}
-		const added = await syncBank(connection, full);
+		const added = await bankSync.sync(connection, full);
 		logger.info("Bank synced", {
 			added,
 			accounts: (connection.toJSON().lastReport ?? []).map(
@@ -71,7 +71,7 @@ export const jobHandlers: JobHandlers = {
 		for (const connectionId of ids) {
 			const connection = BankConnectionDTO.find(connectionId);
 			if (connection) {
-				queueBankSync(connection);
+				bankSync.queue(connection);
 			}
 		}
 		logger.info("Queued bank syncs", { links: ids.length });
@@ -83,7 +83,7 @@ export const jobHandlers: JobHandlers = {
 			logger.warn("Download gone before it was built", { downloadId });
 			return;
 		}
-		await buildDownload(download);
+		await downloads.build(download);
 		logger.info("Download built", { kind: download.kind });
 	},
 	"import.tricount": ({
@@ -112,8 +112,8 @@ export const jobHandlers: JobHandlers = {
 			new Date(Date.now() - olderThanDays * dayMs),
 		);
 		logger.info("Pruned finished jobs", { removed });
-		const downloads = pruneDownloads(new Date(Date.now() - dayMs));
-		logger.info("Pruned downloads", { removed: downloads });
+		const pruned = downloads.prune(new Date(Date.now() - dayMs));
+		logger.info("Pruned downloads", { removed: pruned });
 		JobDTO.enqueue(
 			"jobs.prune",
 			{ olderThanDays },

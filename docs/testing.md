@@ -23,9 +23,9 @@ Every test file runs after a preload that:
   rune modules import as they do in the browser;
 - mocks `$app/paths` (`resolve` adds the leading slash and drops route groups),
   `$app/env` and `$app/server`;
-- calls `configure()` with a test `Config`: an in-memory SQLite database, a test
-  `AUTH_SECRET`, telemetry off. A test that needs another value changes it
-  through `getConfig()`.
+- calls `configuration.set()` with a test `Config`: an in-memory SQLite
+  database, a test `AUTH_SECRET`, telemetry off. A test that needs another value
+  changes it through `configuration.get()`.
 
 ## Databases
 

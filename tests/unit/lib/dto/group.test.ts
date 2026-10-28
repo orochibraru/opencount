@@ -32,11 +32,11 @@ describe("GroupDTO", () => {
 	});
 });
 
-describe("closeDb", () => {
-	test("the next getDb() reopens the database", async () => {
-		const { closeDb, getDb } = await import("#lib/server/db/lib.js");
-		const before = getDb();
-		closeDb();
-		expect(getDb()).not.toBe(before);
+describe("databaseConnection.close", () => {
+	test("the next get() reopens the database", async () => {
+		const { databaseConnection } = await import("#lib/server/db/database.js");
+		const before = databaseConnection.get();
+		databaseConnection.close();
+		expect(databaseConnection.get()).not.toBe(before);
 	});
 });

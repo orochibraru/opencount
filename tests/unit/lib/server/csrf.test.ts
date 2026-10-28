@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { csrfHandler } from "#lib/server/csrf.js";
+import { csrfHandler } from "#lib/server/http/csrf.js";
 
 function call(
 	handler: ReturnType<typeof csrfHandler>,

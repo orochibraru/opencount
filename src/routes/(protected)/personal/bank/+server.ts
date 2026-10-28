@@ -3,16 +3,15 @@ import { error, redirect } from "@sveltejs/kit";
 
 import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
 import { bankCredentialsFor } from "#lib/dto/bank-credential.js";
-import { queueBankSync, relinkBank } from "#lib/server/bank-sync.js";
+import { bankSync } from "#lib/server/banking/bank-sync.js";
 import {
 	BankError,
 	type BankLink,
 	bankLinkPurpose,
-	closeBankSession,
-	openBankSession,
-} from "#lib/server/enable-banking.js";
-import { Logger } from "#lib/server/logger.js";
-import { verifyPayload } from "#lib/server/secrets.js";
+	EnableBankingClient,
+} from "#lib/server/banking/enable-banking.js";
+import { Logger } from "#lib/server/core/logger.js";
+import { secrets } from "#lib/server/core/secrets.js";
 
 const logger = new Logger("Banks");
 
@@ -22,7 +21,7 @@ export const GET = async ({ locals, url }) => {
 	}
 	const linked = resolve("/(protected)/account/banks/linked");
 	const code = url.searchParams.get("code");
-	const state = verifyPayload(
+	const state = secrets.verify(
 		url.searchParams.get("state") ?? undefined,
 		bankLinkPurpose,
 	);
@@ -32,7 +31,7 @@ export const GET = async ({ locals, url }) => {
 	}
 	let link: BankLink;
 	try {
-		link = await openBankSession(credentials, code);
+		link = await new EnableBankingClient(credentials).openSession(code);
 	} catch (caught) {
 		if (caught instanceof BankError) {
 			logger.warn("Bank link refused", { message: caught.message });
@@ -45,7 +44,7 @@ export const GET = async ({ locals, url }) => {
 			bank: link.bankName,
 			listed: link.listedAccounts,
 		});
-		await closeBankSession(credentials, link.sessionId);
+		await new EnableBankingClient(credentials).closeSession(link.sessionId);
 		redirect(
 			303,
 			`${linked}?link=${link.listedAccounts > 0 ? "unreadable" : "empty"}`,
@@ -57,11 +56,11 @@ export const GET = async ({ locals, url }) => {
 			: undefined;
 	if (relinked) {
 		const previousSession = relinked.sessionId;
-		await relinkBank(relinked, link, credentials);
-		await closeBankSession(credentials, previousSession);
-		queueBankSync(relinked);
+		await bankSync.relink(relinked, link, credentials);
+		await new EnableBankingClient(credentials).closeSession(previousSession);
+		bankSync.queue(relinked);
 		redirect(303, `${linked}?link=relinked`);
 	}
-	queueBankSync(BankConnectionDTO.create(locals.user.id, link));
+	bankSync.queue(BankConnectionDTO.create(locals.user.id, link));
 	redirect(303, `${linked}?link=connected`);
 };

@@ -1,9 +1,9 @@
 import { fail, redirect } from "@sveltejs/kit";
 import { APIError } from "better-auth/api";
 
-import { getAuth } from "#lib/server/auth.js";
-import { safeRedirectTarget } from "#lib/server/guards.js";
-import { secondFactorAttempts } from "#lib/server/rate-limit.js";
+import { access } from "#lib/server/auth/access.js";
+import { authService } from "#lib/server/auth/auth.js";
+import { rateLimits } from "#lib/server/auth/rate-limit.js";
 import { backupCodeSchema, totpSchema } from "#lib/server/validation/auth.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
@@ -16,12 +16,12 @@ export const actions = {
 			return fail(400, { errors: parsed.errors });
 		}
 		const client = getClientAddress();
-		if (secondFactorAttempts.blocked(client)) {
+		if (rateLimits.secondFactorAttempts.blocked(client)) {
 			return fail(429, { error: tooManyCodes });
 		}
-		secondFactorAttempts.hit(client);
+		rateLimits.secondFactorAttempts.hit(client);
 		try {
-			await getAuth().api.verifyTOTP({
+			await authService.get().api.verifyTOTP({
 				body: {
 					code: parsed.data.code,
 					trustDevice: parsed.data.trustDevice ?? false,
@@ -36,7 +36,7 @@ export const actions = {
 			}
 			throw error;
 		}
-		redirect(303, safeRedirectTarget(url));
+		redirect(303, access.safeRedirectTarget(url));
 	},
 	backup: async ({ getClientAddress, request, url }) => {
 		const parsed = parseForm(backupCodeSchema, await request.formData());
@@ -44,12 +44,12 @@ export const actions = {
 			return fail(400, { errors: parsed.errors });
 		}
 		const client = getClientAddress();
-		if (secondFactorAttempts.blocked(client)) {
+		if (rateLimits.secondFactorAttempts.blocked(client)) {
 			return fail(429, { error: tooManyCodes });
 		}
-		secondFactorAttempts.hit(client);
+		rateLimits.secondFactorAttempts.hit(client);
 		try {
-			await getAuth().api.verifyBackupCode({
+			await authService.get().api.verifyBackupCode({
 				body: { code: parsed.data.code },
 				headers: request.headers,
 			});
@@ -59,6 +59,6 @@ export const actions = {
 			}
 			throw error;
 		}
-		redirect(303, safeRedirectTarget(url));
+		redirect(303, access.safeRedirectTarget(url));
 	},
 };

@@ -1,10 +1,10 @@
 import { ExpenseDTO } from "#lib/dto/expense.js";
 import { GroupCategoryDTO } from "#lib/dto/group-category.js";
-import { groupForMember } from "#lib/server/group-access.js";
+import { groupAccess } from "#lib/server/expenses/group-access.js";
 
 export const load = async ({ params, parent }) => {
 	const { user } = await parent();
-	const { group, members } = groupForMember(params.groupId, user.id);
+	const { group, members } = groupAccess.forMember(params.groupId, user.id);
 	const memberRows = members.map((member) => member.toJSON());
 	const balances = ExpenseDTO.balances(
 		group.id,

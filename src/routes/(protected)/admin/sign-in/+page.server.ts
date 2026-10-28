@@ -2,11 +2,11 @@ import { fail } from "@sveltejs/kit";
 import { z } from "zod";
 
 import { getSetting, setSetting, type SsoProvider } from "#lib/dto/setting.js";
-import { adminFrom } from "#lib/server/admin.js";
-import { publicOrigin } from "#lib/server/auth.js";
-import { isEmailConfigured } from "#lib/server/mailer.js";
-import { encryptSecret } from "#lib/server/secrets.js";
-import { providerSlug, usableMethods } from "#lib/server/sign-in-methods.js";
+import { access } from "#lib/server/auth/access.js";
+import { authService } from "#lib/server/auth/auth.js";
+import { signInMethods } from "#lib/server/auth/sign-in-methods.js";
+import { secrets } from "#lib/server/core/secrets.js";
+import { mailer } from "#lib/server/notifications/mailer.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
 const methodsSchema = z.object({
@@ -56,17 +56,17 @@ export const load = async ({ parent, url }) => {
 		passkeySignIn: getSetting("passkeySignIn"),
 		magicLinkSignIn: getSetting("magicLinkSignIn"),
 		emailCodeSignIn: getSetting("emailCodeSignIn"),
-		emailConfigured: isEmailConfigured(),
+		emailConfigured: mailer.isConfigured(),
 		providers: getSetting("ssoProviders").map(
 			({ encryptedClientSecret: _secret, ...provider }) => provider,
 		),
-		callbackBase: `${publicOrigin() ?? url.origin}/api/auth/callback/`,
+		callbackBase: `${authService.publicOrigin() ?? url.origin}/api/auth/callback/`,
 	};
 };
 
 export const actions = {
 	methods: async ({ locals, request }) => {
-		const admin = adminFrom(locals);
+		const admin = access.adminFrom(locals);
 		if (!("id" in admin)) {
 			return admin;
 		}
@@ -77,7 +77,7 @@ export const actions = {
 		const sso = getSetting("ssoProviders")
 			.filter((provider) => provider.enabled)
 			.map(({ id, name }) => ({ id, name }));
-		const email = isEmailConfigured();
+		const email = mailer.isConfigured();
 		if (
 			(parsed.data.magicLinkSignIn || parsed.data.emailCodeSignIn) &&
 			!email
@@ -102,7 +102,7 @@ export const actions = {
 		) {
 			return fail(400, { error: "Keep at least one way to sign in." });
 		}
-		if (usableMethods(admin.id, next).length === 0) {
+		if (signInMethods.usable(admin.id, next).length === 0) {
 			return fail(400, {
 				error:
 					"You'd lock yourself out: add a passkey or sign in once with SSO before turning that off.",
@@ -115,7 +115,7 @@ export const actions = {
 		return { saved: true };
 	},
 	saveProvider: async ({ locals, request }) => {
-		const admin = adminFrom(locals);
+		const admin = access.adminFrom(locals);
 		if (!("id" in admin)) {
 			return admin;
 		}
@@ -136,7 +136,7 @@ export const actions = {
 		if (discoveryProblem) {
 			return fail(400, { errors: { discoveryUrl: [discoveryProblem] } });
 		}
-		let id = existing?.id ?? providerSlug(parsed.data.name);
+		let id = existing?.id ?? signInMethods.providerSlug(parsed.data.name);
 		while (!existing && providers.some((provider) => provider.id === id)) {
 			id = `${id}-2`;
 		}
@@ -146,7 +146,7 @@ export const actions = {
 			discoveryUrl: parsed.data.discoveryUrl,
 			clientId: parsed.data.clientId,
 			encryptedClientSecret: parsed.data.clientSecret
-				? encryptSecret(parsed.data.clientSecret)
+				? secrets.encrypt(parsed.data.clientSecret)
 				: (existing?.encryptedClientSecret ?? ""),
 			enabled: parsed.data.enabled,
 		};
@@ -159,7 +159,7 @@ export const actions = {
 		return { saved: true };
 	},
 	toggleProvider: async ({ locals, request }) => {
-		const admin = adminFrom(locals);
+		const admin = access.adminFrom(locals);
 		if (!("id" in admin)) {
 			return admin;
 		}
@@ -178,7 +178,7 @@ export const actions = {
 		return { toggled: true };
 	},
 	deleteProvider: async ({ locals, request }) => {
-		const admin = adminFrom(locals);
+		const admin = access.adminFrom(locals);
 		if (!("id" in admin)) {
 			return admin;
 		}

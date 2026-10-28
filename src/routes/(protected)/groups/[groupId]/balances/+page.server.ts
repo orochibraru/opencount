@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { settleUp } from "#lib/balances.js";
 import { ExpenseDTO } from "#lib/dto/expense.js";
-import { groupForMember } from "#lib/server/group-access.js";
+import { groupAccess } from "#lib/server/expenses/group-access.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
 const transferSchema = z.object({
@@ -22,7 +22,10 @@ export const actions = {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
 		}
-		const { group, members } = groupForMember(params.groupId, locals.user.id);
+		const { group, members } = groupAccess.forMember(
+			params.groupId,
+			locals.user.id,
+		);
 		const parsed = parseForm(transferSchema, await request.formData());
 		const memberIds = new Set(members.map((member) => member.id));
 		if (

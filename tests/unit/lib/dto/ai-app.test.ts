@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 
 import { AiAppDTO, aiAppLifetimeMs } from "#lib/dto/ai-app.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import {
 	oauthAccessToken,
 	oauthClient,
@@ -13,7 +13,8 @@ import { createUser, resetDatabase } from "../../database.js";
 
 function allow(userId: string, clientId: string, approvedAt: Date): void {
 	const now = new Date();
-	getDb()
+	databaseConnection
+		.get()
 		.insert(oauthClient)
 		.values({
 			id: clientId,
@@ -23,7 +24,8 @@ function allow(userId: string, clientId: string, approvedAt: Date): void {
 		})
 		.onConflictDoNothing()
 		.run();
-	getDb()
+	databaseConnection
+		.get()
 		.insert(oauthConsent)
 		.values({
 			id: `${userId}-${clientId}`,
@@ -34,7 +36,8 @@ function allow(userId: string, clientId: string, approvedAt: Date): void {
 			updatedAt: approvedAt,
 		})
 		.run();
-	getDb()
+	databaseConnection
+		.get()
 		.insert(oauthRefreshToken)
 		.values({
 			id: `${userId}-${clientId}-refresh`,
@@ -46,7 +49,8 @@ function allow(userId: string, clientId: string, approvedAt: Date): void {
 			expiresAt: new Date(now.getTime() + 86_400_000),
 		})
 		.run();
-	getDb()
+	databaseConnection
+		.get()
 		.insert(oauthAccessToken)
 		.values({
 			id: `${userId}-${clientId}-access`,
@@ -65,7 +69,8 @@ function tokensOf(userId: string): number {
 	return [oauthAccessToken, oauthRefreshToken].reduce(
 		(total, table) =>
 			total +
-			getDb()
+			databaseConnection
+				.get()
 				.select()
 				.from(table)
 				.all()

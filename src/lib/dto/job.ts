@@ -1,7 +1,7 @@
 import { and, asc, count, desc, eq, inArray, lt, lte, sql } from "drizzle-orm";
 
 import { BaseDTO } from "#lib/dto/base-dto.js";
-import { getDb } from "#lib/server/db/lib.js";
+import { databaseConnection } from "#lib/server/db/database.js";
 import { job } from "#lib/server/db/schema.js";
 import type { JobPayloads, JobType } from "#lib/server/jobs/types.js";
 
@@ -21,7 +21,8 @@ export class JobDTO extends BaseDTO<JobRow> {
 		payload: JobPayloads[Type],
 		options: EnqueueOptions = {},
 	): JobDTO {
-		const row = getDb()
+		const row = databaseConnection
+			.get()
 			.insert(job)
 			.values({
 				type,
@@ -36,7 +37,8 @@ export class JobDTO extends BaseDTO<JobRow> {
 
 	/** Whether a job of `type` is already waiting or running. */
 	static isQueued(type: JobType): boolean {
-		const row = getDb()
+		const row = databaseConnection
+			.get()
 			.select({ id: job.id })
 			.from(job)
 			.where(
@@ -48,7 +50,7 @@ export class JobDTO extends BaseDTO<JobRow> {
 
 	/** Atomically marks the oldest due pending job as running and returns it, or `undefined` when none is due. */
 	static claimNext(now = new Date()): JobDTO | undefined {
-		const database = getDb();
+		const database = databaseConnection.get();
 		const due = database
 			.select({ id: job.id })
 			.from(job)
@@ -70,7 +72,8 @@ export class JobDTO extends BaseDTO<JobRow> {
 
 	/** Puts jobs left running by a crashed worker back in the queue. */
 	static requeueStale(): number {
-		return getDb()
+		return databaseConnection
+			.get()
 			.update(job)
 			.set({ status: "pending", lockedAt: null })
 			.where(eq(job.status, "running"))
@@ -80,7 +83,8 @@ export class JobDTO extends BaseDTO<JobRow> {
 
 	/** Deletes finished jobs older than `before`. */
 	static pruneFinished(before: Date): number {
-		return getDb()
+		return databaseConnection
+			.get()
 			.delete(job)
 			.where(
 				and(
@@ -95,7 +99,8 @@ export class JobDTO extends BaseDTO<JobRow> {
 	/** How many jobs sit in each status. */
 	static counts(): Record<JobRow["status"], number> {
 		const totals = { pending: 0, running: 0, done: 0, failed: 0 };
-		for (const row of getDb()
+		for (const row of databaseConnection
+			.get()
 			.select({ status: job.status, total: count() })
 			.from(job)
 			.groupBy(job.status)
@@ -109,7 +114,8 @@ export class JobDTO extends BaseDTO<JobRow> {
 	static recentFailures(
 		limit = 5,
 	): Pick<JobRow, "id" | "type" | "lastError" | "finishedAt">[] {
-		return getDb()
+		return databaseConnection
+			.get()
 			.select({
 				id: job.id,
 				type: job.type,
@@ -137,7 +143,8 @@ export class JobDTO extends BaseDTO<JobRow> {
 
 	/** Marks the job done. */
 	complete(): void {
-		getDb()
+		databaseConnection
+			.get()
 			.update(job)
 			.set({ status: "done", finishedAt: new Date(), lastError: null })
 			.where(eq(job.id, this.row.id))
@@ -148,7 +155,8 @@ export class JobDTO extends BaseDTO<JobRow> {
 	fail(error: unknown, now = new Date()): void {
 		const message = error instanceof Error ? error.message : String(error);
 		const exhausted = this.row.attempts >= this.row.maxAttempts;
-		getDb()
+		databaseConnection
+			.get()
 			.update(job)
 			.set(
 				exhausted

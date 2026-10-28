@@ -3,7 +3,7 @@ import { error, fail, redirect } from "@sveltejs/kit";
 import { z } from "zod";
 
 import { aiAppLifetimeMs } from "#lib/dto/ai-app.js";
-import { getAuth } from "#lib/server/auth.js";
+import { authService } from "#lib/server/auth/auth.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
 const expired = "This request expired. Start again from your AI app.";
@@ -16,11 +16,12 @@ const decisionSchema = z.object({
 export const load = async ({ parent, request, url }) => {
 	await parent();
 	const query = url.search.slice(1);
-	const { secret } = await getAuth().$context;
+	const { secret } = await authService.get().$context;
 	if (!(await verifyOAuthQueryParams(query, secret))) {
 		error(400, expired);
 	}
-	const client = await getAuth()
+	const client = await authService
+		.get()
 		.api.getOAuthClientPublic({
 			query: { client_id: url.searchParams.get("client_id") ?? "" },
 			headers: request.headers,
@@ -48,7 +49,7 @@ export const actions = {
 		if (!parsed.success) {
 			return fail(400, { error: expired });
 		}
-		const response = await getAuth().handler(
+		const response = await authService.get().handler(
 			new Request(new URL("/api/auth/oauth2/consent", url), {
 				method: "POST",
 				headers: {
