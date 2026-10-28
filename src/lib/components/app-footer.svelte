@@ -24,4 +24,12 @@
 		class="hover:text-foreground underline-offset-4 hover:underline"
 		>MIT License</a
 	>
+	<span aria-hidden="true">·</span>
+	<a
+		href="https://github.com/orochibraru/opencount"
+		target="_blank"
+		rel="noopener noreferrer"
+		class="hover:text-foreground underline-offset-4 hover:underline"
+		>Source code</a
+	>
 </footer>

@@ -145,8 +145,11 @@ export const actions = {
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
 		}
+		let result: Awaited<
+			ReturnType<ReturnType<typeof authService.get>["api"]["signInEmailOTP"]>
+		>;
 		try {
-			await authService.get().api.signInEmailOTP({
+			result = await authService.get().api.signInEmailOTP({
 				body: { email: parsed.data.email, otp: parsed.data.code },
 				headers: request.headers,
 			});
@@ -163,6 +166,12 @@ export const actions = {
 				});
 			}
 			throw error;
+		}
+		if ("twoFactorRedirect" in result && result.twoFactorRedirect) {
+			redirect(
+				303,
+				`${resolve("/auth/two-factor")}?redirectTo=${encodeURIComponent(access.safeRedirectTarget(url))}`,
+			);
 		}
 		redirect(303, access.safeRedirectTarget(url));
 	},

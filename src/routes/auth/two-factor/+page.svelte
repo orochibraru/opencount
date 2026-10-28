@@ -1,8 +1,12 @@
 <script lang="ts">
+	import { goto } from "$app/navigation";
 	import { resolve } from "$app/paths";
 	import { page } from "$app/state";
+	import FingerprintIcon from "@lucide/svelte/icons/fingerprint";
 	import ShieldCheckIcon from "@lucide/svelte/icons/shield-check";
+	import { toast } from "svelte-sonner";
 
+	import { authClient } from "#lib/auth-client.js";
 	import AuthShell from "#lib/components/auth-shell.svelte";
 	import AuthForm from "#lib/components/auth/auth-form.svelte";
 	import { Button } from "#lib/components/ui/button/index.js";
@@ -10,9 +14,34 @@
 	import * as Field from "#lib/components/ui/field/index.js";
 	import { Input } from "#lib/components/ui/input/index.js";
 	import { keepRedirect } from "#lib/redirect-target.js";
+	import { toastError } from "#lib/toast.js";
+
+	const { data } = $props();
 
 	let errors = $state<Record<string, string[]>>({});
 	let useBackupCode = $state(false);
+	let passkeyPending = $state(false);
+
+	async function passkeySignInCallback() {
+		passkeyPending = true;
+		try {
+			const result = await authClient.signIn.passkey();
+			if (result?.error) {
+				throw new Error(result.error.message ?? "That passkey didn't work.");
+			}
+			await goto(data.redirectTo, { invalidateAll: true });
+		} finally {
+			passkeyPending = false;
+		}
+	}
+
+	function handlePasskeySignIn() {
+		toast.promise(passkeySignInCallback(), {
+			loading: "Waiting for your passkey",
+			success: "Signed in.",
+			error: (error: unknown) => toastError(error, "That passkey didn't work."),
+		});
+	}
 </script>
 
 <AuthShell
@@ -72,9 +101,21 @@
 			</Field.Field>
 		</AuthForm>
 	{/if}
+	{#if data.passkey}
+		<Button
+			variant="outline"
+			size="lg"
+			class="mt-4 h-12 w-full rounded-xl text-base"
+			onclick={handlePasskeySignIn}
+			disabled={passkeyPending}
+		>
+			<FingerprintIcon />
+			Use a passkey instead
+		</Button>
+	{/if}
 	<Button
 		variant="link"
-		class="mt-4 w-full"
+		class="mt-2 w-full"
 		onclick={() => (useBackupCode = !useBackupCode)}
 	>
 		{useBackupCode

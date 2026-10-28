@@ -11,7 +11,7 @@ import { signInMethods } from "#lib/server/auth/sign-in-methods.js";
 import { configuration } from "#lib/server/core/config.js";
 import { secrets } from "#lib/server/core/secrets.js";
 import { databaseConnection } from "#lib/server/db/database.js";
-import { account, job, user } from "#lib/server/db/schema.js";
+import { account, job, session, user } from "#lib/server/db/schema.js";
 
 import { createUser, resetDatabase } from "../../database.js";
 
@@ -320,7 +320,7 @@ describe("signing in by email", () => {
 		);
 	});
 
-	test("no account is created and two-factor accounts get no link or code", async () => {
+	test("no account is created and two-factor accounts get the code step after a link or a code", async () => {
 		enableEmail();
 		const ghost = await signInWithCode({
 			email: "ghost@example.com",
@@ -336,24 +336,42 @@ describe("signing in by email", () => {
 			.set({ twoFactorEnabled: true })
 			.where(eq(user.id, "grace"))
 			.run();
-		expect(
-			signInMethods.usable("grace", signInMethods.enabled()),
-		).not.toContain("email");
-		const emailsBefore = databaseConnection
-			.get()
-			.select()
-			.from(job)
-			.all().length;
-		const quiet = await sendLink({ email: "grace@example.com" });
-		expect(quiet.status).toBe(200);
-		const quietCode = await sendCode({
-			email: "grace@example.com",
-			type: "sign-in",
-		});
-		expect(quietCode.status).toBe(200);
-		expect(databaseConnection.get().select().from(job).all()).toHaveLength(
-			emailsBefore,
+		expect(signInMethods.usable("grace", signInMethods.enabled())).toContain(
+			"email",
 		);
+		const sessions = () =>
+			databaseConnection
+				.get()
+				.select()
+				.from(session)
+				.where(eq(session.userId, "grace"))
+				.all().length;
+
+		await sendLink({ email: "grace@example.com", callbackURL: "/" });
+		const link = /http\S+magic-link\/verify\S+/.exec(lastEmail()?.text ?? "");
+		const verified = await authService.get().handler(
+			new Request(link?.[0] ?? "", {
+				redirect: "manual",
+				headers: {
+					accept: "text/html",
+					"x-forwarded-for": "10.9.0.1",
+				},
+			}),
+		);
+		expect(verified.status).toBe(302);
+		expect(verified.headers.get("location")).toBe("/auth/two-factor");
+		expect(verified.headers.getSetCookie().join(";")).toContain("two_factor");
+		expect(sessions()).toBe(0);
+
+		await sendCode({ email: "grace@example.com", type: "sign-in" });
+		const code = /(\d{3}) (\d{3})/.exec(lastEmail()?.text ?? "");
+		const signedIn = await signInWithCode({
+			email: "grace@example.com",
+			otp: `${code?.[1]}${code?.[2]}`,
+		});
+		expect(await signedIn.json()).toMatchObject({ twoFactorRedirect: true });
+		expect(signedIn.headers.getSetCookie().join(";")).toContain("two_factor");
+		expect(sessions()).toBe(0);
 	});
 
 	test("emailed codes only ever sign in", async () => {

@@ -20,11 +20,11 @@ sign-in are on by default; there is no provider until you add one.
 Passwords and passkeys are on by default; the two email methods are off until an
 admin turns them on, and need [email delivery](email). Both only sign in
 existing accounts: they never create one, so the instance stays invite-only. An
-account with an authenticator app can't use them, since they would skip its
-code: no link or code is sent to it, with no hint why, and neither these nor
-single sign-on can start a session for it. It signs in with its password. The
-codes are only ever for signing in: OpenCount refuses to send one to reset a
-password or change an email, which have their own links and codes.
+account with an authenticator app still gets its two-step check after them, as
+after single sign-on or a password: the authenticator code, a backup code, or a
+passkey instead. The codes are only ever for signing in: OpenCount refuses to
+send one to reset a password or change an email, which have their own links and
+codes.
 
 An admin can turn any method off. Turned off means refused on the server, not
 only hidden: the sign-in endpoints answer 403 whatever calls them.
@@ -34,8 +34,8 @@ Two rules keep the instance reachable:
 - At least one way to sign in stays on: passwords, passkeys, email links or
   codes, or an enabled provider.
 - The admin turning a method off must still have a way in afterwards: a passkey,
-  an email method (without an authenticator app), or an account already linked
-  to an enabled provider. Otherwise the change is refused with what to do first.
+  an email method, or an account already linked to an enabled provider.
+  Otherwise the change is refused with what to do first.
 
 With passwords off, anyone who has neither a passkey nor a linked provider is
 sent to **Account, Security** on their next page load to add a passkey while

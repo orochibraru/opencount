@@ -1,7 +1,6 @@
 import { hasLinkedProvider } from "#lib/dto/account.js";
 import { PasskeyDTO } from "#lib/dto/passkey.js";
 import { allSettings, getSetting, type SsoProvider } from "#lib/dto/setting.js";
-import { UserDTO } from "#lib/dto/user.js";
 import {
 	configuration,
 	type SignInMethodName,
@@ -76,10 +75,7 @@ class SignInMethodPolicy {
 		) {
 			usable.push("sso");
 		}
-		if (
-			(methods.magicLink || methods.emailCode) &&
-			!UserDTO.twoFactorEnabled(userId)
-		) {
+		if (methods.magicLink || methods.emailCode) {
 			usable.push("email");
 		}
 		return usable;

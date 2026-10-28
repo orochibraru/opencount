@@ -13,6 +13,8 @@ import {
 	createAuthMiddleware,
 	getSessionFromCtx,
 } from "better-auth/api";
+import { deleteSessionCookie } from "better-auth/cookies";
+import { generateRandomString } from "better-auth/crypto";
 import {
 	emailOTP,
 	genericOAuth,
@@ -23,7 +25,6 @@ import {
 import { sveltekitCookies } from "better-auth/svelte-kit";
 
 import { getSetting, setSetting, type SsoProvider } from "#lib/dto/setting.js";
-import { UserDTO } from "#lib/dto/user.js";
 import { passwordMaxLength, passwordMinLength } from "#lib/password-policy.js";
 import { securityPolicy } from "#lib/server/auth/security-policy.js";
 import { signInMethods } from "#lib/server/auth/sign-in-methods.js";
@@ -213,6 +214,9 @@ class AuthService {
 			],
 			hooks: {
 				before: createAuthMiddleware((context) => this.#guard(context)),
+				after: createAuthMiddleware((context) =>
+					this.#secondFactorStep(context),
+				),
 			},
 			onAPIError: { errorURL: resolve("/auth/sign-in") },
 			telemetry: { enabled: false },
@@ -227,9 +231,7 @@ class AuthService {
 					disableSignUp: true,
 					expiresIn: 600,
 					sendMagicLink: ({ email, url }) => {
-						if (!this.#usesAuthenticator(email)) {
-							emails.queue(emails.magicLink(email, url));
-						}
+						emails.queue(emails.magicLink(email, url));
 						return Promise.resolve();
 					},
 				}),
@@ -239,7 +241,7 @@ class AuthService {
 					expiresIn: 600,
 					allowedAttempts: 5,
 					sendVerificationOTP: ({ email, otp, type }) => {
-						if (type === "sign-in" && !this.#usesAuthenticator(email)) {
+						if (type === "sign-in") {
 							emails.queue(emails.signInCode(email, otp));
 						}
 						return Promise.resolve();
@@ -333,10 +335,50 @@ class AuthService {
 		return undefined;
 	}
 
-	/** Whether the account behind `email` uses an authenticator app, which a link or code by email would skip. */
-	#usesAuthenticator(email: string): boolean {
-		const userId = UserDTO.idForEmail(email.trim().toLowerCase());
-		return userId !== undefined && UserDTO.twoFactorEnabled(userId);
+	/**
+	 * Turns a single sign-on, email link or email code sign-in of an account with an authenticator app into the same
+	 * two-step check a password sign-in gets: no session yet, a pending check, then the code page (or its answer).
+	 *
+	 * @throws A redirect to the code page for a sign-in the browser opened.
+	 */
+	async #secondFactorStep(context: MiddlewareContext) {
+		const created = context.context.newSession;
+		if (
+			!created?.user.twoFactorEnabled ||
+			!secondFactorSkippingPaths.some((path) => context.path.startsWith(path))
+		) {
+			return;
+		}
+		deleteSessionCookie(context, true);
+		await context.context.internalAdapter.deleteSession(created.session.token);
+		context.context.setNewSession(null);
+		const maxAge = 600;
+		const cookie = context.context.createAuthCookie("two_factor", { maxAge });
+		const identifier = `2fa-${generateRandomString(20)}`;
+		const expiresAt = new Date(Date.now() + maxAge * 1000);
+		await context.context.internalAdapter.createVerificationValue({
+			value: created.user.id,
+			identifier,
+			expiresAt,
+		});
+		await context.context.internalAdapter.createVerificationValue({
+			value: "0",
+			identifier: `2fa-attempts-${identifier}`,
+			expiresAt,
+		});
+		await context.setSignedCookie(
+			cookie.name,
+			identifier,
+			context.context.secret,
+			cookie.attributes,
+		);
+		if (context.request?.method === "GET") {
+			throw context.redirect(resolve("/auth/two-factor"));
+		}
+		return context.json({
+			twoFactorRedirect: true,
+			twoFactorMethods: ["totp"],
+		});
 	}
 
 	/** Why a request uses a sign-in method an admin turned off, if it does. */
@@ -428,28 +470,7 @@ class AuthService {
 		return undefined;
 	}
 
-	/** Stops a single sign-on, email link or email code sign-in from skipping an authenticator app the account set up. */
-	#refuseSkippedSecondFactor(
-		userId: string,
-		context: { path?: string } | null | undefined,
-	): Promise<void> {
-		if (
-			secondFactorSkippingPaths.some((path) =>
-				context?.path?.startsWith(path),
-			) &&
-			UserDTO.twoFactorEnabled(userId)
-		) {
-			return Promise.reject(
-				new APIError("FORBIDDEN", {
-					message:
-						"This account uses an authenticator app: sign in with your password, then your code.",
-				}),
-			);
-		}
-		return Promise.resolve();
-	}
-
-	/** How long sessions last, how they're rate limited and cookied, and the check that runs before one is created. */
+	/** How long sessions last, and how they're rate limited and cookied. */
 	#sessionOptions(sessionDays: number, origin: string | undefined) {
 		const day = 24 * 60 * 60;
 		return {
@@ -461,16 +482,6 @@ class AuthService {
 			rateLimit: { enabled: !dev, window: 60, max: 100 },
 			advanced: {
 				useSecureCookies: !dev && !origin?.startsWith("http://"),
-			},
-			databaseHooks: {
-				session: {
-					create: {
-						before: (
-							session: { userId: string },
-							context: { path?: string } | null,
-						) => this.#refuseSkippedSecondFactor(session.userId, context),
-					},
-				},
 			},
 		};
 	}
