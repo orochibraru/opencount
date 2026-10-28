@@ -21,6 +21,12 @@ describe("pay months", () => {
 		expect(monthEndFrom("2026-10-25")).toBe("2026-11-24");
 		expect(shiftMonth("2026-12-25", 1)).toBe("2027-01-25");
 		expect(shiftMonth("2026-01-25", -1)).toBe("2025-12-25");
-		expect(monthLabel("2026-10-25")).toContain("–");
+		expect(monthLabel("2026-10-25", "2026-11-01")).not.toContain("2026");
+		expect(monthLabel("2025-09-25", "2026-11-01").match(/2025/g)).toHaveLength(
+			1,
+		);
+		const acrossYears = monthLabel("2025-12-25", "2026-11-01");
+		expect(acrossYears).toContain("2025");
+		expect(acrossYears).toContain("2026");
 	});
 });

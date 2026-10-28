@@ -37,8 +37,14 @@ export function monthEndFrom(start: string): string {
 	return next.toISOString().slice(0, 10);
 }
 
-/** How to name the month starting on `start`: "October 2026" for a calendar month, "25 Oct – 24 Nov" otherwise. */
-export function monthLabel(start: string): string {
+/**
+ * How to name the month starting on `start`: "October 2026" for a calendar month, "25 Oct – 24 Nov" otherwise, with
+ * the year when it isn't `today`'s.
+ */
+export function monthLabel(
+	start: string,
+	today = new Date().toISOString().slice(0, 10),
+): string {
 	const from = utc(start);
 	if (from.getUTCDate() === 1) {
 		return from.toLocaleDateString(undefined, {
@@ -47,8 +53,15 @@ export function monthLabel(start: string): string {
 			timeZone: "UTC",
 		});
 	}
+	const end = utc(monthEndFrom(start));
+	const thisYear = utc(today).getUTCFullYear();
 	const short = { day: "numeric", month: "short", timeZone: "UTC" } as const;
-	return `${from.toLocaleDateString(undefined, short)} – ${utc(
-		monthEndFrom(start),
-	).toLocaleDateString(undefined, short)}`;
+	const withYear = { ...short, year: "numeric" } as const;
+	const yearShown =
+		from.getUTCFullYear() !== thisYear || end.getUTCFullYear() !== thisYear;
+	const sameYear = from.getUTCFullYear() === end.getUTCFullYear();
+	return `${from.toLocaleDateString(undefined, yearShown && !sameYear ? withYear : short)} – ${end.toLocaleDateString(
+		undefined,
+		yearShown ? withYear : short,
+	)}`;
 }

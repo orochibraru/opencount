@@ -100,6 +100,7 @@ export const totpSchema = z.object({
 
 export const backupCodeSchema = z.object({
 	code: z.string().trim().min(1, "Enter a backup code."),
+	trustDevice: z.stringbool().optional(),
 });
 
 export const passwordConfirmSchema = z.object({

@@ -14,6 +14,7 @@
 	import * as Field from "#lib/components/ui/field/index.js";
 	import { Input } from "#lib/components/ui/input/index.js";
 	import { keepRedirect } from "#lib/redirect-target.js";
+	import { trustThisDevice } from "#lib/remote/two-factor.remote.js";
 	import { toastError } from "#lib/toast.js";
 
 	const { data } = $props();
@@ -21,6 +22,7 @@
 	let errors = $state<Record<string, string[]>>({});
 	let useBackupCode = $state(false);
 	let passkeyPending = $state(false);
+	let trusted = $state(false);
 
 	async function passkeySignInCallback() {
 		passkeyPending = true;
@@ -28,6 +30,9 @@
 			const result = await authClient.signIn.passkey();
 			if (result?.error) {
 				throw new Error(result.error.message ?? "That passkey didn't work.");
+			}
+			if (trusted) {
+				await trustThisDevice();
 			}
 			await goto(data.redirectTo, { invalidateAll: true });
 		} finally {
@@ -59,6 +64,7 @@
 			success="Signed in."
 			bind:errors
 		>
+			<input type="hidden" name="trustDevice" value={String(trusted)} />
 			<Field.Field>
 				<Field.Label for="backup-code">Backup code</Field.Label>
 				<Input
@@ -80,6 +86,7 @@
 			success="Signed in."
 			bind:errors
 		>
+			<input type="hidden" name="trustDevice" value={String(trusted)} />
 			<Field.Field>
 				<Field.Label for="totp">Code</Field.Label>
 				<Input
@@ -93,14 +100,14 @@
 				/>
 				<Field.Error errors={errors.code?.map((message) => ({ message }))} />
 			</Field.Field>
-			<Field.Field orientation="horizontal">
-				<Checkbox id="trust-device" name="trustDevice" value="true" />
-				<Field.Label for="trust-device" class="font-normal"
-					>Trust this device for 30 days</Field.Label
-				>
-			</Field.Field>
 		</AuthForm>
 	{/if}
+	<Field.Field orientation="horizontal" class="mt-4">
+		<Checkbox id="trust-device" bind:checked={trusted} />
+		<Field.Label for="trust-device" class="font-normal"
+			>Trust this device for 30 days</Field.Label
+		>
+	</Field.Field>
 	{#if data.passkey}
 		<Button
 			variant="outline"

@@ -374,6 +374,57 @@ describe("signing in by email", () => {
 		expect(sessions()).toBe(0);
 	});
 
+	test("a trusted device skips the two-step check after a link", async () => {
+		enableEmail();
+		createUser("grace", "Grace");
+		const pairs = (response: Response) =>
+			response.headers
+				.getSetCookie()
+				.map((cookie) => cookie.split(";")[0])
+				.join("; ");
+		await sendCode({ email: "grace@example.com", type: "sign-in" });
+		const code = /(\d{3}) (\d{3})/.exec(lastEmail()?.text ?? "");
+		const signedIn = await signInWithCode({
+			email: "grace@example.com",
+			otp: `${code?.[1]}${code?.[2]}`,
+		});
+		const trusted = await answered(
+			authService.get().api.trustDevice({
+				headers: new Headers({ cookie: pairs(signedIn) }),
+				asResponse: true,
+			}),
+		);
+		expect(pairs(trusted)).toContain("trust_device");
+		databaseConnection
+			.get()
+			.update(user)
+			.set({ twoFactorEnabled: true })
+			.where(eq(user.id, "grace"))
+			.run();
+		await sendLink({ email: "grace@example.com", callbackURL: "/" });
+		const link = /http\S+magic-link\/verify\S+/.exec(lastEmail()?.text ?? "");
+		const verified = await authService.get().handler(
+			new Request(link?.[0] ?? "", {
+				redirect: "manual",
+				headers: {
+					accept: "text/html",
+					cookie: pairs(trusted),
+					"x-forwarded-for": "10.9.0.2",
+				},
+			}),
+		);
+		expect(verified.headers.get("location")).not.toBe("/auth/two-factor");
+		expect(pairs(verified)).not.toContain("two_factor");
+		expect(
+			databaseConnection
+				.get()
+				.select()
+				.from(session)
+				.where(eq(session.userId, "grace"))
+				.all(),
+		).toHaveLength(2);
+	});
+
 	test("emailed codes only ever sign in", async () => {
 		enableEmail();
 		createUser("ada");

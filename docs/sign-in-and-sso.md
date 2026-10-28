@@ -71,10 +71,11 @@ passwords off or no email, the page doesn't exist.
 ## Two-factor
 
 An account with an authenticator app is asked for its 6-digit code after the
-password, or for one of its backup codes. **Trust this device for 30 days**
-skips the code on that browser for a month. Admins can make an authenticator
-app, a passkey or an app lock mandatory from **Admin, Access**; see
-[The admin area](admin).
+password, single sign-on, or a link or code by email; one of its backup codes or
+a passkey does too. **Trust this device for 30 days**, ticked with any of them,
+skips the check on that browser for a month, whichever way it signs in next.
+Admins can make an authenticator app, a passkey or an app lock mandatory from
+**Admin, Access**; see [The admin area](admin).
 
 ## Single sign-on
 

@@ -1,3 +1,5 @@
+import { createHmac } from "node:crypto";
+
 import { dev } from "$app/env";
 import { resolve } from "$app/paths";
 import { getRequestEvent } from "$app/server";
@@ -6,12 +8,14 @@ import { fetchClientMetadataResource } from "@better-auth/cimd/node";
 import { mcp } from "@better-auth/mcp";
 import { passkey } from "@better-auth/passkey";
 import type { RequestEvent } from "@sveltejs/kit";
-import { betterAuth } from "better-auth";
+import { betterAuth, type BetterAuthPlugin } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import {
 	APIError,
+	createAuthEndpoint,
 	createAuthMiddleware,
 	getSessionFromCtx,
+	sessionMiddleware,
 } from "better-auth/api";
 import { deleteSessionCookie } from "better-auth/cookies";
 import { generateRandomString } from "better-auth/crypto";
@@ -79,6 +83,8 @@ const passkeyRegistrationPaths = new Set([
 	"/passkey/generate-register-options",
 	"/passkey/verify-registration",
 ]);
+
+const trustDeviceMaxAge = 30 * 24 * 60 * 60;
 
 const secondFactorSkippingPaths = [
 	"/callback/",
@@ -226,6 +232,7 @@ class AuthService {
 			},
 			plugins: [
 				twoFactor({ issuer: "OpenCount" }),
+				this.#trustDevicePlugin(),
 				passkey({ rpName: "OpenCount" }),
 				magicLink({
 					disableSignUp: true,
@@ -335,6 +342,77 @@ class AuthService {
 		return undefined;
 	}
 
+	/** A server-only endpoint that marks the signed-in browser trusted for the two-step check, after a passkey. */
+	#trustDevicePlugin() {
+		return {
+			id: "trust-device",
+			endpoints: {
+				trustDevice: createAuthEndpoint(
+					"/trust-device",
+					{ method: "POST", use: [sessionMiddleware] },
+					async (context) => {
+						await this.#trustDevice(context, context.context.session.user.id);
+						return context.json({ trusted: true });
+					},
+				),
+			},
+		} satisfies BetterAuthPlugin;
+	}
+
+	/** The token tying a trusted-device record to `userId`, as better-auth's two-factor plugin makes it. */
+	#trustToken(secret: string, userId: string, identifier: string): string {
+		return createHmac("sha256", secret)
+			.update(`${userId}!${identifier}`)
+			.digest("base64url");
+	}
+
+	/** Whether this browser carries a trusted-device cookie for `userId` that hasn't run out. */
+	async #trustedDevice(
+		context: MiddlewareContext,
+		userId: string,
+	): Promise<boolean> {
+		const cookie = context.context.createAuthCookie("trust_device", {
+			maxAge: trustDeviceMaxAge,
+		});
+		const value = await context.getSignedCookie(
+			cookie.name,
+			context.context.secret,
+		);
+		const [token, identifier] = value ? value.split("!") : [];
+		if (
+			!token ||
+			!identifier ||
+			token !== this.#trustToken(context.context.secret, userId, identifier)
+		) {
+			return false;
+		}
+		const record =
+			await context.context.internalAdapter.findVerificationValue(identifier);
+		return record?.value === userId && record.expiresAt > new Date();
+	}
+
+	/** Trusts this browser for `userId`'s two-step check for 30 days, as ticking the box with a code does. */
+	async #trustDevice(
+		context: Pick<MiddlewareContext, "context" | "setSignedCookie">,
+		userId: string,
+	): Promise<void> {
+		const identifier = `trust-device-${generateRandomString(32)}`;
+		await context.context.internalAdapter.createVerificationValue({
+			value: userId,
+			identifier,
+			expiresAt: new Date(Date.now() + trustDeviceMaxAge * 1000),
+		});
+		const cookie = context.context.createAuthCookie("trust_device", {
+			maxAge: trustDeviceMaxAge,
+		});
+		await context.setSignedCookie(
+			cookie.name,
+			`${this.#trustToken(context.context.secret, userId, identifier)}!${identifier}`,
+			context.context.secret,
+			cookie.attributes,
+		);
+	}
+
 	/**
 	 * Turns a single sign-on, email link or email code sign-in of an account with an authenticator app into the same
 	 * two-step check a password sign-in gets: no session yet, a pending check, then the code page (or its answer).
@@ -345,7 +423,10 @@ class AuthService {
 		const created = context.context.newSession;
 		if (
 			!created?.user.twoFactorEnabled ||
-			!secondFactorSkippingPaths.some((path) => context.path.startsWith(path))
+			!secondFactorSkippingPaths.some((path) =>
+				context.path.startsWith(path),
+			) ||
+			(await this.#trustedDevice(context, created.user.id))
 		) {
 			return;
 		}

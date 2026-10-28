@@ -56,7 +56,10 @@ export const actions = {
 		rateLimits.secondFactorAttempts.hit(client);
 		try {
 			await authService.get().api.verifyBackupCode({
-				body: { code: parsed.data.code },
+				body: {
+					code: parsed.data.code,
+					trustDevice: parsed.data.trustDevice ?? false,
+				},
 				headers: request.headers,
 			});
 		} catch (error) {
