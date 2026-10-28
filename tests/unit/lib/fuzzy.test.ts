@@ -7,7 +7,7 @@ describe("fuzzy search", () => {
 		expect(fuzzyMatches("Adeo*leroy Merlin", "merlin leroy")).toBe(true);
 		expect(fuzzyMatches("Adeo*leroy Merlin", "leroymerlin")).toBe(true);
 		expect(fuzzyMatches("Crêperie du Port", "creperie")).toBe(true);
-		expect(fuzzyMatches("Sergio's Deli", "sergo")).toBe(true);
+		expect(fuzzyMatches("Luigi's Deli", "luigu")).toBe(true);
 		expect(fuzzyMatches("Carrefour City", "carefour")).toBe(true);
 		expect(fuzzyMatches("Intermarché Super", "intermarhce")).toBe(true);
 		expect(fuzzyMatches("To Robo portfolio", "rob")).toBe(true);

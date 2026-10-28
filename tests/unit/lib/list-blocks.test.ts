@@ -34,9 +34,9 @@ describe("listBlocks", () => {
 describe("similarKey", () => {
 	test("spells the same thing the same way", async () => {
 		const { similarKey } = await import("#lib/similar-key.js");
-		expect(similarKey("Sergio")).toBe("sergio");
-		expect(similarKey("Sergios")).toBe("sergio");
-		expect(similarKey("Sergio's")).toBe("sergio");
+		expect(similarKey("Luigi")).toBe("luigi");
+		expect(similarKey("Luigis")).toBe("luigi");
+		expect(similarKey("Luigi's")).toBe("luigi");
 		expect(similarKey("  BIÈRES   Viking! ")).toBe("biere viking");
 		expect(similarKey("bière viking")).toBe("biere viking");
 		expect(similarKey("?")).toBe("");

@@ -558,6 +558,29 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 			.all().length;
 	}
 
+	/** Moves `userId`'s expenses `ids` into folder `folderId`, or out of every folder when null; returns how many moved. */
+	static moveToFolder(
+		userId: string,
+		ids: string[],
+		folderId: string | null,
+	): number {
+		if (ids.length === 0) {
+			return 0;
+		}
+		return databaseConnection
+			.get()
+			.update(personalExpense)
+			.set({ folderId })
+			.where(
+				and(
+					eq(personalExpense.userId, userId),
+					inArray(personalExpense.id, ids),
+				),
+			)
+			.returning({ id: personalExpense.id })
+			.all().length;
+	}
+
 	/** Records an expense `userId` typed in. */
 	static create(userId: string, input: PersonalExpenseInput): string {
 		return databaseConnection

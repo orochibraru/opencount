@@ -130,7 +130,7 @@ Each is a hard rule.
 - A page runs full width (`px-4 md:px-6`, no `max-w-*` on the page) except a
   centred single-purpose card; lists cap themselves at `md:max-w-2xl`.
 - `#lib` with extensions; links through `resolve()` with a route id or a
-  pathname without the leading slash.
+  pathname without the leading slash; `paths.relative` stays off.
 - `handleError` handles `kind === "unknown"` only and never returns the real
   message.
 - `authService.publicOrigin()` is `ORIGIN`, else the setting recorded at setup

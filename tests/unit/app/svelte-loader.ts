@@ -26,6 +26,7 @@ configuration.set({
 	appVersion: "0.0.0-test",
 	origin: undefined,
 	databasePath: ":memory:",
+	signInMethods: undefined,
 	logLevel: "error",
 	logFormat: "console",
 	auth: { secret: "test-secret-that-is-long-enough-for-tests" },

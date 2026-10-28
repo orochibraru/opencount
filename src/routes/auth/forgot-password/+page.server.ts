@@ -2,15 +2,15 @@ import { resolve } from "$app/paths";
 import { error, fail } from "@sveltejs/kit";
 import { APIError } from "better-auth/api";
 
-import { getSetting } from "#lib/dto/setting.js";
 import { authService } from "#lib/server/auth/auth.js";
 import { rateLimits } from "#lib/server/auth/rate-limit.js";
+import { signInMethods } from "#lib/server/auth/sign-in-methods.js";
 import { mailer } from "#lib/server/notifications/mailer.js";
 import { passwordResetRequestSchema } from "#lib/server/validation/auth.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
 function assertResetsOpen(): void {
-	if (!getSetting("passwordSignIn") || !mailer.isConfigured()) {
+	if (!signInMethods.isOn("passwordSignIn") || !mailer.isConfigured()) {
 		error(404, "Password resets are turned off on this server. Ask an admin.");
 	}
 }

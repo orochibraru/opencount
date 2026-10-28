@@ -43,6 +43,7 @@ configuration.set({
 	appVersion: "0.0.0",
 	origin,
 	databasePath: join(work, "opencount.sqlite"),
+	signInMethods: undefined,
 	logLevel: "warn",
 	logFormat: "console",
 	auth: { secret },

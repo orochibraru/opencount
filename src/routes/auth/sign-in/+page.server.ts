@@ -22,7 +22,7 @@ export const load = ({ url }) => ({
 	redirectTo: access.safeRedirectTarget(url),
 	signUpsOpen: getSetting("signUpsEnabled"),
 	methods: signInMethods.enabled(),
-	passwordReset: getSetting("passwordSignIn") && mailer.isConfigured(),
+	passwordReset: signInMethods.isOn("passwordSignIn") && mailer.isConfigured(),
 });
 
 export const actions = {

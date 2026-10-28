@@ -11,6 +11,7 @@ import {
 	SENTRY_DSN,
 	SENTRY_ENVIRONMENT,
 	SENTRY_RELEASE,
+	SIGN_IN_METHODS,
 	WORKER_CONCURRENCY,
 	WORKER_POLL_INTERVAL_MS,
 } from "$app/env/private";
@@ -28,6 +29,7 @@ class EnvironmentConfig {
 			appVersion,
 			origin: ORIGIN ? new URL(ORIGIN).origin : undefined,
 			databasePath: DATABASE_PATH,
+			signInMethods: SIGN_IN_METHODS,
 			logLevel: LOG_LEVEL,
 			logFormat: LOG_FORMAT,
 			auth: { secret: AUTH_SECRET },

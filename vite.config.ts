@@ -17,6 +17,7 @@ export default defineConfig({
 				serverOptions: { maxRequestBodySize: 32 * 1024 * 1024 },
 			}),
 			experimental: { remoteFunctions: true },
+			paths: { relative: false },
 			csrf: { trustedOrigins: ["*"] },
 			csp: {
 				directives: {

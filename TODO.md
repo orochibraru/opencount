@@ -32,14 +32,10 @@ box while it's being worked on, and delete the entry once it's done.
 - [ ] Round-up and recurring micro-transfers to an investment pocket flood the
       Personal list: collapse a day's transfers to the same pocket into one row,
       or add a "hide set aside" switch.
-- [ ] Loan instalments and cash withdrawals land in Finance and count as spent:
-      give them their own built-in categories (Loan, Cash) so Insights can show
-      or leave them out.
-- [ ] Charities whose name holds a health word ("médecins", "aides") are guessed
-      as Health: add a Donations category with charity keywords ahead of
-      Health's.
-- [ ] A foreign card payment's original amount and currency ("29,39 USD" on
-      Crédit Mutuel lines) are thrown away: keep them on the personal expense
+- [ ] Donations to charities whose name holds a health word are guessed as
+      Health: add a Donations category with charity keywords ahead of Health's.
+- [ ] Some banks write a foreign card payment's original amount and currency in
+      the line's text, and it's thrown away: keep them on the personal expense
       like group expenses keep theirs.
 
 ## Large

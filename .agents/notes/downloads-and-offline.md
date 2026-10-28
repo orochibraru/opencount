@@ -67,13 +67,13 @@
   files Other entries by `categoryHistory` (what the account filed the same
   description under), then keywords and own categories, and runs `markAside`.
 - A bank line is named after the other party, else its remittance text; a card
-  line whose first line is the bank's generic one ("PAIEMENT CB 2310 PARIS…",
-  Crédit Mutuel) takes the merchant from the lines after it and is dated the day
-  the card paid (`transaction_date`, else the `DDMM` in that line). The
-  reference keeps the old name so lines saved before aren't saved twice. With no
-  category from history or keywords, the card's merchant code (ISO 18245) picks
-  one. Each sync re-reads the name and category of the lines it fetched that
-  still sit under Other; a relink re-reads the whole history.
+  line whose first line is the bank's generic one ("PAIEMENT CB 2310 PARIS…", as
+  some French banks write it) takes the merchant from the lines after it and is
+  dated the day the card paid (`transaction_date`, else the `DDMM` in that
+  line). The reference keeps the old name so lines saved before aren't saved
+  twice. With no category from history or keywords, the card's merchant code
+  (ISO 18245) picks one. Each sync re-reads the name and category of the lines
+  it fetched that still sit under Other; a relink re-reads the whole history.
 - Money coming into a shared account that isn't one of the person's own
   transfers is the other person's contribution: not income.
 - Linked bank accounts can be renamed (Linked banks, "Rename accounts"): the new
@@ -227,6 +227,9 @@
   and the personal `kind` only, never members, payer, shares or balances.
   `create_category` and `create_merchant` return the existing entry for a name
   already taken (built-ins included), never rename it; merchants are group-only.
+  Folders are personal-only: `list_folders`, `create_folder` (same rule for a
+  name taken), `rename_folder`, `delete_folder` (its expenses stay, out of any
+  folder) and `set_folders`; personal entries carry their `folderId`.
   `csrfHandler` lets `/api/auth/oauth2/token`, `revoke` and `introspect`
   through: AI apps call them server to server with no `Origin`.
 - `browserPaths` in `auth.ts` lets the OAuth endpoints AI apps call

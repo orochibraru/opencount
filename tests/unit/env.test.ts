@@ -32,6 +32,18 @@ describe("env.ts", () => {
 		expect(await parse("SENTRY_DSN", undefined)).toBeUndefined();
 	});
 
+	test("SIGN_IN_METHODS lists known methods or is left out", async () => {
+		expect(await parse("SIGN_IN_METHODS", undefined)).toBeUndefined();
+		expect(await parse("SIGN_IN_METHODS", "")).toBeUndefined();
+		expect(await parse("SIGN_IN_METHODS", "password, passkey")).toEqual([
+			"password",
+			"passkey",
+		]);
+		expect(await parse("SIGN_IN_METHODS", "password,sms")).toHaveProperty(
+			"issues",
+		);
+	});
+
 	test("defaults, enums and integers", async () => {
 		expect(await parse("DATABASE_PATH", undefined)).toBe(
 			"./data/opencount.sqlite",

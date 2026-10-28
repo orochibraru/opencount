@@ -3,8 +3,13 @@
 	import { page } from "$app/state";
 
 	import { Button } from "#lib/components/ui/button/index.js";
+	import { setPageTitle } from "#lib/page-title.svelte.js";
 
 	const notFound = $derived(page.status === 404);
+
+	setPageTitle(() =>
+		page.status === 404 ? "Page not found" : "Something went wrong",
+	);
 </script>
 
 <div

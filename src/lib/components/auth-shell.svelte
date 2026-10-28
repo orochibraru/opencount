@@ -3,6 +3,7 @@
 
 	import BrandMark from "#lib/components/brand-mark.svelte";
 	import InstanceBanner from "#lib/components/instance-banner.svelte";
+	import { setPageTitle } from "#lib/page-title.svelte.js";
 
 	interface Props {
 		heading: string;
@@ -12,6 +13,8 @@
 	}
 
 	const { heading, subheading, children, footer }: Props = $props();
+
+	setPageTitle(() => heading);
 </script>
 
 <div class="pt-safe-top flex min-h-[85dvh] flex-col justify-center px-6 py-12">

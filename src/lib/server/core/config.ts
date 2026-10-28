@@ -1,10 +1,13 @@
 export type LogLevel = "trace" | "debug" | "info" | "warn" | "error";
 export type LogFormat = "console" | "json";
+export type SignInMethodName =
+	"password" | "passkey" | "magic-link" | "email-code";
 
 export interface Config {
 	appVersion: string;
 	origin: string | undefined;
 	databasePath: string;
+	signInMethods: SignInMethodName[] | undefined;
 	logLevel: LogLevel;
 	logFormat: LogFormat;
 	auth: { secret: string };

@@ -20,6 +20,7 @@ import { GroupDTO } from "#lib/dto/group.js";
 import { MerchantDTO } from "#lib/dto/merchant.js";
 import { PersonalCategoryDTO } from "#lib/dto/personal-category.js";
 import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
+import { PersonalFolderDTO } from "#lib/dto/personal-folder.js";
 import { minorToDecimal } from "#lib/money.js";
 import { authService } from "#lib/server/auth/auth.js";
 import { configuration } from "#lib/server/core/config.js";
@@ -35,6 +36,7 @@ interface LedgerEntry {
 	kind?: string;
 	category: string;
 	merchant?: string | null;
+	folderId?: string | null;
 }
 
 interface Ledger {
@@ -211,7 +213,153 @@ class McpEndpoint {
 		);
 		this.#registerCreateCategory(server, userId);
 		this.#registerMerchantTools(server, userId);
+		this.#registerFolderTools(server, userId);
+		this.#registerSetFolders(server, userId);
 		return server;
+	}
+
+	/** Adds the tools that list, create, rename and delete the person's folders and file their expenses in them. */
+	#registerFolderTools(server: McpServer, userId: string): void {
+		const folders = () =>
+			PersonalFolderDTO.forUser(userId).map((entry) => {
+				const { id, name, expenseCount } = entry.toJSON();
+				return { id, name, expenses: expenseCount };
+			});
+		const missing = () => ({
+			...this.#reply({
+				error: "No such folder. Call list_folders for the ids.",
+			}),
+			isError: true,
+		});
+		const writes = {
+			readOnlyHint: false,
+			destructiveHint: false,
+			idempotentHint: true,
+		};
+		const folderName = z.string().trim().min(1).max(60);
+		server.registerTool(
+			"list_folders",
+			{
+				title: "List folders",
+				description:
+					"The folders the person sorts their own expenses into (a trip, a project, a move), each with its id and how many expenses it holds. Groups have none.",
+				annotations: { readOnlyHint: true },
+			},
+			() => this.#reply({ folders: folders() }),
+		);
+		server.registerTool(
+			"create_folder",
+			{
+				title: "Create a folder",
+				description:
+					"Adds a folder for the person's own expenses. A folder already named that way, whatever its case, is returned instead of doubled. Use its id with set_folders.",
+				inputSchema: z.object({ name: folderName }),
+				annotations: writes,
+			},
+			({ name }) => {
+				const existing = folders().find(
+					(entry) =>
+						entry.name.toLocaleLowerCase() === name.toLocaleLowerCase(),
+				);
+				return this.#reply(
+					existing
+						? { folder: existing, existed: true }
+						: {
+								folder: { id: PersonalFolderDTO.create(userId, name), name },
+								existed: false,
+							},
+				);
+			},
+		);
+		server.registerTool(
+			"rename_folder",
+			{
+				title: "Rename a folder",
+				description: "Renames one of the person's folders by its id.",
+				inputSchema: z.object({ id: z.string().min(1), name: folderName }),
+				annotations: writes,
+			},
+			({ id, name }) => {
+				const folder = PersonalFolderDTO.findForUser(id, userId);
+				if (!folder) {
+					return missing();
+				}
+				folder.rename(name);
+				return this.#reply({ folder: { id, name } });
+			},
+		);
+		server.registerTool(
+			"delete_folder",
+			{
+				title: "Delete a folder",
+				description:
+					"Deletes one of the person's folders by its id. Its expenses stay, out of any folder.",
+				inputSchema: z.object({ id: z.string().min(1) }),
+				annotations: {
+					readOnlyHint: false,
+					destructiveHint: true,
+					idempotentHint: true,
+				},
+			},
+			({ id }) => {
+				const folder = PersonalFolderDTO.findForUser(id, userId);
+				if (!folder) {
+					return missing();
+				}
+				folder.delete();
+				return this.#reply({ deleted: id });
+			},
+		);
+	}
+
+	/** Adds the tool that files the person's expenses in their folders. */
+	#registerSetFolders(server: McpServer, userId: string): void {
+		server.registerTool(
+			"set_folders",
+			{
+				title: "File expenses in folders",
+				description:
+					"Moves the person's own expenses into folders, up to 200 at once: each change names an expense id from list_expenses (no groupId) and a folder id from list_folders or create_folder, or null to take it out of its folder. An unknown folder is skipped and named back.",
+				inputSchema: z.object({
+					changes: z
+						.array(
+							z.object({
+								id: z.string().min(1),
+								folderId: z.string().min(1).nullable(),
+							}),
+						)
+						.min(1)
+						.max(200),
+				}),
+				annotations: {
+					readOnlyHint: false,
+					destructiveHint: false,
+					idempotentHint: true,
+				},
+			},
+			({ changes }) => {
+				const known = new Set(
+					PersonalFolderDTO.forUser(userId).map((entry) => entry.id),
+				);
+				const unknownFolders: string[] = [];
+				let updated = 0;
+				for (const [folderId, entries] of Map.groupBy(
+					changes,
+					(change) => change.folderId,
+				)) {
+					if (folderId && !known.has(folderId)) {
+						unknownFolders.push(folderId);
+						continue;
+					}
+					updated += PersonalExpenseDTO.moveToFolder(
+						userId,
+						entries.map((entry) => entry.id),
+						folderId,
+					);
+				}
+				return this.#reply({ updated, unknownFolders });
+			},
+		);
 	}
 
 	/** Adds the tool that creates a category. */
@@ -422,6 +570,7 @@ class McpEndpoint {
 							date: row.spentOn,
 							kind: row.kind,
 							category: row.category,
+							folderId: row.folderId,
 						};
 					}),
 				};

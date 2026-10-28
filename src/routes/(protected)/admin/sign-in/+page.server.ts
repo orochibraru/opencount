@@ -52,10 +52,11 @@ async function checkDiscovery(url: string): Promise<string | undefined> {
 export const load = async ({ parent, url }) => {
 	await parent();
 	return {
-		passwordSignIn: getSetting("passwordSignIn"),
-		passkeySignIn: getSetting("passkeySignIn"),
-		magicLinkSignIn: getSetting("magicLinkSignIn"),
-		emailCodeSignIn: getSetting("emailCodeSignIn"),
+		passwordSignIn: signInMethods.isOn("passwordSignIn"),
+		passkeySignIn: signInMethods.isOn("passkeySignIn"),
+		magicLinkSignIn: signInMethods.isOn("magicLinkSignIn"),
+		emailCodeSignIn: signInMethods.isOn("emailCodeSignIn"),
+		methodsPinned: signInMethods.pinned(),
 		emailConfigured: mailer.isConfigured(),
 		providers: getSetting("ssoProviders").map(
 			({ encryptedClientSecret: _secret, ...provider }) => provider,
@@ -69,6 +70,12 @@ export const actions = {
 		const admin = access.adminFrom(locals);
 		if (!("id" in admin)) {
 			return admin;
+		}
+		if (signInMethods.pinned()) {
+			return fail(400, {
+				error:
+					"SIGN_IN_METHODS sets the methods on this server: remove it to choose them here.",
+			});
 		}
 		const parsed = parseForm(methodsSchema, await request.formData());
 		if (!parsed.success) {
@@ -190,8 +197,8 @@ export const actions = {
 			(provider) => provider.id !== parsed.data.id,
 		);
 		if (
-			!getSetting("passwordSignIn") &&
-			!getSetting("passkeySignIn") &&
+			!signInMethods.isOn("passwordSignIn") &&
+			!signInMethods.isOn("passkeySignIn") &&
 			!remaining.some((provider) => provider.enabled)
 		) {
 			return fail(400, {

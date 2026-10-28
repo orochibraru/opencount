@@ -7,6 +7,7 @@
 
 	import { appearanceBootScript, applyAppearance } from "#lib/appearance.js";
 	import TopLoadingBar from "#lib/components/app-shell/top-loading-bar.svelte";
+	import DocumentTitle from "#lib/components/document-title.svelte";
 	import { Toaster } from "#lib/components/ui/sonner/index.js";
 	import * as Tooltip from "#lib/components/ui/tooltip/index.js";
 	import { providePageTitle } from "#lib/page-title.svelte.js";
@@ -54,3 +55,4 @@
 <Tooltip.Provider delayDuration={300}>
 	{@render children()}
 </Tooltip.Provider>
+<DocumentTitle />

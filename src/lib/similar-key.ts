@@ -1,6 +1,6 @@
 /**
  * What makes two descriptions the same thing despite spelling: lower case, no accents or punctuation, one-letter words
- * dropped and a plural or possessive "s" taken off longer words, so "Sergio", "Sergios" and "Sergio's" all match.
+ * dropped and a plural or possessive "s" taken off longer words, so "Luigi", "Luigis" and "Luigi's" all match.
  */
 export function similarKey(text: string): string {
 	return text

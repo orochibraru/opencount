@@ -50,6 +50,13 @@ Check **Admin, Overview**: a failed email is a failed job, with the SMTP
 server's error. Send yourself a test from **Admin, Email**. Meanwhile, an invite
 link can always be copied from **Admin, Invites** and sent by hand.
 
+## Locked out after changing the address
+
+Passkeys belong to the address they were made on, so moving the instance to
+another one leaves them useless. Set `SIGN_IN_METHODS=password` (see
+[configuration](configuration.md#locked-out)), restart, sign in with your
+password, add a passkey on the new address, then remove the variable.
+
 ## Passkeys aren't offered
 
 Browsers only expose passkeys in a secure context: HTTPS, or `localhost`. Serve

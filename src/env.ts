@@ -18,6 +18,13 @@ const optionalUrl = optionalText.pipe(
 	z.url({ protocol: /^https?$/ }).optional(),
 );
 
+const signInMethodNames = [
+	"password",
+	"passkey",
+	"magic-link",
+	"email-code",
+] as const;
+
 export const variables = defineEnvVars({
 	AUTH_SECRET: {
 		schema: z
@@ -33,6 +40,21 @@ export const variables = defineEnvVars({
 		schema: optionalUrl,
 		description:
 			"Public URL, only for an instance with no HTTPS proxy setting X-Forwarded-Proto and X-Forwarded-Host.",
+	},
+	SIGN_IN_METHODS: {
+		schema: optionalText.pipe(
+			z
+				.string()
+				.transform((value) => value.split(",").map((name) => name.trim()))
+				.pipe(
+					z
+						.array(z.enum(signInMethodNames))
+						.min(1, "List at least one method."),
+				)
+				.optional(),
+		),
+		description:
+			"Sign-in methods to allow whatever the admin settings say, comma-separated: password, passkey, magic-link, email-code. Set it to get back in after locking yourself out, then remove it.",
 	},
 	DATABASE_PATH: {
 		schema: z.string().trim().min(1).default("./data/opencount.sqlite"),

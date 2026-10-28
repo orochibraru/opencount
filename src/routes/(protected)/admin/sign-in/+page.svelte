@@ -49,18 +49,26 @@
 				need another way in first.
 			</p>
 		</div>
+		{#if data.methodsPinned}
+			<p class="bg-accent text-accent-foreground rounded-xl px-4 py-3 text-sm">
+				The server's <code>SIGN_IN_METHODS</code> sets these, whatever is saved here.
+				Remove it from the server's environment to choose them here again.
+			</p>
+		{/if}
 		<div class="divide-border divide-y">
 			<SettingSwitch
 				name="passwordSignIn"
 				label="Email and password"
 				description="Off makes everyone add a passkey or use single sign-on."
 				checked={data.passwordSignIn}
+				disabled={data.methodsPinned}
 			/>
 			<SettingSwitch
 				name="passkeySignIn"
 				label="Passkeys"
 				description="Face ID, Touch ID, Windows Hello or a security key."
 				checked={data.passkeySignIn}
+				disabled={data.methodsPinned}
 			/>
 			<SettingSwitch
 				name="magicLinkSignIn"
@@ -69,7 +77,7 @@
 					? "A one-time link that signs people in. Not for accounts with an authenticator app."
 					: "Needs email delivery: set up SMTP in the email tab first."}
 				checked={data.magicLinkSignIn}
-				disabled={!data.emailConfigured}
+				disabled={data.methodsPinned || !data.emailConfigured}
 			/>
 			<SettingSwitch
 				name="emailCodeSignIn"
@@ -78,10 +86,14 @@
 					? "A 6-digit code to type in, handy when email opens on another device."
 					: "Needs email delivery: set up SMTP in the email tab first."}
 				checked={data.emailCodeSignIn}
-				disabled={!data.emailConfigured}
+				disabled={data.methodsPinned || !data.emailConfigured}
 			/>
 		</div>
-		<Button type="submit" class="h-11 self-start rounded-xl px-5">
+		<Button
+			type="submit"
+			class="h-11 self-start rounded-xl px-5"
+			disabled={data.methodsPinned}
+		>
 			<CheckIcon />
 			Save
 		</Button>

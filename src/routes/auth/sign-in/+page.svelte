@@ -64,12 +64,38 @@
 		emailOpen = true;
 	}
 
+	const signInErrors: Record<string, string> = {
+		method_off: "That sign-in method is turned off on this server.",
+		not_found: "That sign-in link doesn't exist.",
+		signup_disabled:
+			"No account uses that email here. Ask an admin for an invite.",
+		unable_to_create_user:
+			"No account uses that email here. Ask an admin for an invite.",
+		account_not_linked:
+			"An account already uses that email: sign in to it, then link the provider from Security.",
+		email_not_found:
+			"The provider didn't share your email, so OpenCount can't find your account.",
+		state_mismatch:
+			"That sign-in took too long or was opened twice. Start it again.",
+		please_restart_the_process:
+			"That sign-in took too long or was opened twice. Start it again.",
+	};
+
 	onMount(() => {
 		if (page.url.searchParams.get("reset") === "done") {
 			toast.success("Password changed. Sign in with the new one.");
 		}
 		if (page.url.searchParams.get("locked") === "out") {
 			toast.error("Too many wrong passcodes: sign in again.");
+		}
+		const failed = page.url.searchParams.get("error");
+		if (failed) {
+			toast.error(
+				signInErrors[failed] ?? "The sign-in didn't go through. Try again.",
+				{
+					duration: 10_000,
+				},
+			);
 		}
 		if (page.url.searchParams.get("link") === "expired") {
 			toast.error(

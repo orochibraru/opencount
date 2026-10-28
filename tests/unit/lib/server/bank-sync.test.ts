@@ -734,7 +734,7 @@ describe("reading what banks send", () => {
 			creditor: undefined,
 			booking_date: "2026-10-27",
 			remittance_information: [
-				"PAIEMENT CB  2310 PARIS2441535/",
+				"PAIEMENT CB  2310 PARIS1234567/",
 				"AMAZON  PAYMENTS",
 			],
 		});
@@ -742,7 +742,7 @@ describe("reading what banks send", () => {
 			expect.objectContaining({
 				description: "AMAZON PAYMENTS",
 				spentOn: "2026-10-23",
-				bankRef: "acc:2026-10-27:12.30:PAIEMENT CB  2310 PARIS2441535/",
+				bankRef: "acc:2026-10-27:12.30:PAIEMENT CB  2310 PARIS1234567/",
 			}),
 		);
 		expect(
@@ -763,7 +763,7 @@ describe("reading what banks send", () => {
 	});
 
 	test("an unknown merchant is filed by its card merchant code", () => {
-		const opaque = card({ creditor: { name: "SNC LA STATION" } });
+		const opaque = card({ creditor: { name: "ZORBLAX 42" } });
 		expect(
 			bankSync.bankExpense("acc", { ...opaque, merchant_category_code: "5541" })
 				?.category,
@@ -783,7 +783,7 @@ describe("reading what banks send", () => {
 		const ada = createUser("ada");
 		const connection = link(ada.id);
 		const old = {
-			description: "PAIEMENT CB  2310 PARIS2441535/",
+			description: "PAIEMENT CB  2310 PARIS1234567/",
 			category: "other",
 			kind: "expense" as const,
 			amountMinor: 1230,
@@ -816,7 +816,7 @@ describe("reading what banks send", () => {
 				.entries.map((entry) => entry.toJSON())
 				.map(({ description, category }) => `${description}:${category}`)
 				.toSorted(),
-		).toEqual(["Amazon:shopping", "PAIEMENT CB  2310 PARIS2441535/:food"]);
+		).toEqual(["Amazon:shopping", "PAIEMENT CB  2310 PARIS1234567/:food"]);
 	});
 
 	test("money coming into a shared account is someone else's, not income", () => {
@@ -891,5 +891,35 @@ describe("Finance in the totals", () => {
 		expect(stats.finance).toEqual([{ currency: "EUR", minor: 120_000 }]);
 		expect(stats.aside).toEqual([{ currency: "EUR", minor: 500 }]);
 		expect(stats.byCategory.map((row) => row.category)).toEqual(["food"]);
+	});
+});
+
+describe("folders", () => {
+	beforeEach(resetDatabase);
+
+	test("files only the person's own expenses in a folder and takes them out", async () => {
+		const { PersonalFolderDTO } = await import("#lib/dto/personal-folder.js");
+		const ada = createUser("ada");
+		const grace = createUser("grace");
+		const entry = {
+			description: "Hotel",
+			category: "lodging",
+			amountMinor: 9000,
+			currency: "EUR",
+			spentOn: "2026-10-10",
+		};
+		const mine = PersonalExpenseDTO.create(ada.id, entry);
+		const theirs = PersonalExpenseDTO.create(grace.id, entry);
+		const trip = PersonalFolderDTO.create(ada.id, "Lisbon trip");
+		expect(PersonalExpenseDTO.moveToFolder(ada.id, [mine, theirs], trip)).toBe(
+			1,
+		);
+		expect(
+			PersonalFolderDTO.findForUser(trip, ada.id)?.toJSON().expenseCount,
+		).toBe(1);
+		expect(PersonalExpenseDTO.moveToFolder(ada.id, [mine], null)).toBe(1);
+		expect(
+			PersonalFolderDTO.findForUser(trip, ada.id)?.toJSON().expenseCount,
+		).toBe(0);
 	});
 });

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import { APIError } from "better-auth/api";
 import { eq } from "drizzle-orm";
@@ -8,6 +8,7 @@ import { setSetting } from "#lib/dto/setting.js";
 import { UserDTO } from "#lib/dto/user.js";
 import { authService } from "#lib/server/auth/auth.js";
 import { signInMethods } from "#lib/server/auth/sign-in-methods.js";
+import { configuration } from "#lib/server/core/config.js";
 import { secrets } from "#lib/server/core/secrets.js";
 import { databaseConnection } from "#lib/server/db/database.js";
 import { account, job, user } from "#lib/server/db/schema.js";
@@ -113,19 +114,20 @@ describe("getAuth", () => {
 	test("refuses sign-in methods an admin turned off", async () => {
 		setSetting("passwordSignIn", false);
 		setSetting("passkeySignIn", false);
-		setSetting("ssoProviders", [provider("off", false)]);
+		setSetting("ssoProviders", [provider("off", false), provider("on", true)]);
 		const auth = authService.get();
 		const headers = new Headers({
 			host: "localhost",
 			origin: "http://localhost",
 		});
-		const call = (path: string, body?: unknown) =>
+		const call = (path: string, body?: unknown, accept = "application/json") =>
 			auth.handler(
 				new Request(`http://localhost/api/auth${path}`, {
 					method: body === undefined ? "GET" : "POST",
 					headers: {
 						"content-type": "application/json",
 						origin: "http://localhost",
+						accept,
 					},
 					body: body === undefined ? undefined : JSON.stringify(body),
 				}),
@@ -149,8 +151,21 @@ describe("getAuth", () => {
 			}),
 		);
 		expect(sso.status).toBe(403);
-		const callback = await call("/callback/missing");
-		expect(callback.status).toBe(403);
+		const callback = await call(
+			"/callback/off?code=x&state=y",
+			undefined,
+			"text/html",
+		);
+		expect(callback.status).toBe(302);
+		expect(callback.headers.get("location")).toBe(
+			"/auth/sign-in?error=method_off",
+		);
+		const enabled = await call(
+			"/callback/on?code=x&state=y",
+			undefined,
+			"text/html",
+		);
+		expect(enabled.headers.get("location") ?? "").not.toContain("method_off");
 	});
 
 	test("answers only the endpoints a browser needs, leaving the rest to form actions", async () => {
@@ -364,5 +379,32 @@ describe("signing in by email", () => {
 			}),
 		);
 		expect(disabled.status).toBe(404);
+	});
+});
+
+describe("SIGN_IN_METHODS", () => {
+	beforeEach(resetDatabase);
+	afterEach(() => {
+		configuration.get().signInMethods = undefined;
+	});
+
+	test("lets the server's environment override the methods an admin chose", async () => {
+		setSetting("passwordSignIn", false);
+		setSetting("passkeySignIn", true);
+		expect(signInMethods.pinned()).toBe(false);
+		expect(signInMethods.isOn("passwordSignIn")).toBe(false);
+		configuration.get().signInMethods = ["password"];
+		expect(signInMethods.pinned()).toBe(true);
+		expect(signInMethods.enabled()).toEqual(
+			expect.objectContaining({ password: true, passkey: false }),
+		);
+		const response = await answered(
+			authService.get().api.signInEmail({
+				body: { email: "nobody@example.com", password: "whatever-it-is" },
+				headers: new Headers({ host: "localhost", origin: "http://localhost" }),
+				asResponse: true,
+			}),
+		);
+		expect(await response.text()).not.toContain("turned off");
 	});
 });

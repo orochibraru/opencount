@@ -22,6 +22,16 @@ secrets and authenticator app secrets. Changing it signs everyone out, and those
 secrets can no longer be read: an admin has to enter the SMTP password and the
 client secrets again, and everyone has to set up their authenticator app again.
 
+## Locked out
+
+`SIGN_IN_METHODS` overrides the sign-in methods chosen under **Admin, Sign-in
+methods**: a comma-separated list of `password`, `passkey`, `magic-link` and
+`email-code`, like `SIGN_IN_METHODS=password`. While it's set, those are the
+only methods offered and the admin page shows them as set by the server. Use it
+to get back in after turning off the only method that worked, or after moving
+the instance to another address, which leaves passkeys made on the old one
+useless. Remove it once you're in and have set the methods again.
+
 ## Origin
 
 | Variable          | Default in the image | When you need it                            |
