@@ -5,7 +5,10 @@ import { haptic } from "#lib/haptics.js";
 const holdMs = 450;
 const slopPx = 10;
 
-/** Calls `onLongPress` when a touch is held still on the node, with a short vibration, and keeps the browser's own menu away. */
+/**
+ * Calls `onLongPress` when a touch is held still on the node, with a short vibration, keeps the browser's own menu away
+ * and swallows the tap the release would make.
+ */
 export const longPress: Action<HTMLElement, () => void> = (
 	node,
 	onLongPress,
@@ -13,6 +16,7 @@ export const longPress: Action<HTMLElement, () => void> = (
 	let callback = onLongPress;
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let start: { x: number; y: number } | undefined;
+	let fired = false;
 
 	const cancel = () => {
 		clearTimeout(timer);
@@ -23,9 +27,11 @@ export const longPress: Action<HTMLElement, () => void> = (
 		if (event.pointerType === "mouse") {
 			return;
 		}
+		fired = false;
 		start = { x: event.clientX, y: event.clientY };
 		timer = setTimeout(() => {
 			haptic("tap");
+			fired = true;
 			callback();
 			cancel();
 		}, holdMs);
@@ -41,12 +47,20 @@ export const longPress: Action<HTMLElement, () => void> = (
 	const contextMenu = (event: Event) => {
 		event.preventDefault();
 	};
+	const click = (event: Event) => {
+		if (fired) {
+			fired = false;
+			event.preventDefault();
+			event.stopPropagation();
+		}
+	};
 
 	node.addEventListener("pointerdown", down);
 	node.addEventListener("pointermove", move);
 	node.addEventListener("pointerup", cancel);
 	node.addEventListener("pointercancel", cancel);
 	node.addEventListener("contextmenu", contextMenu);
+	node.addEventListener("click", click, true);
 
 	return {
 		update(next) {
@@ -59,6 +73,7 @@ export const longPress: Action<HTMLElement, () => void> = (
 			node.removeEventListener("pointerup", cancel);
 			node.removeEventListener("pointercancel", cancel);
 			node.removeEventListener("contextmenu", contextMenu);
+			node.removeEventListener("click", click, true);
 		},
 	};
 };

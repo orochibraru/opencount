@@ -24,7 +24,10 @@
 
 	const money = (minor: number) => formatMoney(minor, overview.currency);
 	const leftOver = $derived(
-		overview.incomeMinor - overview.spentMinor - overview.asideMinor,
+		overview.incomeMinor -
+			overview.spentMinor -
+			overview.asideMinor -
+			overview.financeMinor,
 	);
 	const pace = $derived(overview.spentMinor - overview.lastMonthSoFarMinor);
 	const top = $derived(
@@ -92,7 +95,7 @@
 					than at this point last month.
 				{/if}
 			</p>
-			<dl class="mt-5 grid grid-cols-3 gap-3 text-sm">
+			<dl class="mt-5 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
 				<div>
 					<dt class="text-muted-foreground">Came in</dt>
 					<dd class="text-positive font-medium tabular">
@@ -102,6 +105,10 @@
 				<div>
 					<dt class="text-muted-foreground">Set aside</dt>
 					<dd class="font-medium tabular">{money(overview.asideMinor)}</dd>
+				</div>
+				<div>
+					<dt class="text-muted-foreground">Loans, fees, cash</dt>
+					<dd class="font-medium tabular">{money(overview.financeMinor)}</dd>
 				</div>
 				<div>
 					<dt class="text-muted-foreground">Left over</dt>

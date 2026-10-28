@@ -868,3 +868,28 @@ describe("bank sync turned off", () => {
 		expect(fetched).not.toHaveBeenCalled();
 	});
 });
+
+describe("Finance in the totals", () => {
+	beforeEach(resetDatabase);
+
+	test("loans, fees and cash are counted apart from what was spent", () => {
+		const ada = createUser("ada");
+		const add = (category: string, amountMinor: number, aside = false) =>
+			PersonalExpenseDTO.create(ada.id, {
+				description: category,
+				category,
+				amountMinor,
+				currency: "EUR",
+				spentOn: "2026-10-10",
+				aside,
+			});
+		add("food", 1000);
+		add("finance", 120_000);
+		add("finance", 500, true);
+		const stats = PersonalExpenseDTO.stats(ada.id);
+		expect(stats.totals).toEqual([{ currency: "EUR", minor: 1000 }]);
+		expect(stats.finance).toEqual([{ currency: "EUR", minor: 120_000 }]);
+		expect(stats.aside).toEqual([{ currency: "EUR", minor: 500 }]);
+		expect(stats.byCategory.map((row) => row.category)).toEqual(["food"]);
+	});
+});

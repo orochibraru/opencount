@@ -37,10 +37,17 @@
 		title: string;
 		actions: MenuAction[];
 		class?: string;
+		onOpen?: () => void;
 		children: Snippet;
 	}
 
-	const { title, actions, class: className, children }: Props = $props();
+	const {
+		title,
+		actions,
+		class: className,
+		onOpen,
+		children,
+	}: Props = $props();
 
 	const desktop = new MediaQuery("(min-width: 768px)");
 
@@ -66,6 +73,20 @@
 		quietForm?.requestSubmit();
 	}
 </script>
+
+{#snippet content()}
+	{#if onOpen}
+		<button
+			type="button"
+			class="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
+			onclick={onOpen}
+		>
+			{@render children()}
+		</button>
+	{:else}
+		{@render children()}
+	{/if}
+{/snippet}
 
 {#snippet trailing()}
 	{#if desktop.current}
@@ -104,12 +125,12 @@
 
 {#if actions.length === 0}
 	<div class={cn("flex items-center gap-3", className)}>
-		{@render children()}
+		{@render content()}
 	</div>
 {:else if desktop.current}
 	<ContextMenu.Root>
 		<ContextMenu.Trigger class={cn("flex items-center gap-3", className)}>
-			{@render children()}
+			{@render content()}
 			{@render trailing()}
 		</ContextMenu.Trigger>
 		<ContextMenu.Content class="min-w-48">
@@ -132,7 +153,7 @@
 		)}
 		use:longPress={() => (drawerOpen = true)}
 	>
-		{@render children()}
+		{@render content()}
 		{@render trailing()}
 	</div>
 	<Drawer.Root bind:open={drawerOpen}>

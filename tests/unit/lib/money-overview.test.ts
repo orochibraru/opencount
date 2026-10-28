@@ -43,6 +43,7 @@ describe("moneyOverview", () => {
 		}),
 		row("2026-10-09", "Carrefour City", 4_000, { category: "groceries" }),
 		row("2026-10-09", "Bakery", 450, { category: "food" }),
+		row("2026-10-07", "ECH PRET", 120_000, { category: "finance" }),
 		row("2026-10-09", "Dinner", 6_000, { currency: "USD" }),
 		row("2026-10-11", "Later", 999),
 	];
@@ -53,6 +54,7 @@ describe("moneyOverview", () => {
 		expect(overview.spentMinor).toBe(2_500 + 1_399 + 4_000 + 450);
 		expect(overview.incomeMinor).toBe(250_000);
 		expect(overview.asideMinor).toBe(1_000);
+		expect(overview.financeMinor).toBe(120_000);
 		expect(overview.lastMonthSoFarMinor).toBe(2_000 + 1_399 + 3_000);
 		expect(overview.lastMonthMinor).toBe(2_000 + 1_399 + 3_000 + 80_000);
 		expect(overview.monthEnd).toBe("2026-10-31");

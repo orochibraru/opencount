@@ -148,7 +148,7 @@
 	href={insightsHref}
 />
 
-<div class="grid gap-3 sm:grid-cols-3 md:gap-4">
+<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 md:gap-4">
 	<StatCard
 		label="Spent"
 		icon={WalletIcon}
@@ -165,6 +165,12 @@
 		label="Set aside"
 		icon={PiggyBankIcon}
 		value={formatMoney(data.asideMinor, data.currency)}
+	/>
+	<StatCard
+		label="Loans, fees, cash"
+		icon={LandmarkIcon}
+		value={formatMoney(data.financeMinor, data.currency)}
+		hint="Finance, kept out of spent"
 	/>
 </div>
 

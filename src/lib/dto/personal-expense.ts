@@ -112,6 +112,8 @@ export interface PersonalStats {
 	thisMonth: MoneyTotal[];
 	aside: MoneyTotal[];
 	asideThisMonth: MoneyTotal[];
+	finance: MoneyTotal[];
+	financeThisMonth: MoneyTotal[];
 	income: MoneyTotal[];
 	incomeThisMonth: MoneyTotal[];
 	byCategory: (MoneyTotal & { category: string })[];
@@ -265,8 +267,17 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 			ownIncome(userId),
 		);
 		const spent = and(matching, eq(personalExpense.kind, "expense"));
-		const scope = and(spent, eq(personalExpense.aside, false));
+		const scope = and(
+			spent,
+			eq(personalExpense.aside, false),
+			ne(personalExpense.category, "finance"),
+		);
 		const setAside = and(spent, eq(personalExpense.aside, true));
+		const finance = and(
+			spent,
+			eq(personalExpense.aside, false),
+			eq(personalExpense.category, "finance"),
+		);
 		const earned = and(
 			matching,
 			eq(personalExpense.kind, "income"),
@@ -311,6 +322,8 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 			incomeThisMonth: totalsOf(and(earned, thisMonth)),
 			aside: totalsOf(setAside),
 			asideThisMonth: totalsOf(and(setAside, thisMonth)),
+			finance: totalsOf(finance),
+			financeThisMonth: totalsOf(and(finance, thisMonth)),
 			totals: totalsOf(scope),
 			thisMonth: totalsOf(and(scope, thisMonth)),
 			byCategory: database

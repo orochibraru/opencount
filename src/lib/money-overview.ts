@@ -1,6 +1,7 @@
 import type { SpendingRow } from "#lib/dto/personal-expense.js";
 import { monthEndFrom, monthStartOn, shiftMonth } from "#lib/pay-month.js";
 import { similarKey } from "#lib/similar-key.js";
+import { spendingKind } from "#lib/spending-kind.js";
 
 export interface MoneyOverview {
 	currency: string;
@@ -9,6 +10,7 @@ export interface MoneyOverview {
 	spentMinor: number;
 	incomeMinor: number;
 	asideMinor: number;
+	financeMinor: number;
 	lastMonthSoFarMinor: number;
 	forecastMinor: number;
 	lastMonthMinor: number;
@@ -158,7 +160,7 @@ export function moneyOverview(
 	const own = rows.filter(
 		(row) => row.currency === currency && row.spentOn <= today,
 	);
-	const spent = own.filter((row) => row.kind === "expense" && !row.aside);
+	const spent = own.filter((row) => spendingKind(row) === "spent");
 	const monthStart = monthStartOn(today, startDay);
 	const elapsedDays = daysBetween(monthStart, today);
 	const monthEnd = monthEndFrom(monthStart);
@@ -203,14 +205,17 @@ export function moneyOverview(
 		spentMinor,
 		incomeMinor: sum(
 			own.filter(
-				(row) =>
-					row.kind === "income" && !row.aside && row.spentOn >= monthStart,
+				(row) => spendingKind(row) === "income" && row.spentOn >= monthStart,
 			),
 		),
 		asideMinor: sum(
 			own.filter(
-				(row) =>
-					row.kind === "expense" && row.aside && row.spentOn >= monthStart,
+				(row) => spendingKind(row) === "aside" && row.spentOn >= monthStart,
+			),
+		),
+		financeMinor: sum(
+			own.filter(
+				(row) => spendingKind(row) === "finance" && row.spentOn >= monthStart,
 			),
 		),
 		lastMonthSoFarMinor: sum(

@@ -481,7 +481,8 @@ describe("personal folders, stats and similar expenses", () => {
 		expect(PersonalExpenseDTO.markAside(ada.id, isMoneyAside)).toBe(0);
 		const stats = PersonalExpenseDTO.stats(ada.id, {}, { today: "2026-10-15" });
 		expect(stats.asideThisMonth).toEqual([{ currency: "EUR", minor: 1_000 }]);
-		expect(stats.thisMonth).toEqual([{ currency: "EUR", minor: 4_000 }]);
+		expect(stats.thisMonth).toEqual([{ currency: "EUR", minor: 3_000 }]);
+		expect(stats.financeThisMonth).toEqual([{ currency: "EUR", minor: 1_000 }]);
 		expect(
 			PersonalExpenseDTO.page(ada.id, {
 				limit: 1,

@@ -28,6 +28,7 @@
 	} from "#lib/components/list-filters.svelte";
 	import LoadedFromHere from "#lib/components/loaded-from-here.svelte";
 	import BankPills from "#lib/components/personal/bank-pills.svelte";
+	import ExpenseDetails from "#lib/components/personal/expense-details.svelte";
 	import MoveSheet from "#lib/components/personal/move-sheet.svelte";
 	import PersonalSheet, {
 		type EditablePersonalExpense,
@@ -103,6 +104,8 @@
 	let leftOff = $state<number>();
 
 	let editing = $state<EditablePersonalExpense>();
+	let viewing = $state<PersonalExpenseRow>();
+	let detailsOpen = $state(false);
 	let shareOpen = $state(false);
 	let sharing = $state<PersonalExpenseRow>();
 	let moveOpen = $state(false);
@@ -237,15 +240,27 @@
 		similarOpen = true;
 	}
 
+	function edit(entry: PersonalExpenseRow) {
+		editing = entry;
+		adding = true;
+	}
+
+	const viewingAccount = $derived.by(() => {
+		const match = accounts.find((item) => item.uid === viewing?.bankAccountUid);
+		return match ? `${match.bankName} · ${match.name}` : undefined;
+	});
+
+	function view(entry: PersonalExpenseRow) {
+		viewing = entry;
+		detailsOpen = true;
+	}
+
 	function actionsFor(entry: PersonalExpenseRow): MenuAction[] {
 		return [
 			{
 				label: "Edit",
 				icon: PencilIcon,
-				onSelect: () => {
-					editing = entry;
-					adding = true;
-				},
+				onSelect: () => edit(entry),
 			},
 			...(folders.length > 0
 				? [
@@ -349,6 +364,13 @@
 					filtered
 						? ""
 						: " this month"}, not spent
+				</p>
+			{/if}
+			{#if (folder || filtered ? stats.finance : stats.financeThisMonth).length > 0}
+				<p class="text-muted-foreground mt-1 flex items-center gap-1.5 text-sm">
+					<LandmarkIcon class="size-4 shrink-0" />
+					{totals(folder || filtered ? stats.finance : stats.financeThisMonth)} in
+					loans, fees and cash{folder || filtered ? "" : " this month"}, apart
 				</p>
 			{/if}
 			{#if (folder || filtered ? stats.income : stats.incomeThisMonth).length > 0}
@@ -463,6 +485,7 @@
 										title={entry.description}
 										class="min-h-16 px-3 py-2 md:px-4"
 										actions={actionsFor(entry)}
+										onOpen={() => view(entry)}
 									>
 										<span
 											class="category-tile flex size-11 shrink-0 items-center justify-center rounded-xl"
@@ -529,6 +552,18 @@
 </div>
 
 <Fab label="Add expense" icon={PlusIcon} onclick={() => (adding = true)} />
+
+<ExpenseDetails
+	bind:open={detailsOpen}
+	expense={viewing}
+	account={viewingAccount}
+	{categories}
+	onEdit={() => {
+		if (viewing) {
+			edit(viewing);
+		}
+	}}
+/>
 
 <PersonalSheet
 	bind:open={adding}

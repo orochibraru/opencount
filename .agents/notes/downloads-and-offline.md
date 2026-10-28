@@ -50,9 +50,14 @@
 - Personal expenses are private to the account: one currency each, never
   converted, no group. Totals are this month by category, scoped to the filter.
 - `kind` is `expense` or `income`; `aside` marks money set aside (savings,
-  investing). Spent totals count `expense` with `aside = false`; set aside and
-  income are summed apart (`PersonalStats`). `isMoneyAside` detects it from the
-  description and files it under Finance; the expense sheet has a switch.
+  investing). `#lib/spending-kind.ts` says where a line counts, everywhere
+  totals are made (`stats()`, Insights, the Home overview): spent is an
+  `expense` not set aside and not Finance; Finance lines not set aside (loans,
+  bank fees, cash) are summed apart as "Loans, fees, cash"; set aside and income
+  are summed apart too (`PersonalStats`). Tapping a Personal line opens its
+  details (`ExpenseDetails`), the menu and long-press keep the actions.
+  `isMoneyAside` detects it from the description and files it under Finance; the
+  expense sheet has a switch.
 - The page takes `search` (`fuzzyMatches` from `#lib/fuzzy.ts` on the
   description and note: any case, accents or word order, a typo away; the
   matching ids then scope the SQL; debounced), `category`, `bank` and `account`

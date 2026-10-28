@@ -16,6 +16,7 @@ import { fuzzyMatches } from "#lib/fuzzy.js";
 import { bankSync } from "#lib/server/banking/bank-sync.js";
 import { parseForm } from "#lib/server/validation/form.js";
 import { accountFlagSchema } from "#lib/server/validation/personal.js";
+import { spendingKind } from "#lib/spending-kind.js";
 
 /** The Insights filter in `url`, each value kept only when it is one of `known`. */
 function readFilter(
@@ -91,7 +92,7 @@ export const load = async ({ parent, url }) => {
 		inRange.filter(keep).reduce((total, row) => total + row.amountMinor, 0);
 	const summary = summarize(
 		inCurrency
-			.filter((row) => row.kind === "expense" && !row.aside)
+			.filter((row) => spendingKind(row) === "spent")
 			.map((row) => ({
 				category: row.category,
 				merchantId: row.folderId,
@@ -124,8 +125,9 @@ export const load = async ({ parent, url }) => {
 		currency,
 		otherCurrencies: byCurrency.size > 1,
 		summary,
-		incomeMinor: sum((row) => row.kind === "income" && !row.aside),
-		asideMinor: sum((row) => row.kind === "expense" && row.aside),
+		incomeMinor: sum((row) => spendingKind(row) === "income"),
+		asideMinor: sum((row) => spendingKind(row) === "aside"),
+		financeMinor: sum((row) => spendingKind(row) === "finance"),
 		availableMinor: held(false),
 		investedMinor: held(true),
 		accounts: accounts.map(
