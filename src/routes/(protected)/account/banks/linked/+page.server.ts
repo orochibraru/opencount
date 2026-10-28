@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
 import { bankCredentialsFor } from "#lib/dto/bank-credential.js";
+import { JobDTO } from "#lib/dto/job.js";
 import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
 import { authService } from "#lib/server/auth/auth.js";
 import { bankSync } from "#lib/server/banking/bank-sync.js";
@@ -19,7 +20,6 @@ const bankSchema = z.object({
 	name: z.string().min(1, "Pick a bank."),
 	country: z.string().regex(/^[A-Z]{2}$/, "Pick a country."),
 });
-const syncSchema = idSchema.extend({ full: z.stringbool().default(false) });
 
 async function openBank(
 	userId: string,
@@ -59,6 +59,7 @@ export const load = async ({ parent }) => {
 			syncing: entry.syncing(),
 			historyFrom: historyFrom[entry.id] ?? null,
 		})),
+		nextSync: JobDTO.nextRun("bank.syncAll") ?? null,
 	};
 };
 
@@ -96,14 +97,14 @@ export const actions = {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
 		}
-		const parsed = parseForm(syncSchema, await request.formData());
+		const parsed = parseForm(idSchema, await request.formData());
 		const connection = parsed.success
 			? BankConnectionDTO.findForUser(parsed.data.id, locals.user.id)
 			: undefined;
 		if (!parsed.success || !connection) {
 			return fail(404, { error: "That bank isn't linked anymore." });
 		}
-		bankSync.queue(connection, parsed.data.full);
+		bankSync.queue(connection);
 		return { syncing: true };
 	},
 	disconnectBank: async ({ locals, request }) => {

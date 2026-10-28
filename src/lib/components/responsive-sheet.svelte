@@ -26,14 +26,20 @@
 
 {#if desktop.current}
 	<Dialog.Root bind:open>
-		<Dialog.Content class={wide ? "sm:max-w-xl" : "sm:max-w-md"}>
+		<Dialog.Content
+			class="max-h-[calc(100dvh-4rem)] grid-rows-[auto_minmax(0,1fr)] {wide
+				? 'sm:max-w-xl'
+				: 'sm:max-w-md'}"
+		>
 			<Dialog.Header>
 				<Dialog.Title>{title}</Dialog.Title>
 				{#if description}
 					<Dialog.Description>{description}</Dialog.Description>
 				{/if}
 			</Dialog.Header>
-			{@render children()}
+			<div class="-mx-6 grid min-h-0 gap-6 overflow-y-auto px-6">
+				{@render children()}
+			</div>
 		</Dialog.Content>
 	</Dialog.Root>
 {:else}

@@ -96,6 +96,17 @@ export class JobDTO extends BaseDTO<JobRow> {
 			.all().length;
 	}
 
+	/** When the next waiting job of `type` is due, if one waits. */
+	static nextRun(type: JobType): Date | undefined {
+		return databaseConnection
+			.get()
+			.select({ runAt: job.runAt })
+			.from(job)
+			.where(and(eq(job.type, type), eq(job.status, "pending")))
+			.orderBy(asc(job.runAt))
+			.get()?.runAt;
+	}
+
 	/** How many jobs sit in each status. */
 	static counts(): Record<JobRow["status"], number> {
 		const totals = { pending: 0, running: 0, done: 0, failed: 0 };

@@ -314,7 +314,7 @@ describe("bank sync", () => {
 		const ada = createUser("ada");
 		const connection = link(ada.id);
 		expect(connection.fetchFrom()).toBeUndefined();
-		bankSync.queue(connection, true);
+		bankSync.queue(connection);
 		expect(connection.syncing()).toBe(true);
 		expect(JobDTO.counts().pending).toBe(1);
 		expect(connection.syncing(new Date(Date.now() + 16 * 60_000))).toBe(false);
@@ -447,6 +447,10 @@ describe("bank sync", () => {
 		link(ada.id);
 		await jobHandlers["bank.syncAll"]({});
 		expect(JobDTO.counts().pending).toBe(2);
+		const next = JobDTO.nextRun("bank.syncAll");
+		expect(next?.getUTCHours()).toBe(6);
+		expect(next!.getTime()).toBeGreaterThan(Date.now());
+		expect(next!.getTime()).toBeLessThanOrEqual(Date.now() + 86_400_000);
 		await jobHandlers["bank.sync"]({ connectionId: "gone" });
 	});
 });

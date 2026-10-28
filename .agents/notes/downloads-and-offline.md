@@ -122,19 +122,23 @@
   sync fetches the full history without doubles.
 - A person links a bank under Account > Bank sync (country, bank, the bank's
   consent screen, 90 days of consent); Personal only shows a filter pill per
-  link. `bank.syncAll` runs daily (queued at worker start if absent) and queues
-  a `bank.sync` per link through `bankSync.queue` (`maxAttempts: 1`): Enable
-  Banking's `strategy=longest` the first time or with `full`, then from 3 days
-  before the last sync. The link carries `syncState` (`queued`, `running`,
-  `idle`) with `syncStateAt`, `lastAdded`, `lastError` and the bank's logo;
-  `syncing()` ignores a state older than 15 minutes so a dead worker doesn't
-  spin forever, and the UI polls while one syncs. Only `BankError` messages
-  reach `lastError`; anything else is stored as a generic retry message. Booked
-  transactions, debits as `expense` and credits as `income`, each with its
-  `bankAccountUid`, categorized by what the account filed the same description
-  under, then the description guess, deduplicated per bank transaction. Deleting
-  a bank-imported expense hides it so a sync doesn't bring it back. New ones
-  trigger a push notification.
+  link. `bank.syncAll` runs every day at 06:00 UTC (queued at worker start if
+  absent, rescheduling itself before it does anything, its next run shown on
+  Linked banks) and queues a `bank.sync` per link through `bankSync.queue`
+  (`maxAttempts: 1`): Enable Banking's `strategy=longest` on the first sync
+  after a consent, then from 3 days before the last sync. Banks only share more
+  than 90 days in the minutes after the person confirms (Revolut: 5), so there
+  is no "full history" resync: relinking is the way, and its sync runs right
+  away. The link carries `syncState` (`queued`, `running`, `idle`) with
+  `syncStateAt`, `lastAdded`, `lastError` and the bank's logo; `syncing()`
+  ignores a state older than 15 minutes so a dead worker doesn't spin forever,
+  and the UI polls while one syncs. Only `BankError` messages reach `lastError`;
+  anything else is stored as a generic retry message. Booked transactions,
+  debits as `expense` and credits as `income`, each with its `bankAccountUid`,
+  categorized by what the account filed the same description under, then the
+  description guess, deduplicated per bank transaction. Deleting a bank-imported
+  expense hides it so a sync doesn't bring it back. New ones trigger a push
+  notification.
 
 ## Group invite link
 

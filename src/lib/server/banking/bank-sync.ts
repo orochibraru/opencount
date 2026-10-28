@@ -88,24 +88,24 @@ class BankSync {
 		};
 	}
 
-	/** Asks the worker to sync `connection`, its whole history when `full`, and shows it as waiting meanwhile. */
-	queue(connection: BankConnectionDTO, full = false): void {
+	/** Asks the worker to sync `connection` and shows it as waiting meanwhile. */
+	queue(connection: BankConnectionDTO): void {
 		connection.markQueued();
 		JobDTO.enqueue(
 			"bank.sync",
-			{ connectionId: connection.id, full },
+			{ connectionId: connection.id },
 			{ maxAttempts: 1 },
 		);
 	}
 
 	/**
-	 * Fetches every account of linked bank `connection`, with its owner's Enable Banking keys, since its last sync or as
-	 * far back as the bank allows on the first one or when `full`, records the new lines as personal expenses, and keeps
-	 * the link's sync state and logo current; returns how many are new.
+	 * Fetches every account of linked bank `connection` with its owner's keys, since its last sync or, first after a
+	 * consent, as far back as the bank allows; records the new lines and keeps the link's state and logo current.
+	 * Returns how many are new.
 	 *
 	 * @throws When the bank refuses, the link expired or anything else breaks; the link records why, in words for people.
 	 */
-	async sync(connection: BankConnectionDTO, full = false): Promise<number> {
+	async sync(connection: BankConnectionDTO): Promise<number> {
 		connection.markRunning();
 		try {
 			if (connection.expired()) {
@@ -129,7 +129,7 @@ class BankSync {
 			if (connection.accounts.length === 0) {
 				throw new BankError(noReadableAccount);
 			}
-			const from = full ? undefined : connection.fetchFrom();
+			const from = connection.fetchFrom();
 			const guess = this.personalGuess(connection.userId);
 			const report: BankSyncReport[] = [];
 			for (const account of connection.accounts) {

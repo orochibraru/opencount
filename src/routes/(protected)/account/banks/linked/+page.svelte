@@ -21,7 +21,7 @@
 			cancelled: ["error", "The bank link was cancelled."],
 			empty: [
 				"error",
-				"Your bank shared no account, so nothing was linked. Try again and pick your accounts if your bank asks.",
+				"Your bank shared no account, so nothing was linked. If its screen let you pick none, your Enable Banking app only reads the accounts linked to it: add this bank's accounts in the Enable Banking control panel, then try again.",
 			],
 			unreadable: [
 				"error",
@@ -39,7 +39,7 @@
 
 <div class="grid gap-6">
 	{#if data.applicationId}
-		<LinkedBanks connections={data.connections} />
+		<LinkedBanks connections={data.connections} nextSync={data.nextSync} />
 	{:else}
 		<section class="glass flex flex-col gap-3 rounded-2xl p-4 md:p-6">
 			<h2 class="font-semibold">Set up bank sync first</h2>

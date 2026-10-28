@@ -15,6 +15,7 @@ const logger = new Logger("Jobs");
 
 const dayMs = 24 * 60 * 60 * 1000;
 const personalPath = "/personal";
+const bankSyncHourUtc = 6;
 
 export type JobHandlers = {
 	[Type in JobType]: (payload: JobPayloads[Type]) => void | Promise<void>;
@@ -40,13 +41,13 @@ export const jobHandlers: JobHandlers = {
 		tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
 		JobDTO.enqueue("recurring.run", {}, { runAt: tomorrow });
 	},
-	"bank.sync": async ({ connectionId, full }) => {
+	"bank.sync": async ({ connectionId }) => {
 		const connection = BankConnectionDTO.find(connectionId);
 		if (!connection) {
 			logger.warn("Bank link gone before it was synced", { connectionId });
 			return;
 		}
-		const added = await bankSync.sync(connection, full);
+		const added = await bankSync.sync(connection);
 		logger.info("Bank synced", {
 			added,
 			accounts: (connection.toJSON().lastReport ?? []).map(
@@ -67,6 +68,12 @@ export const jobHandlers: JobHandlers = {
 		}
 	},
 	"bank.syncAll": () => {
+		const next = new Date();
+		next.setUTCHours(bankSyncHourUtc, 0, 0, 0);
+		if (next.getTime() <= Date.now()) {
+			next.setUTCDate(next.getUTCDate() + 1);
+		}
+		JobDTO.enqueue("bank.syncAll", {}, { runAt: next });
 		const ids = BankConnectionDTO.activeIds();
 		for (const connectionId of ids) {
 			const connection = BankConnectionDTO.find(connectionId);
@@ -74,8 +81,7 @@ export const jobHandlers: JobHandlers = {
 				bankSync.queue(connection);
 			}
 		}
-		logger.info("Queued bank syncs", { links: ids.length });
-		JobDTO.enqueue("bank.syncAll", {}, { runAt: new Date(Date.now() + dayMs) });
+		logger.info("Queued bank syncs", { links: ids.length, next });
 	},
 	"download.build": async ({ downloadId }) => {
 		const download = DownloadDTO.find(downloadId);

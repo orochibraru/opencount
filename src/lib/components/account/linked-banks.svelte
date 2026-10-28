@@ -2,7 +2,6 @@
 	import { enhance } from "$app/forms";
 	import { invalidateAll } from "$app/navigation";
 	import BanknoteIcon from "@lucide/svelte/icons/banknote";
-	import HistoryIcon from "@lucide/svelte/icons/history";
 	import LandmarkIcon from "@lucide/svelte/icons/landmark";
 	import LinkIcon from "@lucide/svelte/icons/link";
 	import LoaderCircleIcon from "@lucide/svelte/icons/loader-circle";
@@ -33,7 +32,10 @@
 		historyFrom: string | null;
 	}
 
-	const { connections }: { connections: Connection[] } = $props();
+	const {
+		connections,
+		nextSync,
+	}: { connections: Connection[]; nextSync: Date | null } = $props();
 
 	const anySyncing = $derived(
 		connections.some((connection) => connection.syncing),
@@ -175,9 +177,11 @@
 		<div>
 			<h2 class="font-semibold">Linked banks</h2>
 			<p class="text-muted-foreground mt-1 text-sm">
-				Each syncs every day into Personal. The first sync fetches all the
-				history your bank keeps; your bank asks you to confirm again every 90
-				days.
+				Each syncs every day into Personal{nextSync
+					? `, next on ${nextSync.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`
+					: ""}. Banks only share more than 90 days of history in the minutes
+				after you confirm on their screen, so relinking fetches it all; your
+				bank asks you to confirm again every 90 days.
 			</p>
 		</div>
 	</div>
@@ -200,18 +204,7 @@
 								},
 							},
 							{
-								label: "Fetch full history",
-								icon: HistoryIcon,
-								form: {
-									action: "?/syncBank",
-									fields: { id: connection.id, full: "true" },
-									loading: "Asking the bank",
-									success:
-										"Fetching all the history your bank keeps. Lines already here stay as they are.",
-								},
-							},
-							{
-								label: "Relink or change accounts",
+								label: "Relink: full history or other accounts",
 								icon: LinkIcon,
 								form: {
 									action: "?/relinkBank",
