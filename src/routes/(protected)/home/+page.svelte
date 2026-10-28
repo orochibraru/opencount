@@ -2,9 +2,8 @@
 	import { resolve } from "$app/paths";
 	import WalletIcon from "@lucide/svelte/icons/wallet";
 
+	import MoneyOverview from "#lib/components/home/money-overview.svelte";
 	import { setPageTitle } from "#lib/page-title.svelte.js";
-
-	import MoneyOverview from "./money-overview.svelte";
 
 	const { data } = $props();
 

@@ -14,9 +14,8 @@
 	import { untrack } from "svelte";
 
 	import { applyAppearance } from "#lib/appearance.js";
+	import OptionGroup from "#lib/components/account/option-group.svelte";
 	import { enhanceToast } from "#lib/toast.js";
-
-	import OptionGroup from "./option-group.svelte";
 
 	const { data } = $props();
 

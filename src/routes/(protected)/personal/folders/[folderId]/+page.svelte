@@ -7,6 +7,7 @@
 	import Trash2Icon from "@lucide/svelte/icons/trash-2";
 	import XIcon from "@lucide/svelte/icons/x";
 
+	import PersonalView from "#lib/components/personal/personal-view.svelte";
 	import ResponsiveSheet from "#lib/components/responsive-sheet.svelte";
 	import { Button } from "#lib/components/ui/button/index.js";
 	import * as Field from "#lib/components/ui/field/index.js";
@@ -14,8 +15,6 @@
 	import { formatMoney } from "#lib/money.js";
 	import { setPageTitle } from "#lib/page-title.svelte.js";
 	import { enhanceToast } from "#lib/toast.js";
-
-	import PersonalView from "../../personal-view.svelte";
 
 	const { data } = $props();
 

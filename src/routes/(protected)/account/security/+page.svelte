@@ -1,13 +1,12 @@
 <script lang="ts">
 	import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
 
+	import AppLockCard from "#lib/components/account/app-lock-card.svelte";
+	import PasskeysCard from "#lib/components/account/passkeys-card.svelte";
+	import PasswordCard from "#lib/components/account/password-card.svelte";
+	import SessionsCard from "#lib/components/account/sessions-card.svelte";
+	import TwoFactorCard from "#lib/components/account/two-factor-card.svelte";
 	import * as Alert from "#lib/components/ui/alert/index.js";
-
-	import AppLockCard from "./app-lock-card.svelte";
-	import PasskeysCard from "./passkeys-card.svelte";
-	import PasswordCard from "./password-card.svelte";
-	import SessionsCard from "./sessions-card.svelte";
-	import TwoFactorCard from "./two-factor-card.svelte";
 
 	const { data } = $props();
 

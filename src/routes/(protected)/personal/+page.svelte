@@ -11,6 +11,7 @@
 	import PlusIcon from "@lucide/svelte/icons/plus";
 	import TagsIcon from "@lucide/svelte/icons/tags";
 
+	import PersonalView from "#lib/components/personal/personal-view.svelte";
 	import Picker from "#lib/components/picker.svelte";
 	import ResponsiveSheet from "#lib/components/responsive-sheet.svelte";
 	import { Button } from "#lib/components/ui/button/index.js";
@@ -19,8 +20,6 @@
 	import { setPageTitle } from "#lib/page-title.svelte.js";
 	import { monthStartDays } from "#lib/pay-month.js";
 	import { enhanceToast } from "#lib/toast.js";
-
-	import PersonalView from "./personal-view.svelte";
 
 	const { data } = $props();
 

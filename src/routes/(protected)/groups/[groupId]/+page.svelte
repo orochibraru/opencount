@@ -23,6 +23,10 @@
 	} from "#lib/categories.js";
 	import EmptyState from "#lib/components/empty-state.svelte";
 	import Fab from "#lib/components/fab.svelte";
+	import BalanceHero from "#lib/components/groups/balance-hero.svelte";
+	import ExpenseSheet, {
+		type EditableExpense,
+	} from "#lib/components/groups/expense-sheet.svelte";
 	import ItemMenu from "#lib/components/item-menu.svelte";
 	import ListFilters from "#lib/components/list-filters.svelte";
 	import LoadedFromHere from "#lib/components/loaded-from-here.svelte";
@@ -35,9 +39,6 @@
 	import { offlineQueue } from "#lib/offline-queue.svelte.js";
 	import { setPageTitle } from "#lib/page-title.svelte.js";
 	import { enhanceToast, toastError } from "#lib/toast.js";
-
-	import BalanceHero from "./balance-hero.svelte";
-	import ExpenseSheet, { type EditableExpense } from "./expense-sheet.svelte";
 
 	const { data } = $props();
 

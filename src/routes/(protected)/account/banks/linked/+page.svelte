@@ -5,9 +5,8 @@
 	import { onMount } from "svelte";
 	import { toast } from "svelte-sonner";
 
+	import LinkedBanks from "#lib/components/account/linked-banks.svelte";
 	import { Button } from "#lib/components/ui/button/index.js";
-
-	import LinkedBanks from "./linked-banks.svelte";
 
 	const { data } = $props();
 

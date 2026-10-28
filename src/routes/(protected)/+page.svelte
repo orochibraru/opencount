@@ -12,14 +12,13 @@
 
 	import EmptyState from "#lib/components/empty-state.svelte";
 	import Fab from "#lib/components/fab.svelte";
+	import NewGroupSheet from "#lib/components/groups/new-group-sheet.svelte";
+	import HomeQuestion from "#lib/components/home/home-question.svelte";
 	import ItemMenu, { type MenuAction } from "#lib/components/item-menu.svelte";
 	import { Button } from "#lib/components/ui/button/index.js";
 	import { hueOf } from "#lib/group-hue.js";
 	import { formatMoney } from "#lib/money.js";
 	import { setPageTitle } from "#lib/page-title.svelte.js";
-
-	import HomeQuestion from "./home-question.svelte";
-	import NewGroupSheet from "./new-group-sheet.svelte";
 
 	const { data } = $props();
 

@@ -8,9 +8,8 @@
 	import ShieldCheckIcon from "@lucide/svelte/icons/shield-check";
 	import UsersIcon from "@lucide/svelte/icons/users";
 
+	import GettingStarted from "#lib/components/admin/getting-started.svelte";
 	import StatCard from "#lib/components/stat-card.svelte";
-
-	import GettingStarted from "./getting-started.svelte";
 
 	const { data } = $props();
 

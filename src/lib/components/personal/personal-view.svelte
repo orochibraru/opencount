@@ -27,6 +27,12 @@
 		type FilterSource,
 	} from "#lib/components/list-filters.svelte";
 	import LoadedFromHere from "#lib/components/loaded-from-here.svelte";
+	import BankPills from "#lib/components/personal/bank-pills.svelte";
+	import MoveSheet from "#lib/components/personal/move-sheet.svelte";
+	import PersonalSheet, {
+		type EditablePersonalExpense,
+	} from "#lib/components/personal/personal-sheet.svelte";
+	import ShareSheet from "#lib/components/personal/share-sheet.svelte";
 	import SimilarSheet, {
 		type SimilarExpense,
 	} from "#lib/components/similar-sheet.svelte";
@@ -39,13 +45,6 @@
 	import { listBlocks } from "#lib/list-blocks.js";
 	import { formatMoney } from "#lib/money.js";
 	import { monthLabel, monthStartOn } from "#lib/pay-month.js";
-
-	import BankPills from "./bank-pills.svelte";
-	import MoveSheet from "./move-sheet.svelte";
-	import PersonalSheet, {
-		type EditablePersonalExpense,
-	} from "./personal-sheet.svelte";
-	import ShareSheet from "./share-sheet.svelte";
 
 	interface Props {
 		expenses: PersonalExpenseRow[];
