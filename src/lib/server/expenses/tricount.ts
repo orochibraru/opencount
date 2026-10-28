@@ -88,7 +88,8 @@ const categoryPatterns: [RegExp, ImportCategory][] = [
 	[/grocer|supermarket/i, "groceries"],
 	[/\btax(es)?\b|\bfines?\b|penalt|impot|amende/i, "taxes"],
 	[/food|restaurant|drink|bar|meal|dinner|lunch|breakfast/i, "food"],
-	[/transport|travel|car|fuel|gas|taxi|train|flight|parking/i, "transport"],
+	[/travel|trip|holiday|vacation|voyage|vacances/i, "travel"],
+	[/transport|car|fuel|gas|taxi|train|flight|parking/i, "transport"],
 	[/accommodation|lodging|hotel|rent|housing/i, "lodging"],
 	[
 		/entertainment|activity|activities|leisure|sport|culture|ticket/i,

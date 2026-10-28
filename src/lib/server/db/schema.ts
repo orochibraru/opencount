@@ -474,6 +474,7 @@ export const expenseCategories = [
 	"groceries",
 	"transport",
 	"lodging",
+	"travel",
 	"activities",
 	"shopping",
 	"bills",
@@ -746,6 +747,7 @@ export const bankConnection = sqliteTable(
 					name: string;
 					currency: string;
 					identificationHash?: string;
+					originalName?: string;
 					shared?: boolean;
 					savings?: boolean;
 					balance?: { minor: number; currency: string; at: string };

@@ -15,6 +15,7 @@ import {
 } from "#lib/server/banking/enable-banking.js";
 import { secrets } from "#lib/server/core/secrets.js";
 import { idSchema, parseForm } from "#lib/server/validation/form.js";
+import { accountNamesSchema } from "#lib/server/validation/personal.js";
 
 const bankSchema = z.object({
 	name: z.string().min(1, "Pick a bank."),
@@ -92,6 +93,31 @@ export const actions = {
 			url,
 			connection.id,
 		);
+	},
+	renameAccounts: async ({ locals, request }) => {
+		if (!locals.user) {
+			return fail(401, { error: "Sign in again to continue." });
+		}
+		const parsed = parseForm(accountNamesSchema, await request.formData());
+		if (!parsed.success) {
+			return fail(400, {
+				error: Object.values(parsed.errors)[0]?.[0] ?? "Check the names.",
+			});
+		}
+		const connection = BankConnectionDTO.findForUser(
+			parsed.data.id,
+			locals.user.id,
+		);
+		if (!connection) {
+			return fail(404, { error: "That bank isn't linked anymore." });
+		}
+		for (const account of connection.accounts) {
+			const name = parsed.data[`name-${account.uid}`];
+			if (name !== undefined) {
+				connection.renameAccount(account.uid, name);
+			}
+		}
+		return { renamed: true };
 	},
 	syncBank: async ({ locals, request }) => {
 		if (!locals.user) {

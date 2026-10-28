@@ -205,6 +205,7 @@ describe("categories", () => {
 			"groceries",
 			"transport",
 			"lodging",
+			"travel",
 			"activities",
 			"shopping",
 			"bills",

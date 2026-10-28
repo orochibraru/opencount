@@ -60,6 +60,10 @@
   what's under Other" files Other entries by `categoryHistory` (what the account
   filed the same description under), then keywords and own categories, and runs
   `markAside`.
+- Linked bank accounts can be renamed (Linked banks, "Rename accounts"): the new
+  name replaces `name` and the bank's own goes to `originalName`, which relink
+  matching uses and which a relink keeps your name over; an empty name brings
+  the bank's back.
 - Linked accounts carry `shared` and `savings` in `bank_connection.accounts`,
   set from Insights. `savings` starts from the bank's `SVGS` account type or
   `isMoneyAside` on the account's name. A shared account (a joint one) counts at

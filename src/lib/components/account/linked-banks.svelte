@@ -5,6 +5,7 @@
 	import LandmarkIcon from "@lucide/svelte/icons/landmark";
 	import LinkIcon from "@lucide/svelte/icons/link";
 	import LoaderCircleIcon from "@lucide/svelte/icons/loader-circle";
+	import PencilIcon from "@lucide/svelte/icons/pencil";
 	import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
 	import UnlinkIcon from "@lucide/svelte/icons/unlink";
 
@@ -13,6 +14,7 @@
 	import ResponsiveSheet from "#lib/components/responsive-sheet.svelte";
 	import { Button } from "#lib/components/ui/button/index.js";
 	import * as Field from "#lib/components/ui/field/index.js";
+	import { Input } from "#lib/components/ui/input/index.js";
 	import { getBanks } from "#lib/remote/banks.remote.js";
 	import { enhanceToast, toastError } from "#lib/toast.js";
 
@@ -20,7 +22,12 @@
 		id: string;
 		bankName: string;
 		bankLogo: string | null;
-		accounts: { uid: string; name: string; currency: string }[];
+		accounts: {
+			uid: string;
+			name: string;
+			currency: string;
+			originalName?: string;
+		}[];
 		validUntil: Date;
 		syncedAt: Date | null;
 		lastError: string | null;
@@ -94,6 +101,13 @@
 		.toSorted((left, right) => left.label.localeCompare(right.label));
 
 	let connectOpen = $state(false);
+	let renaming = $state<Connection>();
+	let renameOpen = $state(false);
+
+	function startRename(connection: Connection) {
+		renaming = connection;
+		renameOpen = true;
+	}
 	let country = $state("");
 	let bank = $state("");
 	let banks = $state<Promise<PickerOption[]>>();
@@ -202,6 +216,11 @@
 									loading: "Asking the bank",
 									success: "Syncing. New expenses show up in a moment.",
 								},
+							},
+							{
+								label: "Rename accounts",
+								icon: PencilIcon,
+								onSelect: () => startRename(connection),
 							},
 							{
 								label: "Relink: full history or other accounts",
@@ -348,4 +367,47 @@
 			Continue to the bank
 		</Button>
 	</form>
+</ResponsiveSheet>
+
+<ResponsiveSheet
+	bind:open={renameOpen}
+	title="Rename {renaming?.bankName ?? 'the'} accounts"
+	description="Leave a name empty to use your bank's."
+>
+	{#if renaming}
+		<form
+			method="POST"
+			action="?/renameAccounts"
+			class="flex flex-col gap-4 pb-4"
+			use:enhance={enhanceToast({
+				loading: "Renaming",
+				success: "Accounts renamed.",
+				onSuccess: () => {
+					renameOpen = false;
+				},
+			})}
+		>
+			<input type="hidden" name="id" value={renaming.id} />
+			{#each renaming.accounts as account (account.uid)}
+				<Field.Field>
+					<Field.Label for="account-{account.uid}"
+						>{account.originalName ?? account.name}</Field.Label
+					>
+					<Input
+						id="account-{account.uid}"
+						name="name-{account.uid}"
+						value={account.name}
+						placeholder={account.originalName ?? account.name}
+						maxlength={60}
+						autocomplete="off"
+						class="h-11 rounded-xl"
+					/>
+				</Field.Field>
+			{/each}
+			<Button type="submit" class="h-11 rounded-xl">
+				<PencilIcon />
+				Save names
+			</Button>
+		</form>
+	{/if}
 </ResponsiveSheet>

@@ -214,6 +214,10 @@ class BankSync {
 			return previous
 				? {
 						...account,
+						...(previous.originalName && {
+							name: previous.name,
+							originalName: account.name,
+						}),
 						shared: previous.shared,
 						savings: previous.savings ?? account.savings,
 						balance: previous.balance,
@@ -320,12 +324,14 @@ class BankSync {
 		if (previous.identificationHash && next.identificationHash) {
 			return previous.identificationHash === next.identificationHash;
 		}
+		const bankName = (account: BankConnectionDTO["accounts"][number]) =>
+			account.originalName ?? account.name;
 		return (
-			previous.name === next.name &&
+			bankName(previous) === next.name &&
 			previous.currency === next.currency &&
 			previousAccounts.filter(
 				(account) =>
-					account.name === next.name && account.currency === next.currency,
+					bankName(account) === next.name && account.currency === next.currency,
 			).length === 1
 		);
 	}

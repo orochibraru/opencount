@@ -684,3 +684,42 @@ describe("transfers between own accounts", () => {
 		).toEqual([60_000, 1000]);
 	});
 });
+
+describe("account names", () => {
+	beforeEach(resetDatabase);
+
+	test("a renamed account keeps its name through a relink and an empty name brings the bank's back", async () => {
+		spyOn(globalThis, "fetch").mockResolvedValue(
+			Response.json({ message: "Session gone" }, { status: 404 }),
+		);
+		const ada = createUser("ada");
+		const connection = link(ada.id);
+		expect(connection.renameAccount("acc-1", "Daily")).toBe(true);
+		expect(connection.renameAccount("gone", "Daily")).toBe(false);
+		expect(connection.accounts[0]).toEqual(
+			expect.objectContaining({ name: "Daily", originalName: "Main" }),
+		);
+		await bankSync.relink(
+			connection,
+			{
+				sessionId: "session-2",
+				bankName: "Revolut",
+				bankCountry: "FR",
+				listedAccounts: 1,
+				validUntil: new Date(Date.now() + 86_400_000),
+				accounts: [{ uid: "acc-2", name: "Main", currency: "EUR" }],
+			},
+			credentials(),
+		);
+		expect(connection.accounts[0]).toEqual(
+			expect.objectContaining({
+				uid: "acc-2",
+				name: "Daily",
+				originalName: "Main",
+			}),
+		);
+		connection.renameAccount("acc-2", "");
+		expect(connection.accounts[0]?.name).toBe("Main");
+		expect(connection.accounts[0]?.originalName).toBeUndefined();
+	});
+});

@@ -248,6 +248,28 @@ export class BankConnectionDTO extends BaseDTO<BankConnectionRow> {
 		return true;
 	}
 
+	/**
+	 * Names account `uid` `name`, keeping the bank's own name to match it on a relink; an empty name brings the bank's
+	 * back. False when the link has no such account.
+	 */
+	renameAccount(uid: string, name: string): boolean {
+		if (!this.row.accounts.some((account) => account.uid === uid)) {
+			return false;
+		}
+		this.#update({
+			accounts: this.row.accounts.map(({ originalName, ...account }) => {
+				if (account.uid !== uid) {
+					return originalName ? { ...account, originalName } : account;
+				}
+				const bankName = originalName ?? account.name;
+				return name && name !== bankName
+					? { ...account, name, originalName: bankName }
+					: { ...account, name: bankName };
+			}),
+		});
+		return true;
+	}
+
 	/** Writes `values` to the link and to this copy of it. */
 	#update(values: Partial<BankConnectionRow>): void {
 		databaseConnection

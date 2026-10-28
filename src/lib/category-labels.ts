@@ -4,6 +4,7 @@ export const categoryLabels = {
 	groceries: "Groceries",
 	transport: "Transport",
 	lodging: "Lodging",
+	travel: "Travel",
 	activities: "Activities",
 	shopping: "Shopping",
 	bills: "Bills",

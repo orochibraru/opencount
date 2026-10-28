@@ -71,6 +71,7 @@ export const categories = [
 		hue: 240,
 	},
 	{ value: "lodging", label: categoryLabels.lodging, icon: BedIcon, hue: 285 },
+	{ value: "travel", label: categoryLabels.travel, icon: PlaneIcon, hue: 190 },
 	{
 		value: "activities",
 		label: categoryLabels.activities,
