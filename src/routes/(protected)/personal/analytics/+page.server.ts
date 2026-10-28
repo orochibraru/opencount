@@ -1,3 +1,5 @@
+import { fail } from "@sveltejs/kit";
+
 import {
 	type Period,
 	periodRange,
@@ -5,9 +7,13 @@ import {
 	summarize,
 } from "#lib/analytics.js";
 import { AppearanceDTO } from "#lib/dto/appearance.js";
+import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
 import { PersonalCategoryDTO } from "#lib/dto/personal-category.js";
 import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
 import { PersonalFolderDTO } from "#lib/dto/personal-folder.js";
+import { bankSync } from "#lib/server/banking/bank-sync.js";
+import { parseForm } from "#lib/server/validation/form.js";
+import { accountFlagSchema } from "#lib/server/validation/personal.js";
 
 export const load = async ({ parent, url }) => {
 	const { user } = await parent();
@@ -33,6 +39,11 @@ export const load = async ({ parent, url }) => {
 		inCurrency[0]?.spentOn,
 		AppearanceDTO.monthStartFor(user.id),
 	);
+	const inRange = inCurrency.filter(
+		(row) => row.spentOn >= range.from && row.spentOn <= range.to,
+	);
+	const sum = (keep: (row: (typeof rows)[number]) => boolean) =>
+		inRange.filter(keep).reduce((total, row) => total + row.amountMinor, 0);
 	const summary = summarize(
 		inCurrency
 			.filter((row) => row.kind === "expense" && !row.aside)
@@ -47,23 +58,69 @@ export const load = async ({ parent, url }) => {
 		range,
 		null,
 	);
+	const accounts = BankConnectionDTO.accountsOf(user.id);
+	const held = (savings: boolean) =>
+		accounts
+			.filter(
+				(account) =>
+					Boolean(account.savings) === savings &&
+					account.balance?.currency === currency,
+			)
+			.reduce(
+				(total, account) =>
+					total +
+					(account.shared
+						? Math.trunc((account.balance?.minor ?? 0) / 2)
+						: (account.balance?.minor ?? 0)),
+				0,
+			);
 	return {
 		period,
 		currency,
 		otherCurrencies: byCurrency.size > 1,
 		summary,
-		asideMinor: inCurrency
-			.filter(
-				(row) =>
-					row.kind === "expense" &&
-					row.aside &&
-					row.spentOn >= range.from &&
-					row.spentOn <= range.to,
-			)
-			.reduce((total, row) => total + row.amountMinor, 0),
+		incomeMinor: sum((row) => row.kind === "income" && !row.aside),
+		asideMinor: sum((row) => row.kind === "expense" && row.aside),
+		availableMinor: held(false),
+		investedMinor: held(true),
+		accounts: accounts.map(
+			({ uid, name, bankName, connectionId, shared, savings, balance }) => ({
+				uid,
+				name,
+				bankName,
+				connectionId,
+				shared: shared ?? false,
+				savings: savings ?? false,
+				balance: balance ?? null,
+			}),
+		),
 		categories: PersonalCategoryDTO.forUser(user.id).map((entry) =>
 			entry.toJSON(),
 		),
 		folders: PersonalFolderDTO.forUser(user.id).map((entry) => entry.toJSON()),
 	};
+};
+
+export const actions = {
+	setAccount: async ({ locals, request }) => {
+		if (!locals.user) {
+			return fail(401, { error: "Sign in again to continue." });
+		}
+		const parsed = parseForm(accountFlagSchema, await request.formData());
+		const connection = parsed.success
+			? BankConnectionDTO.findForUser(parsed.data.connectionId, locals.user.id)
+			: undefined;
+		if (
+			!parsed.success ||
+			!connection?.setAccountFlags(parsed.data.uid, {
+				[parsed.data.flag]: parsed.data.value,
+			})
+		) {
+			return fail(404, { error: "That account isn't linked anymore." });
+		}
+		if (parsed.data.flag === "savings") {
+			bankSync.pairTransfers(locals.user.id);
+		}
+		return { saved: true };
+	},
 };

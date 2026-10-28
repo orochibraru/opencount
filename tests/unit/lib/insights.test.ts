@@ -219,6 +219,7 @@ describe("categories", () => {
 			"finance",
 			"taxes",
 			"income",
+			"internal",
 			"other",
 			"kids",
 			"odd",

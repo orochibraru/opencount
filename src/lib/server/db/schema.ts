@@ -488,6 +488,7 @@ export const expenseCategories = [
 	"finance",
 	"taxes",
 	"income",
+	"internal",
 	"other",
 ] as const;
 export const expenseKinds = ["expense", "transfer"] as const;
@@ -745,6 +746,9 @@ export const bankConnection = sqliteTable(
 					name: string;
 					currency: string;
 					identificationHash?: string;
+					shared?: boolean;
+					savings?: boolean;
+					balance?: { minor: number; currency: string; at: string };
 				}[]
 			>()
 			.notNull(),
@@ -793,6 +797,7 @@ export const personalExpense = sqliteTable(
 			onDelete: "set null",
 		}),
 		hiddenAt: integer("hidden_at", { mode: "timestamp_ms" }),
+		transferPairId: text("transfer_pair_id"),
 		createdAt: createdAt(),
 		updatedAt: updatedAt(),
 	},

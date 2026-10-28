@@ -1,0 +1,1 @@
+ALTER TABLE `personal_expense` ADD `transfer_pair_id` text;

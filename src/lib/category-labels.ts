@@ -18,5 +18,6 @@ export const categoryLabels = {
 	finance: "Finance",
 	taxes: "Taxes & fines",
 	income: "Income",
+	internal: "Internal transfer",
 	other: "Other",
 } as const;

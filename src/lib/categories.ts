@@ -1,3 +1,4 @@
+import ArrowLeftRightIcon from "@lucide/svelte/icons/arrow-left-right";
 import BabyIcon from "@lucide/svelte/icons/baby";
 import BedIcon from "@lucide/svelte/icons/bed-double";
 import BeerIcon from "@lucide/svelte/icons/beer";
@@ -128,6 +129,12 @@ export const categories = [
 		label: categoryLabels.income,
 		icon: HandCoinsIcon,
 		hue: 225,
+	},
+	{
+		value: "internal",
+		label: categoryLabels.internal,
+		icon: ArrowLeftRightIcon,
+		hue: null,
 	},
 	other,
 ] as const satisfies readonly CategoryOption[];

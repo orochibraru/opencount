@@ -1,12 +1,16 @@
 <script lang="ts">
 	import { resolve } from "$app/paths";
+	import ChartLineIcon from "@lucide/svelte/icons/chart-line";
+	import HandCoinsIcon from "@lucide/svelte/icons/hand-coins";
+	import LandmarkIcon from "@lucide/svelte/icons/landmark";
 	import PiggyBankIcon from "@lucide/svelte/icons/piggy-bank";
-	import ReceiptIcon from "@lucide/svelte/icons/receipt";
+	import UsersIcon from "@lucide/svelte/icons/users";
 	import WalletIcon from "@lucide/svelte/icons/wallet";
 
 	import { periodLabels, periods } from "#lib/analytics.js";
 	import { categoryOf, categoryStyle } from "#lib/categories.js";
 	import BarList from "#lib/components/bar-list.svelte";
+	import ItemMenu from "#lib/components/item-menu.svelte";
 	import SpendingChart from "#lib/components/spending-chart.svelte";
 	import StatCard from "#lib/components/stat-card.svelte";
 	import { formatMoney } from "#lib/money.js";
@@ -15,6 +19,24 @@
 	const { data } = $props();
 
 	setPageTitle("Insights", resolve("/(protected)/personal"));
+
+	function accountFlag(
+		account: (typeof data.accounts)[number],
+		flag: "shared" | "savings",
+		value: boolean,
+	) {
+		return {
+			action: "?/setAccount",
+			fields: {
+				connectionId: account.connectionId,
+				uid: account.uid,
+				flag,
+				value: String(value),
+			},
+			loading: "Saving",
+			success: "Saved.",
+		};
+	}
 
 	const folderNames = $derived(
 		new Map(data.folders.map((folder) => [folder.id, folder.name])),
@@ -43,13 +65,19 @@
 		label="Spent"
 		icon={WalletIcon}
 		value={formatMoney(data.summary.totalMinor, data.currency)}
+		hint="{data.summary.count} expenses"
+	/>
+	<StatCard
+		label="Income"
+		icon={HandCoinsIcon}
+		value={formatMoney(data.incomeMinor, data.currency)}
+		tone="positive"
 	/>
 	<StatCard
 		label="Set aside"
 		icon={PiggyBankIcon}
 		value={formatMoney(data.asideMinor, data.currency)}
 	/>
-	<StatCard label="Expenses" icon={ReceiptIcon} value={data.summary.count} />
 </div>
 
 {#if data.otherCurrencies}
@@ -90,3 +118,74 @@
 		}))}
 	/>
 </div>
+
+{#if data.accounts.length > 0}
+	<div class="mt-4 grid gap-4 md:mt-6 lg:grid-cols-2 md:gap-6">
+		<div class="grid content-start gap-3 sm:grid-cols-2 md:gap-4">
+			<StatCard
+				label="Available now"
+				icon={LandmarkIcon}
+				value={formatMoney(data.availableMinor, data.currency)}
+				hint="Your everyday accounts, half of shared ones"
+			/>
+			<StatCard
+				label="Invested or set aside"
+				icon={ChartLineIcon}
+				value={formatMoney(data.investedMinor, data.currency)}
+				hint="Savings and investment accounts"
+			/>
+		</div>
+		<section class="glass flex flex-col gap-2 rounded-2xl p-4 md:p-5">
+			<h2 class="font-semibold">Accounts</h2>
+			<p class="text-muted-foreground text-sm">
+				Money moved between your accounts is an internal transfer, left out of
+				spent and income. A shared account counts at half; money into savings
+				counts as set aside.
+			</p>
+			<ul class="divide-border -mx-1 divide-y" aria-label="Accounts">
+				{#each data.accounts as account (account.uid)}
+					<li>
+						<ItemMenu
+							title={account.name}
+							class="min-h-14 px-1 py-2"
+							actions={[
+								{
+									label: account.shared
+										? "Not shared"
+										: "Shared with someone: counts half",
+									icon: UsersIcon,
+									form: accountFlag(account, "shared", !account.shared),
+								},
+								{
+									label: account.savings
+										? "Everyday account"
+										: "Savings or investments",
+									icon: PiggyBankIcon,
+									form: accountFlag(account, "savings", !account.savings),
+								},
+							]}
+						>
+							<span class="min-w-0 flex-1">
+								<span class="block truncate font-medium">{account.name}</span>
+								<span class="text-muted-foreground block truncate text-sm">
+									{[
+										account.bankName,
+										account.shared ? "Shared, counts half" : null,
+										account.savings ? "Savings or investments" : null,
+									]
+										.filter(Boolean)
+										.join(" · ")}
+								</span>
+							</span>
+							<span class="tabular shrink-0 font-medium">
+								{account.balance
+									? formatMoney(account.balance.minor, account.balance.currency)
+									: "–"}
+							</span>
+						</ItemMenu>
+					</li>
+				{/each}
+			</ul>
+		</section>
+	</div>
+{/if}

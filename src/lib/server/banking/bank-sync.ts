@@ -1,4 +1,4 @@
-import type { BankConnectionDTO } from "#lib/dto/bank-connection.js";
+import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
 import {
 	type BankCredentials,
 	bankCredentialsFor,
@@ -7,7 +7,9 @@ import { JobDTO } from "#lib/dto/job.js";
 import { PersonalCategoryDTO } from "#lib/dto/personal-category.js";
 import {
 	type BankExpense,
+	internalCategory,
 	PersonalExpenseDTO,
+	type TransferLine,
 } from "#lib/dto/personal-expense.js";
 import { currencyDigits } from "#lib/money.js";
 import type { Transaction } from "#lib/server/banking/enable-banking-api.js";
@@ -132,8 +134,20 @@ class BankSync {
 			const from = connection.fetchFrom();
 			const guess = this.personalGuess(connection.userId);
 			const report: BankSyncReport[] = [];
+			const balances = new Map<string, { minor: number; currency: string }>();
 			for (const account of connection.accounts) {
+				if (account.savings === undefined) {
+					connection.setAccountFlags(account.uid, {
+						savings: isMoneyAside(account.name),
+					});
+				}
 				const transactions = await client.transactions(account.uid, from);
+				const balance = await client
+					.balance(account.uid)
+					.catch(() => undefined);
+				if (balance) {
+					balances.set(account.uid, balance);
+				}
 				const expenses = transactions
 					.map((transaction) =>
 						this.bankExpense(account.uid, transaction, guess),
@@ -151,6 +165,8 @@ class BankSync {
 				});
 			}
 			const added = report.reduce((total, entry) => total + entry.added, 0);
+			connection.setBalances(balances);
+			this.pairTransfers(connection.userId);
 			connection.markSynced(added, report);
 			return added;
 		} catch (error) {
@@ -184,7 +200,7 @@ class BankSync {
 			...account,
 			identificationHash: account.identificationHash ?? hashes.get(account.uid),
 		}));
-		for (const account of link.accounts) {
+		const accounts = link.accounts.map((account) => {
 			const previous = previousAccounts.find((candidate) =>
 				this.#sameAccount(candidate, account, previousAccounts),
 			);
@@ -195,8 +211,104 @@ class BankSync {
 					account.uid,
 				);
 			}
+			return previous
+				? {
+						...account,
+						shared: previous.shared,
+						savings: previous.savings ?? account.savings,
+						balance: previous.balance,
+					}
+				: account;
+		});
+		connection.replaceSession({ ...link, accounts });
+	}
+
+	/**
+	 * Pairs money leaving one of `userId`'s accounts with the same amount reaching another within three days, then
+	 * files every pair: set aside when it went into savings, an internal transfer otherwise. A line the person filed
+	 * elsewhere since stays as they left it. Returns how many pairs are new.
+	 */
+	pairTransfers(userId: string): number {
+		const accounts = new Map(
+			BankConnectionDTO.accountsOf(userId).map((account) => [
+				account.uid,
+				account,
+			]),
+		);
+		const lines: (TransferLine & { fresh?: boolean })[] =
+			PersonalExpenseDTO.transferLines(userId).filter((line) =>
+				accounts.has(line.bankAccountUid),
+			);
+		const paired = this.#pair(lines);
+		const byId = new Map(lines.map((line) => [line.id, line]));
+		for (const line of lines) {
+			const other = line.transferPairId
+				? byId.get(line.transferPairId)
+				: undefined;
+			if (
+				!other ||
+				(line.category !== internalCategory && line.category !== "finance")
+			) {
+				continue;
+			}
+			const [out, into] =
+				line.kind === "expense" ? [line, other] : [other, line];
+			const aside =
+				line === out &&
+				Boolean(accounts.get(into.bankAccountUid)?.savings) &&
+				!accounts.get(out.bankAccountUid)?.savings;
+			const category = aside ? "finance" : internalCategory;
+			if (category !== line.category || aside !== line.aside || line.fresh) {
+				PersonalExpenseDTO.fileTransfer(userId, [line.id], {
+					category,
+					aside,
+					transferPairId: other.id,
+				});
+			}
 		}
-		connection.replaceSession(link);
+		return paired;
+	}
+
+	/** Links each unpaired line leaving an account to the closest unpaired line of the same amount reaching another. */
+	#pair(lines: (TransferLine & { fresh?: boolean })[]): number {
+		const incoming = Map.groupBy(
+			lines.filter((line) => line.kind === "income" && !line.transferPairId),
+			(line) => `${line.currency}:${line.amountMinor}`,
+		);
+		const dayMs = 24 * 60 * 60 * 1000;
+		const gap = (left: string, right: string) =>
+			Math.abs(Date.parse(left) - Date.parse(right)) / dayMs;
+		let paired = 0;
+		for (const out of lines) {
+			if (out.kind !== "expense" || out.transferPairId) {
+				continue;
+			}
+			const into = (incoming.get(`${out.currency}:${out.amountMinor}`) ?? [])
+				.filter(
+					(candidate) =>
+						!candidate.transferPairId &&
+						candidate.bankAccountUid !== out.bankAccountUid &&
+						gap(candidate.spentOn, out.spentOn) <= 3,
+				)
+				.toSorted(
+					(left, right) =>
+						gap(left.spentOn, out.spentOn) - gap(right.spentOn, out.spentOn),
+				)[0];
+			if (into) {
+				for (const [line, other] of [
+					[out, into],
+					[into, out],
+				] as const) {
+					Object.assign(line, {
+						transferPairId: other.id,
+						category: internalCategory,
+						fresh: true,
+					});
+				}
+				paired += 1;
+			}
+		}
+		return paired;
 	}
 
 	/** Whether `next` is the same account as `previous`: by hash when both have one, else by a unique name and currency. */

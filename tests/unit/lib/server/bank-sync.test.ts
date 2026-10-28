@@ -8,7 +8,10 @@ import {
 	saveBankCredentials,
 } from "#lib/dto/bank-credential.js";
 import { JobDTO } from "#lib/dto/job.js";
-import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
+import {
+	type BankExpense,
+	PersonalExpenseDTO,
+} from "#lib/dto/personal-expense.js";
 import { bankSync } from "#lib/server/banking/bank-sync.js";
 import type { Transaction } from "#lib/server/banking/enable-banking-api.js";
 import { EnableBankingClient } from "#lib/server/banking/enable-banking.js";
@@ -130,7 +133,11 @@ describe("Enable Banking client", () => {
 							currency: "EUR",
 							identification_hash: "hash-1",
 						},
-						{ uid: "a-2", account_id: { iban: "FR7600001111" } },
+						{
+							uid: "a-2",
+							account_id: { iban: "FR7600001111" },
+							cash_account_type: "SVGS",
+						},
 						{ uid: null, details: "Card that can't be read" },
 					],
 				}),
@@ -164,12 +171,14 @@ describe("Enable Banking client", () => {
 				name: "Main",
 				currency: "EUR",
 				identificationHash: "hash-1",
+				savings: false,
 			},
 			{
 				uid: "a-2",
 				name: "…1111",
 				currency: "EUR",
 				identificationHash: undefined,
+				savings: true,
 			},
 		]);
 		expect(session.listedAccounts).toBe(3);
@@ -283,7 +292,24 @@ describe("bank sync", () => {
 					],
 				}),
 			)
-			.mockResolvedValueOnce(Response.json({ transactions: [card()] }));
+			.mockResolvedValueOnce(
+				Response.json({
+					balances: [
+						{
+							name: "Booked",
+							balance_type: "CLBD",
+							balance_amount: { amount: "90.00", currency: "EUR" },
+						},
+						{
+							name: "Available",
+							balance_type: "ITAV",
+							balance_amount: { amount: "123.45", currency: "EUR" },
+						},
+					],
+				}),
+			)
+			.mockResolvedValueOnce(Response.json({ transactions: [card()] }))
+			.mockResolvedValueOnce(Response.json({ balances: [] }));
 		await jobHandlers["bank.sync"]({ connectionId: connection.id });
 		expect(sent(fetched, 1).url).toContain("strategy=longest");
 		expect(PersonalExpenseDTO.page(ada.id, { limit: 50 }).entries).toHaveLength(
@@ -302,7 +328,10 @@ describe("bank sync", () => {
 		);
 		expect(again?.syncing()).toBe(false);
 		expect(await bankSync.sync(again!)).toBe(0);
-		expect(sent(fetched, 3).url).toContain(
+		expect(again?.accounts[0]?.balance).toEqual(
+			expect.objectContaining({ minor: 12_345, currency: "EUR" }),
+		);
+		expect(sent(fetched, 4).url).toContain(
 			`date_from=${new Date(Date.now() - 3 * 86_400_000).toISOString().slice(0, 10)}`,
 		);
 		expect(PersonalExpenseDTO.historyFromBank(ada.id)).toEqual({
@@ -546,5 +575,112 @@ describe("PersonalExpenseDTO", () => {
 		expect(found.map((entry) => entry.toJSON().note)).toEqual([
 			"Birthday present for Grace",
 		]);
+	});
+});
+
+describe("transfers between own accounts", () => {
+	beforeEach(resetDatabase);
+
+	function twoAccounts(userId: string) {
+		return BankConnectionDTO.create(userId, {
+			sessionId: "session-1",
+			bankName: "Revolut",
+			bankCountry: "FR",
+			accounts: [
+				{ uid: "main", name: "Main", currency: "EUR" },
+				{ uid: "joint", name: "Joint", currency: "EUR" },
+			],
+			validUntil: new Date(Date.now() + 86_400_000),
+		});
+	}
+
+	function line(
+		uid: string,
+		ref: string,
+		fields: Partial<BankExpense> = {},
+	): BankExpense {
+		return {
+			description: "Transfer",
+			category: "other",
+			kind: "expense",
+			amountMinor: 5000,
+			currency: "EUR",
+			spentOn: "2026-10-10",
+			bankRef: `${uid}:${ref}`,
+			bankAccountUid: uid,
+			...fields,
+		};
+	}
+
+	test("pairs money moved between accounts as internal, left out of spent and income", () => {
+		const ada = createUser("ada");
+		const connection = twoAccounts(ada.id);
+		PersonalExpenseDTO.importFromBank(ada.id, connection.id, [
+			line("main", "out", { category: "family" }),
+			line("joint", "in", {
+				kind: "income",
+				category: "income",
+				spentOn: "2026-10-12",
+			}),
+			line("main", "food", { category: "food", amountMinor: 2000 }),
+			line("joint", "far", {
+				kind: "income",
+				category: "income",
+				spentOn: "2026-10-20",
+			}),
+		]);
+		expect(bankSync.pairTransfers(ada.id)).toBe(1);
+		expect(bankSync.pairTransfers(ada.id)).toBe(0);
+		const stats = PersonalExpenseDTO.stats(ada.id);
+		expect(stats.totals).toEqual([{ currency: "EUR", minor: 2000 }]);
+		expect(stats.income).toEqual([{ currency: "EUR", minor: 5000 }]);
+		expect(
+			PersonalExpenseDTO.spending(ada.id).map((row) => row.category),
+		).toEqual(["food", "income"]);
+	});
+
+	test("money into savings counts as set aside, and a refiled line stays as the person left it", () => {
+		const ada = createUser("ada");
+		const connection = twoAccounts(ada.id);
+		connection.setAccountFlags("joint", { savings: true });
+		PersonalExpenseDTO.importFromBank(ada.id, connection.id, [
+			line("main", "out"),
+			line("joint", "in", { kind: "income", category: "income" }),
+		]);
+		bankSync.pairTransfers(ada.id);
+		const lines = PersonalExpenseDTO.transferLines(ada.id);
+		expect(lines.find((entry) => entry.kind === "expense")).toEqual(
+			expect.objectContaining({ category: "finance", aside: true }),
+		);
+		expect(lines.find((entry) => entry.kind === "income")?.category).toBe(
+			"internal",
+		);
+		const out = lines.find((entry) => entry.kind === "expense")!;
+		PersonalExpenseDTO.recategorize(ada.id, [out.id], "family");
+		connection.setAccountFlags("joint", { savings: false });
+		bankSync.pairTransfers(ada.id);
+		expect(
+			PersonalExpenseDTO.transferLines(ada.id).find(
+				(entry) => entry.id === out.id,
+			)?.category,
+		).toBe("family");
+	});
+
+	test("a shared account's lines count at half", () => {
+		const ada = createUser("ada");
+		const connection = twoAccounts(ada.id);
+		expect(connection.setAccountFlags("joint", { shared: true })).toBe(true);
+		expect(connection.setAccountFlags("gone", { shared: true })).toBe(false);
+		PersonalExpenseDTO.importFromBank(ada.id, connection.id, [
+			line("joint", "rent", { category: "home", amountMinor: 120_001 }),
+			line("main", "food", { category: "food", amountMinor: 1000 }),
+		]);
+		expect(BankConnectionDTO.sharedAccountUids(ada.id)).toEqual(["joint"]);
+		expect(PersonalExpenseDTO.stats(ada.id).totals).toEqual([
+			{ currency: "EUR", minor: 61_000 },
+		]);
+		expect(
+			PersonalExpenseDTO.spending(ada.id).map((row) => row.amountMinor),
+		).toEqual([60_000, 1000]);
 	});
 });

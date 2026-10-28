@@ -3,12 +3,14 @@ import { createSign } from "node:crypto";
 import createClient from "openapi-fetch";
 
 import type { BankCredentials } from "#lib/dto/bank-credential.js";
+import { currencyDigits } from "#lib/money.js";
 import type {
 	paths,
 	Transaction,
 } from "#lib/server/banking/enable-banking-api.js";
 import { secrets } from "#lib/server/core/secrets.js";
 import { telemetry } from "#lib/server/core/telemetry.js";
+import { isMoneyAside } from "#lib/smart-category.js";
 
 const apiBase = "https://api.enablebanking.com";
 const consentDays = 90;
@@ -31,7 +33,28 @@ export interface BankAccount {
 	name: string;
 	currency: string;
 	identificationHash?: string;
+	savings?: boolean;
 }
+
+export interface BankBalance {
+	minor: number;
+	currency: string;
+}
+
+const balancePreference = [
+	"ITAV",
+	"CLAV",
+	"ITBD",
+	"CLBD",
+	"XPCD",
+	"OPAV",
+	"OPBD",
+	"VALU",
+	"PRCD",
+	"FWAV",
+	"INFO",
+	"OTHR",
+];
 
 export interface BankLink {
 	sessionId: string;
@@ -117,25 +140,32 @@ export class EnableBankingClient {
 			bankCountry: session.aspsp.country,
 			validUntil: new Date(session.access.valid_until),
 			listedAccounts: session.accounts.length,
-			accounts: session.accounts.flatMap((account) =>
-				account.uid
-					? [
-							{
-								uid: account.uid,
-								name:
-									account.details ??
-									account.product ??
-									(account.account_id?.iban
-										? `…${account.account_id.iban.slice(-4)}`
-										: null) ??
-									account.name ??
-									"Account",
-								currency: account.currency ?? "EUR",
-								identificationHash: account.identification_hash,
-							},
-						]
-					: [],
-			),
+			accounts: session.accounts.flatMap((account) => {
+				if (!account.uid) {
+					return [];
+				}
+				const name =
+					account.details ??
+					account.product ??
+					(account.account_id?.iban
+						? `…${account.account_id.iban.slice(-4)}`
+						: null) ??
+					account.name ??
+					"Account";
+				return [
+					{
+						uid: account.uid,
+						name,
+						currency: account.currency ?? "EUR",
+						identificationHash: account.identification_hash,
+						savings:
+							account.cash_account_type === "SVGS" ||
+							isMoneyAside(
+								[name, account.product, account.name].filter(Boolean).join(" "),
+							),
+					},
+				];
+			}),
 		};
 	}
 
@@ -155,6 +185,27 @@ export class EnableBankingClient {
 				account.identification_hash,
 			]) ?? [],
 		);
+	}
+
+	/** The balance of account `uid` the bank reports first among available and booked ones, `undefined` when none. */
+	async balance(uid: string): Promise<BankBalance | undefined> {
+		const { balances } = await this.#call(
+			"/accounts/{account_id}/balances",
+			() =>
+				this.#api().GET("/accounts/{account_id}/balances", {
+					params: { path: { account_id: uid } },
+				}),
+		);
+		const best = balances.toSorted(
+			(left, right) =>
+				this.#rank(left.balance_type) - this.#rank(right.balance_type),
+		)[0];
+		if (!best) {
+			return undefined;
+		}
+		const { amount, currency } = best.balance_amount;
+		const minor = Math.round(Number(amount) * 10 ** currencyDigits(currency));
+		return Number.isFinite(minor) ? { minor, currency } : undefined;
 	}
 
 	/**
@@ -239,6 +290,12 @@ export class EnableBankingClient {
 			.update(unsigned)
 			.sign(secrets.decrypt(this.#credentials.encryptedPrivateKey));
 		return `${unsigned}.${this.#base64url(signature)}`;
+	}
+
+	/** Where balance type `type` comes in `balancePreference`, unknown ones last. */
+	#rank(type: string): number {
+		const index = balancePreference.indexOf(type);
+		return index === -1 ? balancePreference.length : index;
 	}
 
 	/** `value` encoded as unpadded base64url. */

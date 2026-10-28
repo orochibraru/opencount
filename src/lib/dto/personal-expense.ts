@@ -13,6 +13,7 @@ import {
 	sql,
 } from "drizzle-orm";
 
+import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
 import { BaseDTO } from "#lib/dto/base-dto.js";
 import { monthStartOn, shiftMonth } from "#lib/pay-month.js";
 import { databaseConnection } from "#lib/server/db/database.js";
@@ -86,6 +87,20 @@ export interface SpendingRow {
 	spentOn: string;
 	folderId: string | null;
 }
+
+export interface TransferLine {
+	id: string;
+	kind: PersonalKind;
+	category: string;
+	amountMinor: number;
+	currency: string;
+	spentOn: string;
+	bankAccountUid: string;
+	aside: boolean;
+	transferPairId: string | null;
+}
+
+export const internalCategory = "internal";
 
 export interface PersonalStats {
 	totals: MoneyTotal[];
@@ -161,7 +176,13 @@ function visible(
 	);
 }
 
-const minor = sql<number>`sum(${personalExpense.amountMinor})`.mapWith(Number);
+/** The part of a line that is `userId`'s: half of it on an account shared with someone. */
+function mine(userId: string): SQL<number> {
+	const shared = BankConnectionDTO.sharedAccountUids(userId);
+	return shared.length === 0
+		? sql<number>`${personalExpense.amountMinor}`
+		: sql<number>`case when ${inArray(personalExpense.bankAccountUid, shared)} then ${personalExpense.amountMinor} / 2 else ${personalExpense.amountMinor} end`;
+}
 
 export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 	/** The latest `limit` of `userId`'s own expenses matching `filter`, skipping the first `offset`, with how many match. */
@@ -205,7 +226,11 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 		}: { startDay?: number; today?: string } = {},
 	): PersonalStats {
 		const database = databaseConnection.get();
-		const matching = visible(userId, filter);
+		const minor = sql<number>`sum(${mine(userId)})`.mapWith(Number);
+		const matching = and(
+			visible(userId, filter),
+			ne(personalExpense.category, internalCategory),
+		);
 		const spent = and(matching, eq(personalExpense.kind, "expense"));
 		const scope = and(spent, eq(personalExpense.aside, false));
 		const setAside = and(spent, eq(personalExpense.aside, true));
@@ -295,7 +320,10 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 		);
 	}
 
-	/** Every expense of `userId`, oldest first, reduced to what spending charts need. */
+	/**
+	 * Every expense of `userId` but internal transfers, oldest first, reduced to what spending charts need, a shared
+	 * account's lines at half.
+	 */
 	static spending(userId: string): SpendingRow[] {
 		return databaseConnection
 			.get()
@@ -304,13 +332,15 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 				category: personalExpense.category,
 				kind: personalExpense.kind,
 				aside: personalExpense.aside,
-				amountMinor: personalExpense.amountMinor,
+				amountMinor: mine(userId).mapWith(Number),
 				currency: personalExpense.currency,
 				spentOn: personalExpense.spentOn,
 				folderId: personalExpense.folderId,
 			})
 			.from(personalExpense)
-			.where(visible(userId))
+			.where(
+				and(visible(userId), ne(personalExpense.category, internalCategory)),
+			)
 			.orderBy(personalExpense.spentOn)
 			.all();
 	}
@@ -510,6 +540,45 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 			})
 			.returning({ id: personalExpense.id })
 			.all().length;
+	}
+
+	/** `userId`'s visible bank lines, paired as a transfer or not, for matching transfers between their own accounts. */
+	static transferLines(userId: string): TransferLine[] {
+		return databaseConnection
+			.get()
+			.select({
+				id: personalExpense.id,
+				kind: personalExpense.kind,
+				category: personalExpense.category,
+				amountMinor: personalExpense.amountMinor,
+				currency: personalExpense.currency,
+				spentOn: personalExpense.spentOn,
+				bankAccountUid: sql<string>`${personalExpense.bankAccountUid}`,
+				aside: personalExpense.aside,
+				transferPairId: personalExpense.transferPairId,
+			})
+			.from(personalExpense)
+			.where(and(visible(userId), isNotNull(personalExpense.bankAccountUid)))
+			.all();
+	}
+
+	/** Files lines `ids` of `userId` as `values` say, the transfer they belong to included. */
+	static fileTransfer(
+		userId: string,
+		ids: string[],
+		values: { category: string; aside: boolean; transferPairId?: string },
+	): void {
+		databaseConnection
+			.get()
+			.update(personalExpense)
+			.set(values)
+			.where(
+				and(
+					eq(personalExpense.userId, userId),
+					inArray(personalExpense.id, ids),
+				),
+			)
+			.run();
 	}
 
 	/** Moves `userId`'s lines of bank account `fromUid` to `toUid`, its uid under a new consent, references included. */

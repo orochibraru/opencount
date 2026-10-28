@@ -10,3 +10,5 @@ extend-exclude = [
 [default.extend-words]
 ba = "ba"
 impot = "impot"
+OTHR = "OTHR"
+VALU = "VALU"

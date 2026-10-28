@@ -60,6 +60,17 @@
   what's under Other" files Other entries by `categoryHistory` (what the account
   filed the same description under), then keywords and own categories, and runs
   `markAside`.
+- Linked accounts carry `shared` and `savings` in `bank_connection.accounts`,
+  set from Insights. `savings` starts from the bank's `SVGS` account type or
+  `isMoneyAside` on the account's name. A shared account (a joint one) counts at
+  half in `stats()` and `spending()`. After every sync `bankSync.pairTransfers`
+  pairs money leaving one of the person's accounts with the same amount reaching
+  another within three days (`transfer_pair_id` on both): into a savings account
+  from an everyday one it's set aside (Finance), otherwise both lines are
+  `internal` (Internal transfer), which `stats()` and `spending()` leave out. A
+  paired line refiled to another category stays as it is. Each sync also stores
+  every account's balance (available first, then booked); Insights sums them
+  into "Available now" and "Invested or set aside", main currency only.
 - Personal Insights at `/personal/analytics`: period tabs, main currency only,
   built from `PersonalExpenseDTO.spending()`.
 - A line with `bankRef` is read-only except category, date, folder, `aside` and

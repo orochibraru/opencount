@@ -8,6 +8,8 @@ type ConnectionRow = typeof bankConnection.$inferSelect;
 
 export type BankConnectionRow = Omit<ConnectionRow, "sessionId" | "userId">;
 
+export type LinkedAccount = ConnectionRow["accounts"][number];
+
 export class BankConnectionDTO extends BaseDTO<BankConnectionRow> {
 	#sessionId: string;
 	readonly #userId: string;
@@ -54,6 +56,26 @@ export class BankConnectionDTO extends BaseDTO<BankConnectionRow> {
 			.orderBy(asc(bankConnection.createdAt))
 			.all()
 			.map((row) => new BankConnectionDTO(row));
+	}
+
+	/** Every account of `userId`'s linked banks, with its bank's name and link id. */
+	static accountsOf(
+		userId: string,
+	): (LinkedAccount & { bankName: string; connectionId: string })[] {
+		return BankConnectionDTO.forUser(userId).flatMap((connection) =>
+			connection.accounts.map((account) => ({
+				...account,
+				bankName: connection.bankName,
+				connectionId: connection.id,
+			})),
+		);
+	}
+
+	/** The uids of `userId`'s accounts marked shared, whose lines count at half. */
+	static sharedAccountUids(userId: string): string[] {
+		return BankConnectionDTO.accountsOf(userId)
+			.filter((account) => account.shared)
+			.map((account) => account.uid);
 	}
 
 	/** Linked bank `id`, whoever it belongs to: for the worker. */
@@ -193,6 +215,37 @@ export class BankConnectionDTO extends BaseDTO<BankConnectionRow> {
 	/** Remembers the bank's logo, an https address. */
 	setLogo(logo: string): void {
 		this.#update({ bankLogo: logo });
+	}
+
+	/** Records the balances the bank reported, keyed by account uid, as of `at`. */
+	setBalances(
+		balances: Map<string, { minor: number; currency: string }>,
+		at = new Date(),
+	): void {
+		this.#update({
+			accounts: this.row.accounts.map((account) => {
+				const balance = balances.get(account.uid);
+				return balance
+					? { ...account, balance: { ...balance, at: at.toISOString() } }
+					: account;
+			}),
+		});
+	}
+
+	/** Marks account `uid` shared (counted at half) or savings (money set aside), as `flags` say; false when it has no such account. */
+	setAccountFlags(
+		uid: string,
+		flags: Pick<LinkedAccount, "shared" | "savings">,
+	): boolean {
+		if (!this.row.accounts.some((account) => account.uid === uid)) {
+			return false;
+		}
+		this.#update({
+			accounts: this.row.accounts.map((account) =>
+				account.uid === uid ? { ...account, ...flags } : account,
+			),
+		});
+		return true;
 	}
 
 	/** Writes `values` to the link and to this copy of it. */

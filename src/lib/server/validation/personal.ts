@@ -25,6 +25,13 @@ const personalSchema = z.object({
 		.default(""),
 });
 
+export const accountFlagSchema = z.object({
+	connectionId: z.string().trim().min(1),
+	uid: z.string().trim().min(1),
+	flag: z.enum(["shared", "savings"]),
+	value: z.stringbool(),
+});
+
 export const monthStartSchema = z.object({
 	monthStartDay: z.coerce
 		.number()
