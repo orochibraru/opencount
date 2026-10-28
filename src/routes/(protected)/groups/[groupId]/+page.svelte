@@ -139,15 +139,28 @@
 	const activeCategory = $derived(
 		data.category ? categoryOf(data.category, data.categories) : undefined,
 	);
+	const merchantSources = $derived(
+		data.merchants.map((entry) => ({ value: entry.id, label: entry.name })),
+	);
+	const activeMerchant = $derived(
+		merchantSources.find((entry) => entry.value === data.merchant),
+	);
+	const filtered = $derived(
+		Boolean(activeCategory || activeMerchant || data.search),
+	);
 
 	function listHref(
 		category: string | null,
 		limit?: number,
 		search = data.search,
+		merchant = data.merchant,
 	): string {
 		const params = new URLSearchParams();
 		if (category) {
 			params.set("category", category);
+		}
+		if (merchant) {
+			params.set("merchant", merchant);
 		}
 		if (search) {
 			params.set("q", search);
@@ -265,32 +278,37 @@
 					: `${waiting.length} expenses are saved on this device and are added once you're back online.`}
 			</p>
 		{/if}
-		{#if data.matching > 0 || activeCategory || data.search}
+		{#if data.matching > 0 || filtered}
 			<ListFilters
 				search={data.search}
 				active={activeCategory}
 				options={filterOptions}
+				merchants={merchantSources}
+				{activeMerchant}
 				href={(change) =>
 					listHref(
 						change.category === undefined ? data.category : change.category,
 						undefined,
 						change.search ?? data.search,
+						change.merchant === undefined ? data.merchant : change.merchant,
 					)}
 			/>
-			{#if activeCategory || data.search}
+			{#if filtered}
 				<p class="text-muted-foreground mb-3 px-1 text-sm">
 					{data.matching}
 					{data.matching === 1 ? "expense" : "expenses"}
 				</p>
 			{/if}
 		{/if}
-		{#if data.expenses.length === 0 && (activeCategory || data.search)}
+		{#if data.expenses.length === 0 && filtered}
 			<EmptyState
 				icon={activeCategory?.icon ?? SearchIcon}
 				title="No expense matches"
 				subtitle={data.search
 					? `Nothing with "${data.search}"${activeCategory ? ` under ${activeCategory.label}` : ""}.`
-					: `No expense is filed under ${activeCategory?.label}.`}
+					: activeCategory
+						? `No expense is filed under ${activeCategory.label}${activeMerchant ? ` at ${activeMerchant.label}` : ""}.`
+						: `No expense at ${activeMerchant?.label}.`}
 			/>
 		{:else if data.expenses.length === 0}
 			<EmptyState

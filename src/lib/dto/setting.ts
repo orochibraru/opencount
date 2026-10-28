@@ -50,6 +50,8 @@ export interface SettingValues {
 	ssoProviders: SsoProvider[];
 	vapid: VapidKeys | null;
 	publicOrigin: string | null;
+	bankSyncEnabled: boolean;
+	banner: string | null;
 }
 
 const defaults: SettingValues = {
@@ -67,6 +69,8 @@ const defaults: SettingValues = {
 	ssoProviders: [],
 	vapid: null,
 	publicOrigin: null,
+	bankSyncEnabled: true,
+	banner: null,
 };
 
 /** The stored value of `key`, or its default. */
@@ -99,6 +103,8 @@ export function allSettings(): SettingValues {
 		ssoProviders: getSetting("ssoProviders"),
 		vapid: getSetting("vapid"),
 		publicOrigin: getSetting("publicOrigin"),
+		bankSyncEnabled: getSetting("bankSyncEnabled"),
+		banner: getSetting("banner"),
 	};
 }
 

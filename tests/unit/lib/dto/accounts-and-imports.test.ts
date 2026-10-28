@@ -570,6 +570,13 @@ describe("personal folders, stats and similar expenses", () => {
 			);
 		expect(found("LIDL")).toEqual(["Weekly groceries"]);
 		expect(found("luigi")).toEqual(["Dinner at Luigi"]);
+		expect(found("luiggi dinner")).toEqual(["Dinner at Luigi"]);
+		expect(
+			ExpenseDTO.page(group.id, {
+				limit: 50,
+				merchantId: MerchantDTO.findByName(group.id, "Lidl")?.toJSON().id,
+			}).entries.map((entry) => entry.toJSON().description),
+		).toEqual(["Weekly groceries"]);
 		expect(found("100%")).toEqual(["100% cotton sheets"]);
 		expect(found("%")).toEqual(["100% cotton sheets"]);
 		expect(found("nothing")).toEqual([]);

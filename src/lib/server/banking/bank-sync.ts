@@ -11,6 +11,7 @@ import {
 	PersonalExpenseDTO,
 	type TransferLine,
 } from "#lib/dto/personal-expense.js";
+import { getSetting } from "#lib/dto/setting.js";
 import { currencyDigits } from "#lib/money.js";
 import type { Transaction } from "#lib/server/banking/enable-banking-api.js";
 import {
@@ -23,8 +24,62 @@ import type { BankSyncReport } from "#lib/server/db/schema.js";
 import { similarKey } from "#lib/similar-key.js";
 import { guessCategory, isMoneyAside } from "#lib/smart-category.js";
 
+const cardLine =
+	/^(?:PAIEMENT|PAIE|ACHAT)\s+(?:CB|MOB|PSC|CARTE)?\s*(\d{2})(\d{2})\b/i;
+
+const merchantCategories: [number[], string][] = [
+	[[5411, 5422, 5441, 5451, 5462, 5499], "groceries"],
+	[[5811, 5812, 5813, 5814], "food"],
+	[
+		[
+			4011, 4111, 4112, 4121, 4131, 4511, 4784, 4789, 5172, 5541, 5542, 7512,
+			7523, 7531, 7538, 7542,
+		],
+		"transport",
+	],
+	[[7011, 7012, 7032, 7033], "lodging"],
+	[[4722, 4723], "travel"],
+	[
+		[
+			5310, 5311, 5331, 5399, 5611, 5621, 5631, 5641, 5651, 5655, 5661, 5691,
+			5699, 5732, 5941, 5945, 5947, 5948, 5977, 5999,
+		],
+		"shopping",
+	],
+	[[5200, 5211, 5231, 5251, 5261, 5712, 5713, 5714, 5719, 5722], "home"],
+	[
+		[
+			5122, 5912, 8011, 8021, 8031, 8041, 8042, 8043, 8049, 8050, 8062, 8071,
+			8099,
+		],
+		"health",
+	],
+	[[742, 5995], "pets"],
+	[[4814, 4816, 4899, 5815, 5816, 5817, 5818, 5968], "subscriptions"],
+	[[4900, 6300], "bills"],
+	[[7230, 7297, 7298], "care"],
+	[[8211, 8220, 8241, 8244, 8249, 8299], "education"],
+	[[5733, 5735, 5942, 5994, 7829, 8911], "culture"],
+	[
+		[
+			7832, 7841, 7922, 7929, 7932, 7933, 7941, 7991, 7992, 7996, 7997, 7998,
+			7999,
+		],
+		"activities",
+	],
+	[[9211, 9222, 9311], "taxes"],
+	[[6010, 6011, 6012, 6051, 6211], "finance"],
+];
+
 /** Turns linked banks' lines into personal expenses, and moves a link onto a new consent without doubling them. */
 class BankSync {
+	readonly offMessage = "Bank sync is turned off on this server.";
+
+	/** Whether an admin left bank sync on for this server. */
+	enabled(): boolean {
+		return getSetting("bankSyncEnabled");
+	}
+
 	/** How `userId`'s ledger files a description: like they filed the same one before, else by keywords and their own categories. */
 	personalGuess(userId: string): (description: string) => string | undefined {
 		const history = PersonalExpenseDTO.categoryHistory(userId);
@@ -45,7 +100,7 @@ class BankSync {
 		transaction: Transaction,
 		guess: (description: string) => string | undefined = guessCategory,
 	): BankExpense | undefined {
-		const spentOn =
+		const bookedOn =
 			transaction.booking_date ??
 			transaction.value_date ??
 			transaction.transaction_date;
@@ -55,23 +110,19 @@ class BankSync {
 		);
 		if (
 			(transaction.status && transaction.status !== "BOOK") ||
-			!spentOn ||
+			!bookedOn ||
 			!Number.isFinite(amountMinor) ||
 			amountMinor === 0
 		) {
 			return undefined;
 		}
 		const income = transaction.credit_debit_indicator === "CRDT";
-		const description = (
-			(income ? transaction.debtor : transaction.creditor)?.name?.trim() ||
-			transaction.remittance_information?.find((line) => line.trim())?.trim() ||
-			(income ? "Money in" : "Card payment")
-		).slice(0, 120);
+		const { description, firstLine } = this.#describe(transaction, income);
 		const aside = isMoneyAside(description);
 		const reference =
 			transaction.transaction_id ??
 			transaction.entry_reference ??
-			`${spentOn}:${amount}:${description}`;
+			`${bookedOn}:${amount}:${firstLine}`;
 		const fallback = aside ? "finance" : "other";
 		return {
 			description,
@@ -79,12 +130,18 @@ class BankSync {
 				? aside
 					? "finance"
 					: "income"
-				: (guess(description) ?? fallback),
+				: (guess(description) ??
+					this.#merchantCategory(transaction.merchant_category_code) ??
+					fallback),
 			kind: income ? "income" : "expense",
 			aside,
 			amountMinor,
 			currency,
-			spentOn: spentOn.slice(0, 10),
+			spentOn: (
+				transaction.transaction_date ??
+				this.#cardDate(firstLine, bookedOn.slice(0, 10)) ??
+				bookedOn
+			).slice(0, 10),
 			bankRef: `${accountUid}:${reference}`,
 			bankAccountUid: accountUid,
 		};
@@ -153,6 +210,7 @@ class BankSync {
 						this.bankExpense(account.uid, transaction, guess),
 					)
 					.filter((entry) => entry !== undefined);
+				PersonalExpenseDTO.refreshUncategorized(connection.userId, expenses);
 				report.push({
 					accountUid: account.uid,
 					fetched: transactions.length,
@@ -313,6 +371,74 @@ class BankSync {
 			}
 		}
 		return paired;
+	}
+
+	/**
+	 * What a line is called: the other party's name, else its remittance text, where a card line's generic first line
+	 * ("PAIEMENT CB 2310 PARIS…") gives way to the merchant on the lines after it. `firstLine` is the name this used
+	 * to get, kept in references so a line already saved isn't saved twice.
+	 */
+	#describe(
+		transaction: Transaction,
+		income: boolean,
+	): { description: string; firstLine: string } {
+		const party = (
+			income ? transaction.debtor : transaction.creditor
+		)?.name?.trim();
+		const lines = (transaction.remittance_information ?? [])
+			.map((line) => line.trim())
+			.filter(Boolean);
+		const firstLine = (
+			party ||
+			lines[0] ||
+			(income ? "Money in" : "Card payment")
+		).slice(0, 120);
+		const merchant =
+			!party && lines[0] && cardLine.test(lines[0])
+				? lines.slice(1).join(" ")
+				: "";
+		return {
+			description: (merchant.replaceAll(/\s+/g, " ") || firstLine).slice(
+				0,
+				120,
+			),
+			firstLine,
+		};
+	}
+
+	/** The day a card line says it was paid ("PAIEMENT CB 2310" is the 23rd of October), the year taken from `bookedOn`. */
+	#cardDate(line: string, bookedOn: string): string | undefined {
+		const match = cardLine.exec(line);
+		if (!match) {
+			return undefined;
+		}
+		const [day, month] = [Number(match[1]), Number(match[2])];
+		if (month < 1 || month > 12 || day < 1 || day > 31) {
+			return undefined;
+		}
+		const booked = Number(bookedOn.slice(0, 4));
+		const candidate = `${booked}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+		return candidate > bookedOn
+			? `${booked - 1}${candidate.slice(4)}`
+			: candidate;
+	}
+
+	/** The category a card's merchant code (ISO 18245) points to, if it's a known one. */
+	#merchantCategory(code: string | undefined): string | undefined {
+		const value = Number(code);
+		if (!code || !Number.isInteger(value)) {
+			return undefined;
+		}
+		if (value >= 3000 && value <= 3299) {
+			return "transport";
+		}
+		if (value >= 3351 && value <= 3441) {
+			return "transport";
+		}
+		if (value >= 3501 && value <= 3999) {
+			return "lodging";
+		}
+		return merchantCategories.find(([codes]) => codes.includes(value))?.[1];
 	}
 
 	/** Whether `next` is the same account as `previous`: by hash when both have one, else by a unique name and currency. */

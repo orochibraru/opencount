@@ -28,6 +28,9 @@ async function openBank(
 	url: URL,
 	connectionId?: string,
 ) {
+	if (!bankSync.enabled()) {
+		return fail(403, { error: bankSync.offMessage });
+	}
 	const credentials = bankCredentialsFor(userId);
 	if (!credentials) {
 		return fail(400, { error: "Set up bank sync first." });
@@ -122,6 +125,9 @@ export const actions = {
 	syncBank: async ({ locals, request }) => {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
+		}
+		if (!bankSync.enabled()) {
+			return fail(403, { error: bankSync.offMessage });
 		}
 		const parsed = parseForm(idSchema, await request.formData());
 		const connection = parsed.success

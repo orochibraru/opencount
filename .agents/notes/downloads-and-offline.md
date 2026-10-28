@@ -53,13 +53,24 @@
   investing). Spent totals count `expense` with `aside = false`; set aside and
   income are summed apart (`PersonalStats`). `isMoneyAside` detects it from the
   description and files it under Finance; the expense sheet has a switch.
-- The page takes `search` (SQL `like` on the lowercased description, debounced),
-  `category`, `bank` and `account` in the URL; stats follow the same filter.
-  Custom categories are `personal_category` (`PersonalCategoryDTO`), managed at
-  `/personal/categories` with the same `CategoryManager` as a group's. Its "Sort
-  what's under Other" files Other entries by `categoryHistory` (what the account
-  filed the same description under), then keywords and own categories, and runs
-  `markAside`.
+- The page takes `search` (`fuzzyMatches` from `#lib/fuzzy.ts` on the
+  description and note: any case, accents or word order, a typo away; the
+  matching ids then scope the SQL; debounced), `category`, `bank` and `account`
+  in the URL; stats follow the same filter. Custom categories are
+  `personal_category` (`PersonalCategoryDTO`), managed at `/personal/categories`
+  with the same `CategoryManager` as a group's. Its "Sort what's under Other"
+  files Other entries by `categoryHistory` (what the account filed the same
+  description under), then keywords and own categories, and runs `markAside`.
+- A bank line is named after the other party, else its remittance text; a card
+  line whose first line is the bank's generic one ("PAIEMENT CB 2310 PARIS…",
+  Crédit Mutuel) takes the merchant from the lines after it and is dated the day
+  the card paid (`transaction_date`, else the `DDMM` in that line). The
+  reference keeps the old name so lines saved before aren't saved twice. With no
+  category from history or keywords, the card's merchant code (ISO 18245) picks
+  one. Each sync re-reads the name and category of the lines it fetched that
+  still sit under Other; a relink re-reads the whole history.
+- Money coming into a shared account that isn't one of the person's own
+  transfers is the other person's contribution: not income.
 - Linked bank accounts can be renamed (Linked banks, "Rename accounts"): the new
   name replaces `name` and the bank's own goes to `originalName`, which relink
   matching uses and which a relink keeps your name over; an empty name brings
@@ -76,7 +87,9 @@
   every account's balance (available first, then booked); Insights sums them
   into "Available now" and "Invested or set aside", main currency only.
 - Personal Insights at `/personal/analytics`: period tabs, main currency only,
-  built from `PersonalExpenseDTO.spending()`.
+  built from `PersonalExpenseDTO.spending()`. It takes the same filters as
+  Personal (search, category, folder, bank or account) in its URL, next to the
+  period.
 - A line with `bankRef` is read-only except category, date, folder, `aside` and
   `note`; the actions enforce it, not only the sheet. Syncs insert with
   `onConflictDoNothing`, so a note is never overwritten; search matches the
@@ -114,6 +127,9 @@
 
 ## Bank sync
 
+- An admin can turn bank sync off for the whole server (Admin > Instance,
+  `bankSyncEnabled`): the Bank sync pages 404, linking and syncing are refused,
+  the worker skips every sync; unlinking and removing keys still work.
 - Enable Banking, not GoCardless: Bank Account Data closed new sign-ups in 2025.
   Bank sync is per account, not an admin setting: Account > Bank sync stores
   that account's application ID and RSA private key in `bank_credential`

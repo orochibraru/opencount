@@ -9,12 +9,15 @@ import {
 	isNull,
 	lt,
 	ne,
+	notInArray,
+	or,
 	type SQL,
 	sql,
 } from "drizzle-orm";
 
 import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
 import { BaseDTO } from "#lib/dto/base-dto.js";
+import { fuzzyMatches } from "#lib/fuzzy.js";
 import { monthStartOn, shiftMonth } from "#lib/pay-month.js";
 import { databaseConnection } from "#lib/server/db/database.js";
 import {
@@ -86,6 +89,8 @@ export interface SpendingRow {
 	currency: string;
 	spentOn: string;
 	folderId: string | null;
+	bankConnectionId: string | null;
+	bankAccountUid: string | null;
 }
 
 export interface TransferLine {
@@ -156,13 +161,30 @@ function toRow({
 	return { ...row, fromBank: bankRef !== null };
 }
 
+/** The ids of `userId`'s visible expenses whose description or note fuzzily matches `search`. */
+function searchIds(userId: string, search: string): string[] {
+	return databaseConnection
+		.get()
+		.select({
+			id: personalExpense.id,
+			description: personalExpense.description,
+			note: personalExpense.note,
+		})
+		.from(personalExpense)
+		.where(
+			and(eq(personalExpense.userId, userId), isNull(personalExpense.hiddenAt)),
+		)
+		.all()
+		.filter((row) =>
+			fuzzyMatches(`${row.description} ${row.note ?? ""}`, search),
+		)
+		.map((row) => row.id);
+}
+
 function visible(
 	userId: string,
 	{ folderId, category, search, bankId, accountUid }: PersonalFilter = {},
 ) {
-	const pattern = search
-		? `%${search.toLowerCase().replaceAll(/[\\%_]/g, (character) => `\\${character}`)}%`
-		: undefined;
 	return and(
 		eq(personalExpense.userId, userId),
 		isNull(personalExpense.hiddenAt),
@@ -170,10 +192,20 @@ function visible(
 		category ? eq(personalExpense.category, category) : undefined,
 		bankId ? eq(personalExpense.bankConnectionId, bankId) : undefined,
 		accountUid ? eq(personalExpense.bankAccountUid, accountUid) : undefined,
-		pattern
-			? sql`(lower(${personalExpense.description}) like ${pattern} escape '\\' or lower(coalesce(${personalExpense.note}, '')) like ${pattern} escape '\\')`
-			: undefined,
+		search ? inArray(personalExpense.id, searchIds(userId, search)) : undefined,
 	);
+}
+
+/** Leaves out money coming into a shared account: it's the other person's contribution, not income. */
+function ownIncome(userId: string): SQL | undefined {
+	const shared = BankConnectionDTO.sharedAccountUids(userId);
+	return shared.length === 0
+		? undefined
+		: or(
+				ne(personalExpense.kind, "income"),
+				isNull(personalExpense.bankAccountUid),
+				notInArray(personalExpense.bankAccountUid, shared),
+			);
 }
 
 /** The part of a line that is `userId`'s: half of it on an account shared with someone. */
@@ -230,6 +262,7 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 		const matching = and(
 			visible(userId, filter),
 			ne(personalExpense.category, internalCategory),
+			ownIncome(userId),
 		);
 		const spent = and(matching, eq(personalExpense.kind, "expense"));
 		const scope = and(spent, eq(personalExpense.aside, false));
@@ -336,10 +369,16 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 				currency: personalExpense.currency,
 				spentOn: personalExpense.spentOn,
 				folderId: personalExpense.folderId,
+				bankConnectionId: personalExpense.bankConnectionId,
+				bankAccountUid: personalExpense.bankAccountUid,
 			})
 			.from(personalExpense)
 			.where(
-				and(visible(userId), ne(personalExpense.category, internalCategory)),
+				and(
+					visible(userId),
+					ne(personalExpense.category, internalCategory),
+					ownIncome(userId),
+				),
 			)
 			.orderBy(personalExpense.spentOn)
 			.all();
@@ -579,6 +618,35 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 				),
 			)
 			.run();
+	}
+
+	/**
+	 * Gives `userId`'s bank lines still under Other the name and category a sync now reads for them, as banks or this
+	 * app learn to say more; returns how many changed.
+	 */
+	static refreshUncategorized(userId: string, expenses: BankExpense[]): number {
+		let changed = 0;
+		databaseConnection.get().transaction((transaction) => {
+			for (const entry of expenses) {
+				changed += transaction
+					.update(personalExpense)
+					.set({ description: entry.description, category: entry.category })
+					.where(
+						and(
+							eq(personalExpense.userId, userId),
+							eq(personalExpense.bankRef, entry.bankRef),
+							eq(personalExpense.category, "other"),
+							or(
+								ne(personalExpense.description, entry.description),
+								ne(personalExpense.category, entry.category),
+							),
+						),
+					)
+					.returning({ id: personalExpense.id })
+					.all().length;
+			}
+		});
+		return changed;
 	}
 
 	/** Moves `userId`'s lines of bank account `fromUid` to `toUid`, its uid under a new consent, references included. */

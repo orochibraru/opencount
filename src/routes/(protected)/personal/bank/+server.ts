@@ -19,6 +19,9 @@ export const GET = async ({ locals, url }) => {
 	if (!locals.user) {
 		error(401, "Sign in again, then connect the bank again.");
 	}
+	if (!bankSync.enabled()) {
+		error(404, bankSync.offMessage);
+	}
 	const linked = resolve("/(protected)/account/banks/linked");
 	const code = url.searchParams.get("code");
 	const state = secrets.verify(

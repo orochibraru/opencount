@@ -1,6 +1,7 @@
-import { and, count, desc, eq, inArray, ne, or, sql, sum } from "drizzle-orm";
+import { and, count, desc, eq, inArray, ne, sql, sum } from "drizzle-orm";
 
 import { BaseDTO } from "#lib/dto/base-dto.js";
+import { fuzzyMatches } from "#lib/fuzzy.js";
 import { databaseConnection } from "#lib/server/db/database.js";
 import {
 	expense,
@@ -90,36 +91,40 @@ export interface ExpenseFilter {
 	category?: string;
 	search?: string;
 	kind?: (typeof expenseKinds)[number];
+	merchantId?: string;
 }
 
-function matching(groupId: string, { category, search, kind }: ExpenseFilter) {
-	const pattern = search
-		? `%${search.toLowerCase().replaceAll(/[\\%_]/g, (character) => `\\${character}`)}%`
-		: undefined;
+/** The ids of `groupId`'s expenses whose description or merchant fuzzily matches `search`. */
+function searchIds(groupId: string, search: string): string[] {
+	return databaseConnection
+		.get()
+		.select({
+			id: expense.id,
+			description: expense.description,
+			merchant: merchant.name,
+		})
+		.from(expense)
+		.leftJoin(merchant, eq(merchant.id, expense.merchantId))
+		.where(eq(expense.groupId, groupId))
+		.all()
+		.filter((row) =>
+			fuzzyMatches(`${row.description} ${row.merchant ?? ""}`, search),
+		)
+		.map((row) => row.id);
+}
+
+function matching(
+	groupId: string,
+	{ category, search, kind, merchantId }: ExpenseFilter,
+) {
 	return and(
 		eq(expense.groupId, groupId),
 		kind ? eq(expense.kind, kind) : undefined,
 		category
 			? and(eq(expense.category, category), eq(expense.kind, "expense"))
 			: undefined,
-		pattern
-			? or(
-					sql`lower(${expense.description}) like ${pattern} escape '\\'`,
-					inArray(
-						expense.merchantId,
-						databaseConnection
-							.get()
-							.select({ id: merchant.id })
-							.from(merchant)
-							.where(
-								and(
-									eq(merchant.groupId, groupId),
-									sql`lower(${merchant.name}) like ${pattern} escape '\\'`,
-								),
-							),
-					),
-				)
-			: undefined,
+		merchantId ? eq(expense.merchantId, merchantId) : undefined,
+		search ? inArray(expense.id, searchIds(groupId, search)) : undefined,
 	);
 }
 

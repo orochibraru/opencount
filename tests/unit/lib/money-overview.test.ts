@@ -18,6 +18,8 @@ function row(
 		currency: "EUR",
 		spentOn,
 		folderId: null,
+		bankConnectionId: null,
+		bankAccountUid: null,
 		...fields,
 	};
 }

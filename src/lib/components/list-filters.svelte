@@ -9,6 +9,7 @@
 		category?: string | null;
 		source?: string | null;
 		folder?: string | null;
+		merchant?: string | null;
 		search?: string;
 	}
 </script>
@@ -19,6 +20,7 @@
 	import LandmarkIcon from "@lucide/svelte/icons/landmark";
 	import ListFilterIcon from "@lucide/svelte/icons/list-filter";
 	import SearchIcon from "@lucide/svelte/icons/search";
+	import StoreIcon from "@lucide/svelte/icons/store";
 	import XIcon from "@lucide/svelte/icons/x";
 	import type { Snippet } from "svelte";
 
@@ -36,6 +38,8 @@
 		activeSource?: FilterSource;
 		folders?: FilterSource[];
 		activeFolder?: FilterSource;
+		merchants?: FilterSource[];
+		activeMerchant?: FilterSource;
 		href: (change: FilterChange) => string;
 	}
 
@@ -47,6 +51,8 @@
 		activeSource,
 		folders = [],
 		activeFolder,
+		merchants = [],
+		activeMerchant,
 		href,
 	}: Props = $props();
 
@@ -64,7 +70,12 @@
 	}
 
 	const label = $derived(
-		[activeFolder?.label, active?.label, activeSource?.label]
+		[
+			activeFolder?.label,
+			activeMerchant?.label,
+			active?.label,
+			activeSource?.label,
+		]
 			.filter(Boolean)
 			.join(" · "),
 	);
@@ -102,16 +113,23 @@
 			<LandmarkIcon />
 		{:else if activeFolder}
 			<FolderIcon />
+		{:else if activeMerchant}
+			<StoreIcon />
 		{:else}
 			<ListFilterIcon />
 		{/if}
 		<span class="truncate">{label || "Filter"}</span>
 	</Button>
-	{#if active || activeSource || activeFolder}
+	{#if active || activeSource || activeFolder || activeMerchant}
 		<IconButton
 			label="Clear the filters"
 			icon={XIcon}
-			href={href({ category: null, source: null, folder: null })}
+			href={href({
+				category: null,
+				source: null,
+				folder: null,
+				merchant: null,
+			})}
 			data-sveltekit-reset="false"
 		/>
 	{/if}
@@ -154,6 +172,15 @@
 		style="--category-chroma: 0"
 	>
 		<LandmarkIcon class="size-4" />
+	</span>
+{/snippet}
+
+{#snippet merchantTile()}
+	<span
+		class="category-tile flex size-9 items-center justify-center rounded-lg"
+		style="--category-chroma: 0"
+	>
+		<StoreIcon class="size-4" />
 	</span>
 {/snippet}
 
@@ -224,8 +251,36 @@
 				</ul>
 			</section>
 		{/if}
+		{#if merchants.length > 0}
+			<section aria-labelledby="filter-merchants">
+				<h3
+					id="filter-merchants"
+					class="text-muted-foreground mb-1 px-2 text-sm font-medium"
+				>
+					Merchants
+				</h3>
+				<ul class="flex flex-col gap-1">
+					{@render choice(
+						href({ merchant: null }),
+						!activeMerchant,
+						"Every merchant",
+						false,
+						neutralTile,
+					)}
+					{#each merchants as merchant (merchant.value)}
+						{@render choice(
+							href({ merchant: merchant.value }),
+							activeMerchant?.value === merchant.value,
+							merchant.label,
+							false,
+							merchantTile,
+						)}
+					{/each}
+				</ul>
+			</section>
+		{/if}
 		<section aria-labelledby="filter-categories">
-			{#if sources.length > 0 || folders.length > 0}
+			{#if sources.length > 0 || folders.length > 0 || merchants.length > 0}
 				<h3
 					id="filter-categories"
 					class="text-muted-foreground mb-1 px-2 text-sm font-medium"

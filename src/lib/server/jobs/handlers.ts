@@ -42,6 +42,10 @@ export const jobHandlers: JobHandlers = {
 		JobDTO.enqueue("recurring.run", {}, { runAt: tomorrow });
 	},
 	"bank.sync": async ({ connectionId }) => {
+		if (!bankSync.enabled()) {
+			logger.info("Bank sync is off, skipping a sync", { connectionId });
+			return;
+		}
 		const connection = BankConnectionDTO.find(connectionId);
 		if (!connection) {
 			logger.warn("Bank link gone before it was synced", { connectionId });
@@ -74,7 +78,7 @@ export const jobHandlers: JobHandlers = {
 			next.setUTCDate(next.getUTCDate() + 1);
 		}
 		JobDTO.enqueue("bank.syncAll", {}, { runAt: next });
-		const ids = BankConnectionDTO.activeIds();
+		const ids = bankSync.enabled() ? BankConnectionDTO.activeIds() : [];
 		for (const connectionId of ids) {
 			const connection = BankConnectionDTO.find(connectionId);
 			if (connection) {

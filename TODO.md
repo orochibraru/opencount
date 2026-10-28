@@ -26,6 +26,22 @@ box while it's being worked on, and delete the entry once it's done.
       sign-in locked for 15 minutes at a time: key it on email and client
       address, which needs `ADDRESS_HEADER` behind a proxy.
 
+- [ ] A refund from a bank ("Refund from …", "Remboursement", "Avoir") counts as
+      income: file it under the refunded merchant's category and take it off
+      what was spent there instead.
+- [ ] Round-up and recurring micro-transfers to an investment pocket flood the
+      Personal list: collapse a day's transfers to the same pocket into one row,
+      or add a "hide set aside" switch.
+- [ ] Loan instalments and cash withdrawals land in Finance and count as spent:
+      give them their own built-in categories (Loan, Cash) so Insights can show
+      or leave them out.
+- [ ] Charities whose name holds a health word ("médecins", "aides") are guessed
+      as Health: add a Donations category with charity keywords ahead of
+      Health's.
+- [ ] A foreign card payment's original amount and currency ("29,39 USD" on
+      Crédit Mutuel lines) are thrown away: keep them on the personal expense
+      like group expenses keep theirs.
+
 ## Large
 
 - [ ] Translate the app: every string through a message catalog, French first

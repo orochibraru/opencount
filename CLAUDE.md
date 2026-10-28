@@ -75,8 +75,8 @@ Each is a hard rule.
   lock: `locals.user` stays null, `access.redirectToSignIn()` picks security or
   unlock; better-auth answers HTTP only on `browserPaths`. Handing out access
   needs `securityPolicy.signedInRecently()`.
-- Instance settings (sign-ups, required factors, SMTP, OCR) live in the
-  `setting` table through `getSetting`/`setSetting`; secrets in them are
+- Instance settings (sign-ups, factors, SMTP, OCR, banner, bank sync) live in
+  the `setting` table through `getSetting`/`setSetting`; secrets in them are
   encrypted with `secrets.encrypt`, never sent back. Bank keys are per account.
 - Group data is scoped to the group's members: a group id from the URL or a form
   is never trusted until membership is checked.

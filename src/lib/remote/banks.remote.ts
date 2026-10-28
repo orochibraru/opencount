@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { bankCredentialsFor } from "#lib/dto/bank-credential.js";
 import { access } from "#lib/server/auth/access.js";
+import { bankSync } from "#lib/server/banking/bank-sync.js";
 import {
 	BankError,
 	EnableBankingClient,
@@ -13,6 +14,9 @@ export const getBanks = query(
 	z.string().regex(/^[A-Z]{2}$/),
 	async (country) => {
 		const credentials = bankCredentialsFor(access.requireUser().id);
+		if (!bankSync.enabled()) {
+			error(404, bankSync.offMessage);
+		}
 		if (!credentials) {
 			error(404, "Set up bank sync in your account first.");
 		}

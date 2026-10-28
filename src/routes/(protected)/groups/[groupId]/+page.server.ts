@@ -40,10 +40,17 @@ export const load = async ({ parent, url }) => {
 		? (wanted ?? undefined)
 		: undefined;
 	const search = url.searchParams.get("q")?.trim().slice(0, 100) || undefined;
+	const merchants = MerchantDTO.forGroup(group.id).map((entry) =>
+		entry.toJSON(),
+	);
+	const wantedMerchant = url.searchParams.get("merchant");
+	const merchantId = merchants.some((entry) => entry.id === wantedMerchant)
+		? (wantedMerchant ?? undefined)
+		: undefined;
+	const filter = { category, search, merchantId };
 	const page = ExpenseDTO.page(group.id, {
 		limit: limitSchema.parse(url.searchParams.get("limit") ?? pageSize),
-		category,
-		search,
+		...filter,
 	});
 	return {
 		expenses: page.entries.map((entry) => entry.toJSON()),
@@ -52,12 +59,13 @@ export const load = async ({ parent, url }) => {
 		pageSize,
 		category: category ?? null,
 		search: search ?? "",
+		merchant: merchantId ?? null,
 		totalSpent: ExpenseDTO.spentTotal(group.id),
 		matchingTotals:
-			(category || search) && page.total > 0
-				? ExpenseDTO.summary(group.id, { category, search }, myMemberId)
+			(category || search || merchantId) && page.total > 0
+				? ExpenseDTO.summary(group.id, filter, myMemberId)
 				: null,
-		merchants: MerchantDTO.forGroup(group.id).map((entry) => entry.toJSON()),
+		merchants,
 		receiptsEnabled: receiptReader.isConfigured(),
 	};
 };

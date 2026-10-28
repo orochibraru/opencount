@@ -6,6 +6,7 @@
 	import PageHeader from "#lib/components/app-shell/page-header.svelte";
 	import Sidebar from "#lib/components/app-shell/sidebar.svelte";
 	import InstallPrompt from "#lib/components/install-prompt.svelte";
+	import InstanceBanner from "#lib/components/instance-banner.svelte";
 	import OfflineSync from "#lib/components/offline-sync.svelte";
 	import PullToRefresh from "#lib/components/pull-to-refresh.svelte";
 
@@ -17,6 +18,7 @@
 		class="min-h-dvh flex-1 pt-[calc(env(safe-area-inset-top)+4.25rem)] pb-10 md:pt-8"
 	>
 		<div class="px-[max(1rem,env(safe-area-inset-left))] md:px-8 xl:px-10">
+			<InstanceBanner />
 			<PageHeader />
 			{@render children()}
 		</div>

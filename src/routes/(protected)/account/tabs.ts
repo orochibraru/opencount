@@ -8,9 +8,9 @@ import UserRoundIcon from "@lucide/svelte/icons/user-round";
 
 import type { SectionTab } from "#lib/components/nav-cards.svelte";
 
-/** The account section's pages, shared by its landing cards and its tabs. */
-export function accountTabs(): SectionTab[] {
-	return [
+/** The account section's pages, shared by its landing cards and its tabs; Bank sync only while the server allows it. */
+export function accountTabs(bankSync: boolean): SectionTab[] {
+	const tabs: SectionTab[] = [
 		{
 			href: resolve("/(protected)/account/profile"),
 			label: "Profile",
@@ -50,4 +50,7 @@ export function accountTabs(): SectionTab[] {
 			icon: BotIcon,
 		},
 	];
+	return bankSync
+		? tabs
+		: tabs.filter((tab) => tab.href !== resolve("/(protected)/account/banks"));
 }

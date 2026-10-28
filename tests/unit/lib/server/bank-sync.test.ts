@@ -12,6 +12,7 @@ import {
 	type BankExpense,
 	PersonalExpenseDTO,
 } from "#lib/dto/personal-expense.js";
+import { setSetting } from "#lib/dto/setting.js";
 import { bankSync } from "#lib/server/banking/bank-sync.js";
 import type { Transaction } from "#lib/server/banking/enable-banking-api.js";
 import { EnableBankingClient } from "#lib/server/banking/enable-banking.js";
@@ -721,5 +722,149 @@ describe("account names", () => {
 		connection.renameAccount("acc-2", "");
 		expect(connection.accounts[0]?.name).toBe("Main");
 		expect(connection.accounts[0]?.originalName).toBeUndefined();
+	});
+});
+
+describe("reading what banks send", () => {
+	beforeEach(resetDatabase);
+
+	test("a card line names the merchant from the lines after its generic first one, on the day the card paid", () => {
+		const cardLine = card({
+			transaction_id: undefined,
+			creditor: undefined,
+			booking_date: "2026-10-27",
+			remittance_information: [
+				"PAIEMENT CB  2310 PARIS2441535/",
+				"AMAZON  PAYMENTS",
+			],
+		});
+		expect(bankSync.bankExpense("acc", cardLine)).toEqual(
+			expect.objectContaining({
+				description: "AMAZON PAYMENTS",
+				spentOn: "2026-10-23",
+				bankRef: "acc:2026-10-27:12.30:PAIEMENT CB  2310 PARIS2441535/",
+			}),
+		);
+		expect(
+			bankSync.bankExpense(
+				"acc",
+				card({
+					creditor: undefined,
+					booking_date: "2026-01-03",
+					remittance_information: ["PAIEMENT MOB 3012 LYON"],
+				}),
+			),
+		).toEqual(
+			expect.objectContaining({
+				description: "PAIEMENT MOB 3012 LYON",
+				spentOn: "2025-12-30",
+			}),
+		);
+	});
+
+	test("an unknown merchant is filed by its card merchant code", () => {
+		const opaque = card({ creditor: { name: "SNC LA STATION" } });
+		expect(
+			bankSync.bankExpense("acc", { ...opaque, merchant_category_code: "5541" })
+				?.category,
+		).toBe("transport");
+		expect(
+			bankSync.bankExpense("acc", { ...opaque, merchant_category_code: "3012" })
+				?.category,
+		).toBe("transport");
+		expect(
+			bankSync.bankExpense("acc", { ...opaque, merchant_category_code: "7011" })
+				?.category,
+		).toBe("lodging");
+		expect(bankSync.bankExpense("acc", opaque)?.category).toBe("other");
+	});
+
+	test("a line still under Other takes the name a later sync reads, a filed one stays", () => {
+		const ada = createUser("ada");
+		const connection = link(ada.id);
+		const old = {
+			description: "PAIEMENT CB  2310 PARIS2441535/",
+			category: "other",
+			kind: "expense" as const,
+			amountMinor: 1230,
+			currency: "EUR",
+			spentOn: "2026-10-23",
+			bankAccountUid: "acc-1",
+		};
+		PersonalExpenseDTO.importFromBank(ada.id, connection.id, [
+			{ ...old, bankRef: "acc-1:a" },
+			{ ...old, bankRef: "acc-1:b", category: "food" },
+		]);
+		expect(
+			PersonalExpenseDTO.refreshUncategorized(ada.id, [
+				{
+					...old,
+					bankRef: "acc-1:a",
+					description: "Amazon",
+					category: "shopping",
+				},
+				{
+					...old,
+					bankRef: "acc-1:b",
+					description: "Amazon",
+					category: "shopping",
+				},
+			]),
+		).toBe(1);
+		expect(
+			PersonalExpenseDTO.page(ada.id, { limit: 10 })
+				.entries.map((entry) => entry.toJSON())
+				.map(({ description, category }) => `${description}:${category}`)
+				.toSorted(),
+		).toEqual(["Amazon:shopping", "PAIEMENT CB  2310 PARIS2441535/:food"]);
+	});
+
+	test("money coming into a shared account is someone else's, not income", () => {
+		const ada = createUser("ada");
+		const connection = link(ada.id);
+		const base = {
+			category: "income",
+			kind: "income" as const,
+			amountMinor: 82_000,
+			currency: "EUR",
+			spentOn: "2026-10-23",
+			bankAccountUid: "acc-1",
+		};
+		PersonalExpenseDTO.importFromBank(ada.id, connection.id, [
+			{ ...base, description: "VIR DE PARTNER", bankRef: "acc-1:in" },
+		]);
+		PersonalExpenseDTO.create(ada.id, {
+			description: "Cash gift",
+			category: "income",
+			kind: "income",
+			amountMinor: 1000,
+			currency: "EUR",
+			spentOn: "2026-10-23",
+		});
+		expect(PersonalExpenseDTO.stats(ada.id).income).toEqual([
+			{ currency: "EUR", minor: 83_000 },
+		]);
+		connection.setAccountFlags("acc-1", { shared: true });
+		expect(PersonalExpenseDTO.stats(ada.id).income).toEqual([
+			{ currency: "EUR", minor: 1000 },
+		]);
+		expect(PersonalExpenseDTO.spending(ada.id)).toHaveLength(1);
+	});
+});
+
+describe("bank sync turned off", () => {
+	beforeEach(resetDatabase);
+
+	test("an admin turning it off stops the daily syncs and every queued one", async () => {
+		const ada = createUser("ada");
+		saveBankCredentials(ada.id, credentials());
+		const connection = link(ada.id);
+		setSetting("bankSyncEnabled", false);
+		expect(bankSync.enabled()).toBe(false);
+		await jobHandlers["bank.syncAll"]({});
+		expect(JobDTO.counts().pending).toBe(1);
+		const fetched = spyOn(globalThis, "fetch");
+		await jobHandlers["bank.sync"]({ connectionId: connection.id });
+		expect(fetched).not.toHaveBeenCalled();
 	});
 });

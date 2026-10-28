@@ -30,7 +30,7 @@
 		</span>
 	</section>
 
-	<NavCards tabs={accountTabs()} />
+	<NavCards tabs={accountTabs(data.bankSyncEnabled)} />
 
 	<form method="POST" action="?/signOut" use:enhance={clearCachedPages}>
 		<Button

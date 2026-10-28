@@ -30,6 +30,8 @@ describe("settings", () => {
 			ssoProviders: [],
 			vapid: null,
 			publicOrigin: null,
+			bankSyncEnabled: true,
+			banner: null,
 		});
 		setSetting("signUpsEnabled", true);
 		setSetting("signUpsEnabled", false);

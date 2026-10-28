@@ -10,6 +10,7 @@
 	import LandmarkIcon from "@lucide/svelte/icons/landmark";
 	import PlusIcon from "@lucide/svelte/icons/plus";
 	import TagsIcon from "@lucide/svelte/icons/tags";
+	import { untrack } from "svelte";
 
 	import PersonalView from "#lib/components/personal/personal-view.svelte";
 	import Picker from "#lib/components/picker.svelte";
@@ -61,11 +62,15 @@
 			icon: FolderPlusIcon,
 			onSelect: () => (folderOpen = true),
 		},
-		{
-			label: "Bank accounts",
-			icon: LandmarkIcon,
-			href: resolve("/(protected)/account/banks/linked"),
-		},
+		...(untrack(() => data.bankSyncEnabled)
+			? [
+					{
+						label: "Bank accounts",
+						icon: LandmarkIcon,
+						href: resolve("/(protected)/account/banks/linked"),
+					},
+				]
+			: []),
 		{
 			label: "Add expense",
 			icon: PlusIcon,

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { saveBankCredentials } from "#lib/dto/bank-credential.js";
 import { authService } from "#lib/server/auth/auth.js";
 import { securityPolicy } from "#lib/server/auth/security-policy.js";
+import { bankSync } from "#lib/server/banking/bank-sync.js";
 import {
 	BankError,
 	EnableBankingClient,
@@ -43,6 +44,9 @@ export const actions = {
 	save: async ({ locals, request }) => {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
+		}
+		if (!bankSync.enabled()) {
+			return fail(403, { error: bankSync.offMessage });
 		}
 		if (!locals.session || !securityPolicy.signedInRecently(locals.session)) {
 			return fail(403, { error: securityPolicy.recentSignInMessage });

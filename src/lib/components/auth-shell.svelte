@@ -2,6 +2,7 @@
 	import type { Snippet } from "svelte";
 
 	import BrandMark from "#lib/components/brand-mark.svelte";
+	import InstanceBanner from "#lib/components/instance-banner.svelte";
 
 	interface Props {
 		heading: string;
@@ -15,6 +16,7 @@
 
 <div class="pt-safe-top flex min-h-[85dvh] flex-col justify-center px-6 py-12">
 	<div class="mx-auto w-full max-w-sm">
+		<InstanceBanner />
 		<BrandMark class="mb-8 size-12" />
 		<h1 class="text-3xl font-bold tracking-tight">{heading}</h1>
 		{#if subheading}

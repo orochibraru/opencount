@@ -6,6 +6,7 @@ import KeyRoundIcon from "@lucide/svelte/icons/key-round";
 import MailIcon from "@lucide/svelte/icons/mail";
 import MailPlusIcon from "@lucide/svelte/icons/mail-plus";
 import ScanTextIcon from "@lucide/svelte/icons/scan-text";
+import ServerCogIcon from "@lucide/svelte/icons/server-cog";
 import UsersIcon from "@lucide/svelte/icons/users";
 
 import type { SectionTab } from "#lib/components/nav-cards.svelte";
@@ -36,6 +37,12 @@ export function adminTabs(): SectionTab[] {
 			label: "Access",
 			description: "Open or close sign-ups and require stronger sign-in.",
 			icon: DoorOpenIcon,
+		},
+		{
+			href: resolve("/(protected)/admin/instance"),
+			label: "Instance",
+			description: "A banner for everyone, and bank sync on or off.",
+			icon: ServerCogIcon,
 		},
 		{
 			href: resolve("/(protected)/admin/sign-in"),

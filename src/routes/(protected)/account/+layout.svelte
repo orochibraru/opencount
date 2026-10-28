@@ -5,13 +5,13 @@
 
 	import { accountTabs } from "./tabs.js";
 
-	const { children } = $props();
+	const { children, data } = $props();
 </script>
 
 <TabSection
 	title="Account"
 	indexHref={resolve("/(protected)/account")}
-	tabs={accountTabs()}
+	tabs={accountTabs(data.bankSyncEnabled)}
 >
 	{@render children()}
 </TabSection>

@@ -7,10 +7,18 @@
 	import UsersIcon from "@lucide/svelte/icons/users";
 	import WalletIcon from "@lucide/svelte/icons/wallet";
 
-	import { periodLabels, periods } from "#lib/analytics.js";
-	import { categoryOf, categoryStyle } from "#lib/categories.js";
+	import { type Period, periodLabels, periods } from "#lib/analytics.js";
+	import {
+		categoryOf,
+		categoryOptions,
+		categoryStyle,
+	} from "#lib/categories.js";
 	import BarList from "#lib/components/bar-list.svelte";
 	import ItemMenu from "#lib/components/item-menu.svelte";
+	import ListFilters, {
+		type FilterChange,
+		type FilterSource,
+	} from "#lib/components/list-filters.svelte";
 	import SpendingChart from "#lib/components/spending-chart.svelte";
 	import StatCard from "#lib/components/stat-card.svelte";
 	import { formatMoney } from "#lib/money.js";
@@ -38,6 +46,71 @@
 		};
 	}
 
+	const sources = $derived<FilterSource[]>(
+		data.accounts.length < 2
+			? []
+			: [...new Set(data.accounts.map((entry) => entry.connectionId))].flatMap(
+					(connectionId) => {
+						const own = data.accounts.filter(
+							(entry) => entry.connectionId === connectionId,
+						);
+						return [
+							{
+								value: `bank:${connectionId}`,
+								label: own[0]?.bankName ?? "Bank",
+							},
+							...(own.length > 1
+								? own.map((entry) => ({
+										value: `account:${entry.uid}`,
+										label: entry.name,
+										indent: true,
+									}))
+								: []),
+						];
+					},
+				),
+	);
+	const currentSource = $derived(
+		data.filter.account
+			? `account:${data.filter.account}`
+			: data.filter.bank
+				? `bank:${data.filter.bank}`
+				: null,
+	);
+	const folderOptions = $derived(
+		data.folders.map((entry) => ({ value: entry.id, label: entry.name })),
+	);
+
+	function insightsHref(change: FilterChange & { period?: Period }): string {
+		const params = new URLSearchParams();
+		const period = change.period ?? data.period;
+		const category =
+			change.category === undefined ? data.filter.category : change.category;
+		const folder =
+			change.folder === undefined ? data.filter.folder : change.folder;
+		const source = change.source === undefined ? currentSource : change.source;
+		const search = change.search ?? data.filter.search;
+		if (period !== "month") {
+			params.set("period", period);
+		}
+		if (category) {
+			params.set("category", category);
+		}
+		if (folder) {
+			params.set("folder", folder);
+		}
+		if (source?.startsWith("bank:")) {
+			params.set("bank", source.slice(5));
+		} else if (source?.startsWith("account:")) {
+			params.set("account", source.slice(8));
+		}
+		if (search) {
+			params.set("q", search);
+		}
+		const query = params.toString();
+		return query ? `?${query}` : "?";
+	}
+
 	const folderNames = $derived(
 		new Map(data.folders.map((folder) => [folder.id, folder.name])),
 	);
@@ -49,7 +122,7 @@
 >
 	{#each periods as period (period)}
 		<a
-			href="?period={period}"
+			href={insightsHref({ period })}
 			aria-current={data.period === period ? "page" : undefined}
 			data-sveltekit-reset="false"
 			data-sveltekit-replacestate
@@ -59,6 +132,21 @@
 		</a>
 	{/each}
 </nav>
+
+<ListFilters
+	search={data.filter.search}
+	active={data.filter.category
+		? categoryOf(data.filter.category, data.categories)
+		: undefined}
+	options={categoryOptions(data.categories)}
+	{sources}
+	activeSource={sources.find((source) => source.value === currentSource)}
+	folders={folderOptions}
+	activeFolder={folderOptions.find(
+		(entry) => entry.value === data.filter.folder,
+	)}
+	href={insightsHref}
+/>
 
 <div class="grid gap-3 sm:grid-cols-3 md:gap-4">
 	<StatCard
