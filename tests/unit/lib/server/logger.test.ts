@@ -51,6 +51,29 @@ describe("Logger", () => {
 		expect(errorCalls).toBe(1);
 	});
 
+	test("banners frame their lines in hashtags in console and stay one line in json", () => {
+		configuration.get().logLevel = "info";
+		const errors = spyOn(console, "error").mockImplementation(() => {});
+		const logger = new Logger("Test");
+		configuration.get().logFormat = "console";
+		logger.banner("warn", ["Short", "A longer line"]);
+		configuration.get().logFormat = "json";
+		logger.banner("warn", ["Short", "A longer line"]);
+		const framed = String(errors.mock.calls[0]?.[3]).split("\n");
+		const json = JSON.parse(String(errors.mock.calls[1]?.[0]));
+		errors.mockRestore();
+		expect(framed).toEqual([
+			"",
+			"###################",
+			"#                 #",
+			"#  Short          #",
+			"#  A longer line  #",
+			"#                 #",
+			"###################",
+		]);
+		expect(json.message).toBe("Short A longer line");
+	});
+
 	test("request lines log 5xx at error level and others at info", () => {
 		configuration.get().logLevel = "info";
 		const output = spyOn(console, "log").mockImplementation(() => {});

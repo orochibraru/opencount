@@ -72,6 +72,36 @@ export class Logger {
 		this.#write(level, summary, []);
 	}
 
+	/** Writes `lines` framed in hashtags so they stand out in console output; JSON format logs them as one line. */
+	banner(level: LogLevel, lines: string[]): void {
+		if (this.#settings().logFormat === "json") {
+			this.#write(level, lines.join(" "), []);
+			return;
+		}
+		const width = Math.max(...lines.map((line) => line.length)) + 6;
+		const edge = "#".repeat(width);
+		const blank = `#${" ".repeat(width - 2)}#`;
+		this.#write(
+			level,
+			[
+				"",
+				edge,
+				blank,
+				...lines.map((line) => `#  ${line.padEnd(width - 6)}  #`),
+				blank,
+				edge,
+			].join("\n"),
+			[],
+		);
+	}
+
+	/** Writes `text` as is at info level in console output, for the boot logo; JSON format skips it. */
+	art(text: string): void {
+		if (this.#settings().logFormat === "console") {
+			this.#write("info", text, []);
+		}
+	}
+
 	/** The level and format to log with, defaulting before the configuration is set. */
 	#settings(): { logLevel: LogLevel; logFormat: "console" | "json" } {
 		return configuration.peek() ?? { logLevel: "info", logFormat: "console" };

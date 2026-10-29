@@ -23,6 +23,14 @@ const globalForWorker = globalThis as unknown as {
 	__opencountWorker?: WorkerSupervisor;
 };
 
+const logo = String.raw`
+  ___                    ____                   _
+ / _ \ _ __   ___ _ __  / ___|___  _   _ _ __ | |_
+| | | | '_ \ / _ \ '_ \| |   / _ \| | | | '_ \| __|
+| |_| | |_) |  __/ | | | |__| (_) | |_| | | | | |_
+ \___/| .__/ \___|_| |_|\____\___/ \__,_|_| |_|\__|
+      |_|`;
+
 const devShutdownSignals = ["SIGINT", "SIGTERM", "SIGHUP"] as const;
 
 function shutDown(reason: string): void {
@@ -44,6 +52,7 @@ export const init: ServerInit = () => {
 	if (globalForWorker.__opencountWorker) {
 		return;
 	}
+	logger.art(logo);
 	instanceSetup.announce();
 	const supervisor = new WorkerSupervisor(WorkerSupervisor.command(dev));
 	supervisor.start();
