@@ -1,6 +1,6 @@
 {
 	"name": "opencount",
-	"version": "0.0.0",
+	"version": "1.0.0",
 	"private": true,
 	"description": "Self-hosted shared expenses: split costs with friends, see who owes whom, settle up.",
 	"license": "MIT",
