@@ -103,6 +103,14 @@
 		};
 	}
 
+	function initialMode() {
+		if (expense?.splitMode !== "exact") {
+			return expense?.splitMode ?? "equal";
+		}
+		const amounts = expense.shares.map((share) => share.amountMinor);
+		return Math.max(...amounts) - Math.min(...amounts) <= 1 ? "equal" : "exact";
+	}
+
 	function initialState() {
 		const shares = new Map(
 			expense?.shares.map((share) => [share.memberId, share]) ?? [],
@@ -121,7 +129,7 @@
 			repeat: "never",
 			paidBy: expense?.paidBy ?? defaultPayer ?? members[0]?.id ?? "",
 			spentOn: expense?.spentOn ?? today(),
-			splitMode: expense?.splitMode ?? "equal",
+			splitMode: initialMode(),
 			participants: expense
 				? members
 						.filter((member) => shares.has(member.id))
@@ -146,11 +154,13 @@
 
 	let form = $state(untrack(initialState));
 	let errors = $state<Record<string, string[]>>({});
+	let exactBase: Record<string, string> = {};
 
 	$effect(() => {
 		if (open) {
 			untrack(() => {
 				form = initialState();
+				exactBase = { ...form.exact };
 				errors = {};
 			});
 		}
@@ -218,6 +228,41 @@
 			: 0,
 	);
 
+	function followTotal() {
+		if (form.splitMode !== "exact") {
+			return;
+		}
+		const weights = form.participants.map((memberId) => ({
+			memberId,
+			weight: parseMoney(exactBase[memberId] ?? "", form.currency) ?? 0,
+		}));
+		const parts = splitByWeight(
+			totalMinor,
+			weights.some((entry) => entry.weight > 0)
+				? weights
+				: weights.map((entry) => ({ ...entry, weight: 1 })),
+		);
+		for (const memberId of form.participants) {
+			form.exact[memberId] = minorToDecimal(
+				parts.get(memberId) ?? 0,
+				form.currency,
+			);
+		}
+	}
+
+	function pickMode(mode: (typeof modes)[number]["value"]) {
+		if (mode === "exact" && form.splitMode !== "exact") {
+			for (const memberId of form.participants) {
+				form.exact[memberId] = minorToDecimal(
+					preview.get(memberId) ?? 0,
+					form.currency,
+				);
+			}
+			exactBase = { ...form.exact };
+		}
+		form.splitMode = mode;
+	}
+
 	const merchantOptions = $derived(
 		merchants.map((merchant) => ({
 			value: merchant.name,
@@ -256,6 +301,7 @@
 		if (reading.totalMinor !== null && reading.totalMinor > 0) {
 			form.currency = currency;
 			form.amount = minorToDecimal(reading.totalMinor, currency);
+			followTotal();
 		}
 		if (reading.date) {
 			form.spentOn = reading.date;
@@ -390,6 +436,7 @@
 					placeholder="0"
 					required
 					bind:value={form.amount}
+					oninput={followTotal}
 					class="w-full max-w-56 bg-transparent text-center outline-none placeholder:text-muted-foreground/40"
 				/>
 				<select
@@ -566,7 +613,8 @@
 							type="radio"
 							name="splitMode"
 							value={mode.value}
-							bind:group={form.splitMode}
+							checked={form.splitMode === mode.value}
+							onchange={() => pickMode(mode.value)}
 							class="sr-only"
 						/>
 						{mode.label}
@@ -618,6 +666,7 @@
 								aria-label="Amount for {member.displayName}"
 								placeholder="0"
 								bind:value={form.exact[member.id]}
+								oninput={() => (exactBase = { ...form.exact })}
 								class="h-10 w-28 text-right tabular"
 							/>
 						{/if}
