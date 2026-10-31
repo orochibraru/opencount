@@ -81,6 +81,26 @@ async function networkFirst(request: Request, url: URL): Promise<Response> {
 	}
 }
 
+async function markedFromCache(cached: Response): Promise<Response> {
+	const headers = new Headers(cached.headers);
+	headers.delete("content-length");
+	headers.delete("content-encoding");
+	const html = await cached.text();
+	return new Response(html.replace("<html", "<html data-boot-cache"), {
+		status: cached.status,
+		statusText: cached.statusText,
+		headers,
+	});
+}
+
+async function cachedElse(
+	request: Request,
+	fresh: Promise<Response>,
+): Promise<Response> {
+	const cached = await (await caches.open(pagesCacheName)).match(request);
+	return cached ? markedFromCache(cached) : fresh;
+}
+
 worker.addEventListener("fetch", (event) => {
 	const url = new URL(event.request.url);
 	if (event.request.method !== "GET" || url.origin !== worker.location.origin) {
@@ -101,9 +121,21 @@ worker.addEventListener("fetch", (event) => {
 		event.waitUntil(caches.delete(pagesCacheName));
 		return;
 	}
-	if (!neverCached.some((prefix) => url.pathname.startsWith(prefix))) {
-		event.respondWith(networkFirst(event.request, url));
+	if (neverCached.some((prefix) => url.pathname.startsWith(prefix))) {
+		return;
 	}
+	if (event.request.mode !== "navigate") {
+		event.respondWith(networkFirst(event.request, url));
+		return;
+	}
+	const fresh = networkFirst(event.request, url);
+	event.waitUntil(
+		fresh.then(
+			() => undefined,
+			() => undefined,
+		),
+	);
+	event.respondWith(cachedElse(event.request, fresh));
 });
 
 worker.addEventListener("push", (event) => {

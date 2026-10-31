@@ -34,9 +34,136 @@
 			href="%sveltekit.assets%/apple-touch-icon-180x180.png"
 		/>
 		<link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" />
+		<style>
+			#boot-splash {
+				position: fixed;
+				inset: 0;
+				z-index: 2147483647;
+				display: none;
+				place-items: center;
+				background: #fbf5f6;
+				transition:
+					opacity 0.28s ease,
+					transform 0.28s ease;
+				animation: boot-splash-give-up 0.3s 8s forwards;
+			}
+			html.dark #boot-splash {
+				background: #120a0d;
+			}
+			html[data-boot-cache] #boot-splash {
+				display: grid;
+			}
+			@media (display-mode: standalone) {
+				#boot-splash {
+					display: grid;
+				}
+			}
+			#boot-splash[data-leaving] {
+				opacity: 0;
+				transform: scale(1.04);
+				pointer-events: none;
+			}
+			#boot-splash .boot-logo {
+				position: relative;
+				width: 6rem;
+				height: 6rem;
+			}
+			#boot-splash .boot-logo::before {
+				content: "";
+				position: absolute;
+				inset: 0;
+				border-radius: 22%;
+				background: #911f43;
+				opacity: 0;
+				animation: boot-ripple 1.6s 0.9s ease-out infinite;
+			}
+			#boot-splash svg {
+				position: relative;
+				width: 100%;
+				height: 100%;
+				animation: boot-tile 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+			}
+			#boot-splash circle {
+				transform-box: view-box;
+				animation: boot-ring 0.6s 0.25s cubic-bezier(0.3, 1.4, 0.5, 1) both;
+			}
+			#boot-splash circle + circle {
+				--from: -48px;
+			}
+			@keyframes boot-tile {
+				from {
+					opacity: 0;
+					transform: scale(0.6) rotate(-8deg);
+				}
+			}
+			@keyframes boot-ring {
+				from {
+					transform: translateX(var(--from, 48px));
+				}
+			}
+			@keyframes boot-ripple {
+				from {
+					opacity: 0.35;
+					transform: scale(1);
+				}
+				to {
+					opacity: 0;
+					transform: scale(1.7);
+				}
+			}
+			@keyframes boot-splash-give-up {
+				to {
+					opacity: 0;
+					visibility: hidden;
+				}
+			}
+			@media (prefers-reduced-motion: reduce) {
+				#boot-splash,
+				#boot-splash *,
+				#boot-splash .boot-logo::before {
+					animation-duration: 0.01s;
+					animation-iteration-count: 1;
+					transition: none;
+				}
+				#boot-splash {
+					animation-delay: 8s;
+				}
+			}
+		</style>
+		<noscript
+			><style>
+				#boot-splash {
+					display: none !important;
+				}
+			</style></noscript
+		>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
+		<div id="boot-splash" aria-hidden="true">
+			<div class="boot-logo">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+					<rect width="512" height="512" rx="112" fill="#911f43" />
+					<circle
+						cx="208"
+						cy="256"
+						r="104"
+						fill="none"
+						stroke="#fff"
+						stroke-width="44"
+					/>
+					<circle
+						cx="304"
+						cy="256"
+						r="104"
+						fill="none"
+						stroke="#fff"
+						stroke-opacity=".55"
+						stroke-width="44"
+					/>
+				</svg>
+			</div>
+		</div>
 		<div style="display: contents">%sveltekit.body%</div>
 	</body>
 </html>

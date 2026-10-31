@@ -65,3 +65,32 @@ test("a phone is offered the install once", async ({ page }) => {
 		),
 	).not.toBeNull();
 });
+
+test("a visited page boots from the cache, then refreshes once the server answers", async ({
+	context,
+	page,
+}) => {
+	await page.addInitScript(() =>
+		localStorage.setItem("opencount-install-prompted", "e2e"),
+	);
+	await page.goto("/");
+	await page.evaluate(() => navigator.serviceWorker.ready);
+	await page.reload();
+	await expect(page.locator("#boot-splash")).toHaveCount(0);
+
+	const refreshed = page.waitForRequest((request) =>
+		request.url().includes("__data.json"),
+	);
+	await page.reload();
+	await refreshed;
+	await expect(page.locator("#boot-splash")).toHaveCount(0);
+
+	await context.setOffline(true);
+	await page.reload();
+	await expect(page.getByRole("link", { name: /Ski weekend/ })).toBeVisible();
+	await expect(page.locator("#boot-splash")).toHaveCount(0);
+	await expect(page.locator("html")).not.toHaveAttribute("data-boot-cache");
+	await page.waitForTimeout(1500);
+	expect(new URL(page.url()).pathname).toBe("/");
+	await context.setOffline(false);
+});

@@ -190,14 +190,21 @@
   posted by `OfflineSync`, mounted in the protected layout, when the connection
   returns. Edits and deletes aren't queued. Each carries a client id (unique per
   group), so a retry is ignored.
-- The service worker caches every same-origin GET network-first in a per-version
-  pages cache, except `/api/`, `/auth/` and `/downloads/`, so visited pages and
-  their `__data.json` reopen offline. Sign-out (sidebar and account page) wipes
-  it and the offline queue; any navigation to `/auth/` (an expired or revoked
-  session, another person signing in) wipes the pages. Queued expenses carry the
-  account that made them and only sync for that account. It serves
-  `static/offline.html` when an unvisited navigation fails. Pull to refresh runs
-  on every signed-in page, only in the installed app
+- A navigation to a visited page boots from the cache: the service worker
+  answers with the cached HTML marked `data-boot-cache`, refreshes it in the
+  background, and the root layout re-runs every load once `/api/health` answers
+  (offline it doesn't, or Kit's failed fetch reloads the page in a loop). The
+  animated splash in `app.html` shows in the installed app or on a cached boot
+  and leaves on mount, after `AppLockGuard` has covered a page that should lock,
+  so stale data never shows to a picked-up phone.
+- The service worker caches every other same-origin GET network-first in a
+  per-version pages cache, except `/api/`, `/auth/` and `/downloads/`, so
+  visited pages and their `__data.json` reopen offline. Sign-out (sidebar and
+  account page) wipes it and the offline queue; any navigation to `/auth/` (an
+  expired or revoked session, another person signing in) wipes the pages. Queued
+  expenses carry the account that made them and only sync for that account. It
+  serves `static/offline.html` when an unvisited navigation fails. Pull to
+  refresh runs on every signed-in page, only in the installed app
   (`display-mode: standalone`), and ignores a pull that starts in a drawer.
 - The server accepts bodies up to 32 MB (`serverOptions.maxRequestBodySize` in
   `vite.config.ts`): enough for a Tricount file or a receipt, small enough that

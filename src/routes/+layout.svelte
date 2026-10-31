@@ -3,9 +3,13 @@
 
 	import { onNavigate } from "$app/navigation";
 	import { ModeWatcher, setMode } from "mode-watcher";
-	import { untrack } from "svelte";
+	import { onMount, untrack } from "svelte";
 
 	import { appearanceBootScript, applyAppearance } from "#lib/appearance.js";
+	import {
+		dismissBootSplash,
+		refreshAfterCachedBoot,
+	} from "#lib/boot-splash.js";
 	import TopLoadingBar from "#lib/components/app-shell/top-loading-bar.svelte";
 	import DocumentTitle from "#lib/components/document-title.svelte";
 	import { Toaster } from "#lib/components/ui/sonner/index.js";
@@ -26,6 +30,11 @@
 				matchMedia("(prefers-color-scheme: dark)").matches,
 			);
 		});
+	});
+
+	onMount(() => {
+		dismissBootSplash();
+		refreshAfterCachedBoot().catch(() => undefined);
 	});
 
 	onNavigate((navigation) => {
