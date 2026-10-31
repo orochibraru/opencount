@@ -6,16 +6,17 @@
 	}
 
 	export interface FilterChange {
-		category?: string | null;
-		source?: string | null;
+		categories?: string[];
+		sources?: string[];
 		folder?: string | null;
-		merchant?: string | null;
+		merchants?: string[];
 		search?: string;
 	}
 </script>
 
 <script lang="ts">
 	import { goto } from "$app/navigation";
+	import CheckIcon from "@lucide/svelte/icons/check";
 	import FolderIcon from "@lucide/svelte/icons/folder";
 	import LandmarkIcon from "@lucide/svelte/icons/landmark";
 	import ListFilterIcon from "@lucide/svelte/icons/list-filter";
@@ -29,35 +30,40 @@
 	import ResponsiveSheet from "#lib/components/responsive-sheet.svelte";
 	import { Button } from "#lib/components/ui/button/index.js";
 	import { Input } from "#lib/components/ui/input/index.js";
+	import { toggled } from "#lib/filter-params.js";
 
 	interface Props {
 		search: string;
-		active: CategoryOption | undefined;
 		options: CategoryOption[];
+		categories: string[];
 		sources?: FilterSource[];
-		activeSource?: FilterSource;
+		activeSources?: string[];
 		folders?: FilterSource[];
-		activeFolder?: FilterSource;
+		activeFolder?: string | null;
 		merchants?: FilterSource[];
-		activeMerchant?: FilterSource;
+		activeMerchants?: string[];
 		href: (change: FilterChange) => string;
 	}
 
 	const {
 		search,
-		active,
 		options,
+		categories,
 		sources = [],
-		activeSource,
+		activeSources = [],
 		folders = [],
-		activeFolder,
+		activeFolder = null,
 		merchants = [],
-		activeMerchant,
+		activeMerchants = [],
 		href,
 	}: Props = $props();
 
 	let open = $state(false);
 	let timer: ReturnType<typeof setTimeout> | undefined;
+
+	let pickedCategories = $derived(categories);
+	let pickedSources = $derived(activeSources);
+	let pickedMerchants = $derived(activeMerchants);
 
 	function searchFor(text: string) {
 		clearTimeout(timer);
@@ -69,16 +75,44 @@
 		}, 300);
 	}
 
-	const label = $derived(
-		[
-			activeFolder?.label,
-			activeMerchant?.label,
-			active?.label,
-			activeSource?.label,
-		]
-			.filter(Boolean)
-			.join(" · "),
+	function apply(change: FilterChange) {
+		pickedCategories = change.categories ?? pickedCategories;
+		pickedSources = change.sources ?? pickedSources;
+		pickedMerchants = change.merchants ?? pickedMerchants;
+		void goto(
+			href({
+				categories: pickedCategories,
+				sources: pickedSources,
+				merchants: pickedMerchants,
+				...(change.folder === undefined ? {} : { folder: change.folder }),
+			}),
+			{ replace: true, reset: false },
+		);
+	}
+
+	const firstCategory = $derived(
+		options.find((option) => option.value === pickedCategories[0]),
 	);
+	const labels = $derived([
+		...folders
+			.filter((entry) => entry.value === activeFolder)
+			.map((entry) => entry.label),
+		...merchants
+			.filter((entry) => pickedMerchants.includes(entry.value))
+			.map((entry) => entry.label),
+		...options
+			.filter((option) => pickedCategories.includes(option.value))
+			.map((option) => option.label),
+		...sources
+			.filter((entry) => pickedSources.includes(entry.value))
+			.map((entry) => entry.label),
+	]);
+	const label = $derived(
+		labels.length > 1
+			? `${labels[0]} +${labels.length - 1}`
+			: (labels[0] ?? ""),
+	);
+	const filtering = $derived(labels.length > 0);
 </script>
 
 <div class="mb-4 flex items-center gap-2">
@@ -99,36 +133,36 @@
 	<Button
 		variant="secondary"
 		class="h-11 max-w-[45%] shrink-0 rounded-xl"
-		aria-label={label ? `Filtered by ${label}` : "Filter"}
+		aria-label={filtering ? `Filtered by ${labels.join(", ")}` : "Filter"}
 		onclick={() => (open = true)}
 	>
-		{#if active}
+		{#if firstCategory}
 			<span
 				class="category-tile flex size-6 shrink-0 items-center justify-center rounded-md"
-				style={categoryStyle(active)}
+				style={categoryStyle(firstCategory)}
 			>
-				<active.icon class="size-3.5" />
+				<firstCategory.icon class="size-3.5" />
 			</span>
-		{:else if activeSource}
+		{:else if pickedSources.length > 0}
 			<LandmarkIcon />
 		{:else if activeFolder}
 			<FolderIcon />
-		{:else if activeMerchant}
+		{:else if pickedMerchants.length > 0}
 			<StoreIcon />
 		{:else}
 			<ListFilterIcon />
 		{/if}
 		<span class="truncate">{label || "Filter"}</span>
 	</Button>
-	{#if active || activeSource || activeFolder || activeMerchant}
+	{#if filtering}
 		<IconButton
 			label="Clear the filters"
 			icon={XIcon}
 			href={href({
-				category: null,
-				source: null,
+				categories: [],
+				sources: [],
 				folder: null,
-				merchant: null,
+				merchants: [],
 			})}
 			data-sveltekit-reset="false"
 		/>
@@ -136,24 +170,27 @@
 </div>
 
 {#snippet choice(
-	link: string,
+	change: FilterChange,
 	selected: boolean,
 	text: string,
 	indent: boolean,
 	tile: Snippet,
 )}
 	<li>
-		<a
-			href={link}
-			data-sveltekit-reset="false"
-			onclick={() => (open = false)}
-			class="hover:bg-muted flex min-h-12 items-center gap-3 rounded-xl px-2 {indent
+		<button
+			type="button"
+			aria-pressed={selected}
+			onclick={() => apply(change)}
+			class="hover:bg-muted flex min-h-12 w-full items-center gap-3 rounded-xl px-2 text-left {indent
 				? 'pl-8'
 				: ''} {selected ? 'bg-muted font-medium' : ''}"
 		>
 			{@render tile()}
-			{text}
-		</a>
+			<span class="min-w-0 flex-1 truncate">{text}</span>
+			{#if selected}
+				<CheckIcon class="text-primary size-4 shrink-0" />
+			{/if}
+		</button>
 	</li>
 {/snippet}
 
@@ -193,7 +230,11 @@
 	</span>
 {/snippet}
 
-<ResponsiveSheet bind:open title="Filter">
+<ResponsiveSheet
+	bind:open
+	title="Filter"
+	description="Pick as many as you like: any of them in a section, every section at once."
+>
 	<div class="flex flex-col gap-4 pb-4">
 		{#if folders.length > 0}
 			<section aria-labelledby="filter-folders">
@@ -205,7 +246,7 @@
 				</h3>
 				<ul class="flex flex-col gap-1">
 					{@render choice(
-						href({ folder: null }),
+						{ folder: null },
 						!activeFolder,
 						"Every folder",
 						false,
@@ -213,8 +254,8 @@
 					)}
 					{#each folders as folder (folder.value)}
 						{@render choice(
-							href({ folder: folder.value }),
-							activeFolder?.value === folder.value,
+							{ folder: folder.value },
+							activeFolder === folder.value,
 							folder.label,
 							false,
 							folderTile,
@@ -233,16 +274,16 @@
 				</h3>
 				<ul class="flex flex-col gap-1">
 					{@render choice(
-						href({ source: null }),
-						!activeSource,
+						{ sources: [] },
+						pickedSources.length === 0,
 						"Every account",
 						false,
 						neutralTile,
 					)}
 					{#each sources as source (source.value)}
 						{@render choice(
-							href({ source: source.value }),
-							activeSource?.value === source.value,
+							{ sources: toggled(pickedSources, source.value) },
+							pickedSources.includes(source.value),
 							source.label,
 							source.indent ?? false,
 							bankTile,
@@ -261,16 +302,16 @@
 				</h3>
 				<ul class="flex flex-col gap-1">
 					{@render choice(
-						href({ merchant: null }),
-						!activeMerchant,
+						{ merchants: [] },
+						pickedMerchants.length === 0,
 						"Every merchant",
 						false,
 						neutralTile,
 					)}
 					{#each merchants as merchant (merchant.value)}
 						{@render choice(
-							href({ merchant: merchant.value }),
-							activeMerchant?.value === merchant.value,
+							{ merchants: toggled(pickedMerchants, merchant.value) },
+							pickedMerchants.includes(merchant.value),
 							merchant.label,
 							false,
 							merchantTile,
@@ -290,8 +331,8 @@
 			{/if}
 			<ul class="flex flex-col gap-1" aria-label="Categories">
 				{@render choice(
-					href({ category: null }),
-					!active,
+					{ categories: [] },
+					pickedCategories.length === 0,
 					"Every category",
 					false,
 					neutralTile,
@@ -306,8 +347,8 @@
 						</span>
 					{/snippet}
 					{@render choice(
-						href({ category: option.value }),
-						active?.value === option.value,
+						{ categories: toggled(pickedCategories, option.value) },
+						pickedCategories.includes(option.value),
 						option.label,
 						false,
 						optionTile,
@@ -315,5 +356,21 @@
 				{/each}
 			</ul>
 		</section>
+		<div
+			class="bg-background sticky bottom-0 -mx-1 flex gap-2 px-1 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+		>
+			{#if filtering}
+				<Button
+					variant="secondary"
+					class="h-11 flex-1 rounded-xl"
+					onclick={() => apply({ categories: [], sources: [], merchants: [] })}
+				>
+					Clear
+				</Button>
+			{/if}
+			<Button class="h-11 flex-1 rounded-xl" onclick={() => (open = false)}>
+				Done
+			</Button>
+		</div>
 	</div>
 </ResponsiveSheet>

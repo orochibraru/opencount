@@ -61,7 +61,9 @@
 - The page takes `search` (`fuzzyMatches` from `#lib/fuzzy.ts` on the
   description and note: any case, accents or word order, a typo away; the
   matching ids then scope the SQL; debounced), `category`, `bank` and `account`
-  in the URL; stats follow the same filter. Custom categories are
+  in the URL, each repeatable (`#lib/filter-params.ts`): any of the values in a
+  section, every section at once, a bank or an account both counting as one
+  section; stats follow the same filter. Custom categories are
   `personal_category` (`PersonalCategoryDTO`), managed at `/personal/categories`
   with the same `CategoryManager` as a group's. Its "Sort what's under Other"
   files Other entries by `categoryHistory` (what the account filed the same
@@ -93,8 +95,8 @@
   into "Available now" and "Invested or set aside", main currency only.
 - Personal Insights at `/personal/analytics`: period tabs, main currency only,
   built from `PersonalExpenseDTO.spending()`. It takes the same filters as
-  Personal (search, category, folder, bank or account) in its URL, next to the
-  period.
+  Personal (search, categories, one folder, banks or accounts) in its URL, next
+  to the period.
 - A line with `bankRef` is read-only except category, date, folder, `aside` and
   `note`; the actions enforce it, not only the sheet. Syncs insert with
   `onConflictDoNothing`, so a note is never overwritten; search matches the
@@ -124,8 +126,10 @@
 - Lists (group expenses, Personal) load 50 with a "Load more" button, a `limit`
   URL param growing by 50. Balances, totals and month totals are SQL sums, never
   a sum over loaded rows. The group page also takes a debounced,
-  case-insensitive search over descriptions and merchant names in SQL, plus a
-  category filter, both in the URL.
+  case-insensitive search over descriptions and merchant names in SQL, plus
+  category and merchant filters taking several values each, all in the URL. The
+  Filter sheet toggles a row without closing; a folder stays single, since on
+  Personal it's its own page.
 - After a category change, the update action returns `similar` (same
   description, plus same merchant in groups, under another category) for
   `SimilarSheet`, which posts `?/applyCategory` to re-file the ticked ones.

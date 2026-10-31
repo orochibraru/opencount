@@ -12,6 +12,7 @@ import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
 import { PersonalCategoryDTO } from "#lib/dto/personal-category.js";
 import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
 import { PersonalFolderDTO } from "#lib/dto/personal-folder.js";
+import { knownValues } from "#lib/filter-params.js";
 import { fuzzyMatches } from "#lib/fuzzy.js";
 import { bankSync } from "#lib/server/banking/bank-sync.js";
 import { parseForm } from "#lib/server/validation/form.js";
@@ -28,15 +29,12 @@ function readFilter(
 		accounts: string[];
 	},
 ) {
-	const pick = (name: string, values: string[]) => {
-		const wanted = url.searchParams.get(name);
-		return values.find((value) => value === wanted) ?? null;
-	};
+	const wantedFolder = url.searchParams.get("folder");
 	return {
-		category: pick("category", known.categories),
-		folder: pick("folder", known.folders),
-		bank: pick("bank", known.banks),
-		account: pick("account", known.accounts),
+		categories: knownValues(url, "category", known.categories),
+		folder: known.folders.find((value) => value === wantedFolder) ?? null,
+		banks: knownValues(url, "bank", known.banks),
+		accounts: knownValues(url, "account", known.accounts),
 		search: url.searchParams.get("q")?.trim().slice(0, 100) ?? "",
 	};
 }
@@ -62,10 +60,12 @@ export const load = async ({ parent, url }) => {
 	});
 	const rows = PersonalExpenseDTO.spending(user.id).filter(
 		(row) =>
-			(!filter.category || row.category === filter.category) &&
+			(filter.categories.length === 0 ||
+				filter.categories.includes(row.category)) &&
 			(!filter.folder || row.folderId === filter.folder) &&
-			(!filter.bank || row.bankConnectionId === filter.bank) &&
-			(!filter.account || row.bankAccountUid === filter.account) &&
+			((filter.banks.length === 0 && filter.accounts.length === 0) ||
+				filter.banks.includes(row.bankConnectionId ?? "") ||
+				filter.accounts.includes(row.bankAccountUid ?? "")) &&
 			(!filter.search || fuzzyMatches(row.description, filter.search)),
 	);
 	const byCurrency = new Map<string, number>();

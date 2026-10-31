@@ -40,6 +40,33 @@ test("adding an expense with the drawers on a phone", async ({ page }) => {
 	expect(overflow).toBeLessThanOrEqual(0);
 });
 
+test("filtering by several categories at once", async ({ page }) => {
+	await page.addInitScript(() =>
+		localStorage.setItem("opencount-install-prompted", "e2e"),
+	);
+	await page.goto("/");
+	await page.getByRole("link", { name: /Ski weekend/ }).click();
+	await page.getByRole("button", { name: "Filter", exact: true }).click();
+	const sheet = page.getByRole("dialog", { name: "Filter" });
+	await sheet.getByRole("button", { name: "Transport" }).click();
+	await expect(page).toHaveURL(/category=transport/);
+	await sheet.getByRole("button", { name: "Food & drinks" }).click();
+	await expect(page).toHaveURL(/category=transport&category=food/);
+	await expect(
+		sheet.getByRole("button", { name: "Transport" }),
+	).toHaveAttribute("aria-pressed", "true");
+	await sheet.getByRole("button", { name: "Done" }).click();
+	await expect(page.getByText("1 expense", { exact: true })).toBeVisible();
+	await expect(
+		page.getByRole("button", { name: /Filtered by .*Transport/ }),
+	).toContainText("+1");
+
+	await page.getByRole("button", { name: /Filtered by/ }).click();
+	await sheet.getByRole("button", { name: "Transport" }).click();
+	await expect(page).toHaveURL(/\?category=food$/);
+	await expect(page.getByText("No expense matches")).toBeVisible();
+});
+
 test("the app links an installable manifest", async ({ page, request }) => {
 	await page.goto("/");
 	const href = await page.locator('link[rel="manifest"]').getAttribute("href");

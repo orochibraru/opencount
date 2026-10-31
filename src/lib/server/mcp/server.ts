@@ -556,7 +556,7 @@ class McpEndpoint {
 				const page = PersonalExpenseDTO.page(userId, {
 					limit,
 					offset,
-					category: uncategorizedOnly ? "other" : undefined,
+					categories: uncategorizedOnly ? ["other"] : undefined,
 				});
 				return {
 					total: page.total,
@@ -601,7 +601,7 @@ class McpEndpoint {
 					limit,
 					offset,
 					kind: "expense",
-					category: uncategorizedOnly ? "other" : undefined,
+					categories: uncategorizedOnly ? ["other"] : undefined,
 				});
 				const merchantName = (merchantId: string | null) =>
 					merchantId

@@ -447,7 +447,7 @@ describe("personal folders, stats and similar expenses", () => {
 			PersonalExpenseDTO.page(ada.id, { limit: 50, search: "100%" }).total,
 		).toBe(1);
 		expect(
-			PersonalExpenseDTO.stats(ada.id, { category: "food" }).totals,
+			PersonalExpenseDTO.stats(ada.id, { categories: ["food"] }).totals,
 		).toEqual([{ currency: "EUR", minor: 1_000 }]);
 		expect(
 			PersonalExpenseDTO.spending(ada.id).map((row) => row.spentOn),
@@ -469,11 +469,19 @@ describe("personal folders, stats and similar expenses", () => {
 			),
 		).toBe(2);
 		expect(
-			PersonalExpenseDTO.page(ada.id, { limit: 50, category: "other" }).total,
+			PersonalExpenseDTO.page(ada.id, { limit: 50, categories: ["other"] })
+				.total,
 		).toBe(2);
 		expect(
-			PersonalExpenseDTO.page(ada.id, { limit: 50, category: "finance" }).total,
+			PersonalExpenseDTO.page(ada.id, { limit: 50, categories: ["finance"] })
+				.total,
 		).toBe(1);
+		expect(
+			PersonalExpenseDTO.page(ada.id, {
+				limit: 50,
+				categories: ["other", "finance"],
+			}).total,
+		).toBe(3);
 
 		const { isMoneyAside } = await import("#lib/smart-category.js");
 		add("To robo portfolio", "other", "2026-10-05");
@@ -530,7 +538,7 @@ describe("personal folders, stats and similar expenses", () => {
 		expect(ExpenseDTO.recategorize(group.id, [second.id], "shopping")).toBe(1);
 		expect(ExpenseDTO.recategorize(group.id, [], "shopping")).toBe(0);
 		expect(
-			ExpenseDTO.page(group.id, { limit: 50, category: "shopping" }).total,
+			ExpenseDTO.page(group.id, { limit: 50, categories: ["shopping"] }).total,
 		).toBe(3);
 	});
 
@@ -563,7 +571,7 @@ describe("personal folders, stats and similar expenses", () => {
 			"Weekly groceries",
 			MerchantDTO.remember(group.id, "Lidl", "groceries"),
 		);
-		add("Dinner at Luigi");
+		add("Dinner at Luigi", MerchantDTO.remember(group.id, "Luigi", "food"));
 		add("100% cotton sheets");
 		const found = (search: string) =>
 			ExpenseDTO.page(group.id, { limit: 50, search }).entries.map(
@@ -575,9 +583,19 @@ describe("personal folders, stats and similar expenses", () => {
 		expect(
 			ExpenseDTO.page(group.id, {
 				limit: 50,
-				merchantId: MerchantDTO.findByName(group.id, "Lidl")?.toJSON().id,
+				merchantIds: [
+					MerchantDTO.findByName(group.id, "Lidl")?.toJSON().id ?? "",
+				],
 			}).entries.map((entry) => entry.toJSON().description),
 		).toEqual(["Weekly groceries"]);
+		expect(
+			ExpenseDTO.page(group.id, {
+				limit: 50,
+				merchantIds: ["Lidl", "Luigi"].map(
+					(name) => MerchantDTO.findByName(group.id, name)?.toJSON().id ?? "",
+				),
+			}).total,
+		).toBe(2);
 		expect(found("100%")).toEqual(["100% cotton sheets"]);
 		expect(found("%")).toEqual(["100% cotton sheets"]);
 		expect(found("nothing")).toEqual([]);

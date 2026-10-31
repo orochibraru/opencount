@@ -52,7 +52,8 @@ open-source alternative to Tricount that installs on your phone like an app.
   categories, never who's in a group or who owes what, and must sign in again
   every 30 days.
 - **Search and filter**: find an expense by description or merchant, or filter a
-  list by category, and Personal by bank and account. Lists load 50 at a time.
+  list by several categories or merchants at once, and Personal by bank and
+  account. Lists load 50 at a time.
 - **Insights** by period, category, merchant and payer, and over time.
 - **Archiving**: hide a finished group from your own list without touching
   anyone else's.

@@ -8,6 +8,7 @@ import { GroupCategoryDTO } from "#lib/dto/group-category.js";
 import { JobDTO } from "#lib/dto/job.js";
 import { MerchantDTO } from "#lib/dto/merchant.js";
 import { RecurringExpenseDTO } from "#lib/dto/recurring-expense.js";
+import { knownValues } from "#lib/filter-params.js";
 import { formatMoney } from "#lib/money.js";
 import { authService } from "#lib/server/auth/auth.js";
 import { groupAccess } from "#lib/server/expenses/group-access.js";
@@ -32,22 +33,22 @@ const limitSchema = z.coerce
 const today = () => new Date().toISOString().slice(0, 10);
 
 export const load = async ({ parent, url }) => {
-	const { group, categories, myMemberId } = await parent();
-	const wanted = url.searchParams.get("category");
-	const category = categoryOptions(categories).some(
-		(option) => option.value === wanted,
-	)
-		? (wanted ?? undefined)
-		: undefined;
+	const { group, categories: categoryList, myMemberId } = await parent();
+	const categories = knownValues(
+		url,
+		"category",
+		categoryOptions(categoryList).map((option) => option.value),
+	);
 	const search = url.searchParams.get("q")?.trim().slice(0, 100) || undefined;
 	const merchants = MerchantDTO.forGroup(group.id).map((entry) =>
 		entry.toJSON(),
 	);
-	const wantedMerchant = url.searchParams.get("merchant");
-	const merchantId = merchants.some((entry) => entry.id === wantedMerchant)
-		? (wantedMerchant ?? undefined)
-		: undefined;
-	const filter = { category, search, merchantId };
+	const merchantIds = knownValues(
+		url,
+		"merchant",
+		merchants.map((entry) => entry.id),
+	);
+	const filter = { categories, search, merchantIds };
 	const page = ExpenseDTO.page(group.id, {
 		limit: limitSchema.parse(url.searchParams.get("limit") ?? pageSize),
 		...filter,
@@ -57,12 +58,13 @@ export const load = async ({ parent, url }) => {
 		hasMore: page.total > page.entries.length,
 		matching: page.total,
 		pageSize,
-		category: category ?? null,
+		categoryFilter: categories,
 		search: search ?? "",
-		merchant: merchantId ?? null,
+		merchantFilter: merchantIds,
 		totalSpent: ExpenseDTO.spentTotal(group.id),
 		matchingTotals:
-			(category || search || merchantId) && page.total > 0
+			(categories.length > 0 || search || merchantIds.length > 0) &&
+			page.total > 0
 				? ExpenseDTO.summary(group.id, filter, myMemberId)
 				: null,
 		merchants,

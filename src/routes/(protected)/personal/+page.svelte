@@ -88,11 +88,11 @@
 	stats={data.stats}
 	monthStartDay={data.monthStartDay}
 	categories={data.categories}
-	category={data.category}
+	categoryFilter={data.categoryFilter}
 	search={data.search}
 	accounts={data.accounts}
-	bank={data.bank}
-	account={data.account}
+	bankFilter={data.bankFilter}
+	accountFilter={data.accountFilter}
 	folders={data.folders}
 	banks={data.banks}
 	shareGroups={data.shareGroups}

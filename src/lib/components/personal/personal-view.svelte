@@ -43,6 +43,12 @@
 		PersonalExpenseRow,
 		PersonalStats,
 	} from "#lib/dto/personal-expense.js";
+	import {
+		alternatives,
+		appendAll,
+		appendSources,
+		sourceValues,
+	} from "#lib/filter-params.js";
 	import { listBlocks } from "#lib/list-blocks.js";
 	import { formatMoney } from "#lib/money.js";
 	import { monthLabel, monthStartOn } from "#lib/pay-month.js";
@@ -55,11 +61,11 @@
 		stats: PersonalStats;
 		monthStartDay: number;
 		categories: CustomCategory[];
-		category: string | null;
+		categoryFilter: string[];
 		search: string;
 		accounts: { uid: string; name: string; bankId: string; bankName: string }[];
-		bank: string | null;
-		account: string | null;
+		bankFilter: string[];
+		accountFilter: string[];
 		folders: { id: string; name: string }[];
 		banks?: {
 			id: string;
@@ -84,11 +90,11 @@
 		stats,
 		monthStartDay,
 		categories,
-		category,
+		categoryFilter,
 		search,
 		accounts,
-		bank,
-		account,
+		bankFilter,
+		accountFilter,
 		folders,
 		banks = [],
 		shareGroups,
@@ -122,8 +128,8 @@
 		}
 	});
 
-	const activeCategory = $derived(
-		category ? categoryOf(category, categories) : undefined,
+	const activeCategories = $derived(
+		categoryFilter.map((value) => categoryOf(value, categories)),
 	);
 	const sources = $derived<FilterSource[]>(
 		accounts.length < 2
@@ -144,20 +150,22 @@
 					},
 				),
 	);
-	const currentSource = $derived(
-		account ? `account:${account}` : bank ? `bank:${bank}` : null,
-	);
-	const activeSource = $derived(
-		sources.find((source) => source.value === currentSource),
-	);
+	const activeSources = $derived(sourceValues(bankFilter, accountFilter));
 	const folderOptions = $derived(
 		folders.map((entry) => ({ value: entry.id, label: entry.name })),
 	);
-	const activeFolder = $derived(
-		folderOptions.find((entry) => entry.value === folder?.id),
-	);
 	const filtered = $derived(
-		activeCategory !== undefined || search !== "" || currentSource !== null,
+		activeCategories.length > 0 || search !== "" || activeSources.length > 0,
+	);
+	const underCategories = $derived(
+		alternatives(activeCategories.map((option) => option.label)),
+	);
+	const fromSources = $derived(
+		alternatives(
+			sources
+				.filter((source) => activeSources.includes(source.value))
+				.map((source) => source.label),
+		),
 	);
 
 	function listHref(change: FilterChange & { limit?: number }): string {
@@ -166,17 +174,9 @@
 		const base = folderId
 			? resolve("/(protected)/personal/folders/[folderId]", { folderId })
 			: action;
-		const wanted = change.category === undefined ? category : change.category;
-		const source = change.source === undefined ? currentSource : change.source;
+		appendAll(params, "category", change.categories ?? categoryFilter);
+		appendSources(params, change.sources ?? activeSources);
 		const text = change.search ?? search;
-		if (wanted) {
-			params.set("category", wanted);
-		}
-		if (source?.startsWith("bank:")) {
-			params.set("bank", source.slice(5));
-		} else if (source?.startsWith("account:")) {
-			params.set("account", source.slice(8));
-		}
 		if (text) {
 			params.set("q", text);
 		}
@@ -328,8 +328,10 @@
 {#if banks.length > 0}
 	<BankPills
 		{banks}
-		active={account ? null : bank}
-		href={(bankId) => listHref({ source: bankId ? `bank:${bankId}` : null })}
+		active={accountFilter.length === 0 && bankFilter.length === 1
+			? (bankFilter[0] ?? null)
+			: null}
+		href={(bankId) => listHref({ sources: bankId ? [`bank:${bankId}`] : [] })}
 	/>
 {/if}
 
@@ -424,12 +426,12 @@
 		{#if matching > 0 || filtered}
 			<ListFilters
 				{search}
-				active={activeCategory}
 				options={categoryOptions(categories)}
+				categories={categoryFilter}
 				{sources}
-				{activeSource}
+				{activeSources}
 				folders={folderOptions}
-				{activeFolder}
+				activeFolder={folder?.id ?? null}
 				href={listHref}
 			/>
 			{#if filtered}
@@ -441,11 +443,15 @@
 		{/if}
 		{#if expenses.length === 0 && filtered}
 			<EmptyState
-				icon={activeCategory?.icon ?? SearchIcon}
+				icon={(activeCategories.length === 1
+					? activeCategories[0]?.icon
+					: undefined) ?? SearchIcon}
 				title="No expense matches"
 				subtitle={search
-					? `Nothing with "${search}"${activeCategory ? ` under ${activeCategory.label}` : ""}.`
-					: `No expense is filed under ${activeCategory?.label}.`}
+					? `Nothing with "${search}"${underCategories ? ` under ${underCategories}` : ""}.`
+					: underCategories
+						? `No expense is filed under ${underCategories}${fromSources ? ` from ${fromSources}` : ""}.`
+						: `No expense from ${fromSources}.`}
 			/>
 		{:else if expenses.length === 0}
 			<EmptyState

@@ -21,6 +21,11 @@
 	} from "#lib/components/list-filters.svelte";
 	import SpendingChart from "#lib/components/spending-chart.svelte";
 	import StatCard from "#lib/components/stat-card.svelte";
+	import {
+		appendAll,
+		appendSources,
+		sourceValues,
+	} from "#lib/filter-params.js";
 	import { formatMoney } from "#lib/money.js";
 	import { setPageTitle } from "#lib/page-title.svelte.js";
 
@@ -70,12 +75,8 @@
 					},
 				),
 	);
-	const currentSource = $derived(
-		data.filter.account
-			? `account:${data.filter.account}`
-			: data.filter.bank
-				? `bank:${data.filter.bank}`
-				: null,
+	const activeSources = $derived(
+		sourceValues(data.filter.banks, data.filter.accounts),
 	);
 	const folderOptions = $derived(
 		data.folders.map((entry) => ({ value: entry.id, label: entry.name })),
@@ -84,26 +85,17 @@
 	function insightsHref(change: FilterChange & { period?: Period }): string {
 		const params = new URLSearchParams();
 		const period = change.period ?? data.period;
-		const category =
-			change.category === undefined ? data.filter.category : change.category;
 		const folder =
 			change.folder === undefined ? data.filter.folder : change.folder;
-		const source = change.source === undefined ? currentSource : change.source;
 		const search = change.search ?? data.filter.search;
 		if (period !== "month") {
 			params.set("period", period);
 		}
-		if (category) {
-			params.set("category", category);
-		}
+		appendAll(params, "category", change.categories ?? data.filter.categories);
 		if (folder) {
 			params.set("folder", folder);
 		}
-		if (source?.startsWith("bank:")) {
-			params.set("bank", source.slice(5));
-		} else if (source?.startsWith("account:")) {
-			params.set("account", source.slice(8));
-		}
+		appendSources(params, change.sources ?? activeSources);
 		if (search) {
 			params.set("q", search);
 		}
@@ -135,16 +127,12 @@
 
 <ListFilters
 	search={data.filter.search}
-	active={data.filter.category
-		? categoryOf(data.filter.category, data.categories)
-		: undefined}
 	options={categoryOptions(data.categories)}
+	categories={data.filter.categories}
 	{sources}
-	activeSource={sources.find((source) => source.value === currentSource)}
+	{activeSources}
 	folders={folderOptions}
-	activeFolder={folderOptions.find(
-		(entry) => entry.value === data.filter.folder,
-	)}
+	activeFolder={data.filter.folder}
 	href={insightsHref}
 />
 

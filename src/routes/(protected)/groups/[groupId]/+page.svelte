@@ -28,12 +28,15 @@
 		type EditableExpense,
 	} from "#lib/components/groups/expense-sheet.svelte";
 	import ItemMenu from "#lib/components/item-menu.svelte";
-	import ListFilters from "#lib/components/list-filters.svelte";
+	import ListFilters, {
+		type FilterChange,
+	} from "#lib/components/list-filters.svelte";
 	import LoadedFromHere from "#lib/components/loaded-from-here.svelte";
 	import SimilarSheet, {
 		type SimilarExpense,
 	} from "#lib/components/similar-sheet.svelte";
 	import { Button } from "#lib/components/ui/button/index.js";
+	import { alternatives, appendAll } from "#lib/filter-params.js";
 	import { listBlocks } from "#lib/list-blocks.js";
 	import { formatMoney } from "#lib/money.js";
 	import { offlineQueue } from "#lib/offline-queue.svelte.js";
@@ -136,37 +139,39 @@
 	}>();
 
 	const filterOptions = $derived(categoryOptions(data.categories));
-	const activeCategory = $derived(
-		data.category ? categoryOf(data.category, data.categories) : undefined,
+	const activeCategories = $derived(
+		data.categoryFilter.map((value) => categoryOf(value, data.categories)),
 	);
 	const merchantSources = $derived(
 		data.merchants.map((entry) => ({ value: entry.id, label: entry.name })),
 	);
-	const activeMerchant = $derived(
-		merchantSources.find((entry) => entry.value === data.merchant),
+	const activeMerchants = $derived(
+		merchantSources.filter((entry) =>
+			data.merchantFilter.includes(entry.value),
+		),
 	);
 	const filtered = $derived(
-		Boolean(activeCategory || activeMerchant || data.search),
+		activeCategories.length > 0 ||
+			activeMerchants.length > 0 ||
+			data.search !== "",
+	);
+	const underCategories = $derived(
+		alternatives(activeCategories.map((option) => option.label)),
+	);
+	const atMerchants = $derived(
+		alternatives(activeMerchants.map((entry) => entry.label)),
 	);
 
-	function listHref(
-		category: string | null,
-		limit?: number,
-		search = data.search,
-		merchant = data.merchant,
-	): string {
+	function listHref(change: FilterChange & { limit?: number }): string {
 		const params = new URLSearchParams();
-		if (category) {
-			params.set("category", category);
-		}
-		if (merchant) {
-			params.set("merchant", merchant);
-		}
+		appendAll(params, "category", change.categories ?? data.categoryFilter);
+		appendAll(params, "merchant", change.merchants ?? data.merchantFilter);
+		const search = change.search ?? data.search;
 		if (search) {
 			params.set("q", search);
 		}
-		if (limit) {
-			params.set("limit", String(limit));
+		if (change.limit) {
+			params.set("limit", String(change.limit));
 		}
 		const query = params.toString();
 		return query ? `?${query}` : "?";
@@ -281,17 +286,11 @@
 		{#if data.matching > 0 || filtered}
 			<ListFilters
 				search={data.search}
-				active={activeCategory}
 				options={filterOptions}
+				categories={data.categoryFilter}
 				merchants={merchantSources}
-				{activeMerchant}
-				href={(change) =>
-					listHref(
-						change.category === undefined ? data.category : change.category,
-						undefined,
-						change.search ?? data.search,
-						change.merchant === undefined ? data.merchant : change.merchant,
-					)}
+				activeMerchants={data.merchantFilter}
+				href={listHref}
 			/>
 			{#if filtered}
 				<p class="text-muted-foreground mb-3 px-1 text-sm">
@@ -302,13 +301,15 @@
 		{/if}
 		{#if data.expenses.length === 0 && filtered}
 			<EmptyState
-				icon={activeCategory?.icon ?? SearchIcon}
+				icon={(activeCategories.length === 1
+					? activeCategories[0]?.icon
+					: undefined) ?? SearchIcon}
 				title="No expense matches"
 				subtitle={data.search
-					? `Nothing with "${data.search}"${activeCategory ? ` under ${activeCategory.label}` : ""}.`
-					: activeCategory
-						? `No expense is filed under ${activeCategory.label}${activeMerchant ? ` at ${activeMerchant.label}` : ""}.`
-						: `No expense at ${activeMerchant?.label}.`}
+					? `Nothing with "${data.search}"${underCategories ? ` under ${underCategories}` : ""}.`
+					: underCategories
+						? `No expense is filed under ${underCategories}${atMerchants ? ` at ${atMerchants}` : ""}.`
+						: `No expense at ${atMerchants}.`}
 			/>
 		{:else if data.expenses.length === 0}
 			<EmptyState
@@ -436,10 +437,9 @@
 				{#if data.hasMore}
 					<div class="self-center" data-sveltekit-reset="false">
 						<Button
-							href={listHref(
-								data.category,
-								data.expenses.length + data.pageSize,
-							)}
+							href={listHref({
+								limit: data.expenses.length + data.pageSize,
+							})}
 							onclick={() => (leftOff = data.expenses.length)}
 							variant="secondary"
 							class="h-11 rounded-xl px-6"

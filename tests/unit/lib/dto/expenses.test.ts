@@ -128,7 +128,7 @@ describe("ExpenseDTO", () => {
 		expect(ExpenseDTO.spentTotal(group.id)).toBe(700);
 		expect(ExpenseDTO.page(group.id, { limit: 50 }).total).toBe(1);
 		expect(
-			ExpenseDTO.page(group.id, { limit: 50, category: "food" }).entries,
+			ExpenseDTO.page(group.id, { limit: 50, categories: ["food"] }).entries,
 		).toEqual([]);
 		found?.delete();
 		expect(ExpenseDTO.forGroup(group.id)).toEqual([]);

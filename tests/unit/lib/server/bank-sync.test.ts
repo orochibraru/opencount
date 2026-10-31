@@ -442,7 +442,7 @@ describe("bank sync", () => {
 			]),
 		).toBe(0);
 		expect(
-			PersonalExpenseDTO.page(ada.id, { limit: 50, accountUid: "new-2" })
+			PersonalExpenseDTO.page(ada.id, { limit: 50, accountUids: ["new-2"] })
 				.entries,
 		).toHaveLength(1);
 		fetched.mockRejectedValueOnce(new Error("offline"));

@@ -74,10 +74,10 @@ export interface MoneyTotal {
 
 export interface PersonalFilter {
 	folderId?: string;
-	category?: string;
+	categories?: string[];
 	search?: string;
-	bankId?: string;
-	accountUid?: string;
+	bankIds?: string[];
+	accountUids?: string[];
 }
 
 export interface SpendingRow {
@@ -185,15 +185,31 @@ function searchIds(userId: string, search: string): string[] {
 
 function visible(
 	userId: string,
-	{ folderId, category, search, bankId, accountUid }: PersonalFilter = {},
+	{
+		folderId,
+		categories = [],
+		search,
+		bankIds = [],
+		accountUids = [],
+	}: PersonalFilter = {},
 ) {
 	return and(
 		eq(personalExpense.userId, userId),
 		isNull(personalExpense.hiddenAt),
 		folderId ? eq(personalExpense.folderId, folderId) : undefined,
-		category ? eq(personalExpense.category, category) : undefined,
-		bankId ? eq(personalExpense.bankConnectionId, bankId) : undefined,
-		accountUid ? eq(personalExpense.bankAccountUid, accountUid) : undefined,
+		categories.length > 0
+			? inArray(personalExpense.category, categories)
+			: undefined,
+		bankIds.length > 0 || accountUids.length > 0
+			? or(
+					bankIds.length > 0
+						? inArray(personalExpense.bankConnectionId, bankIds)
+						: undefined,
+					accountUids.length > 0
+						? inArray(personalExpense.bankAccountUid, accountUids)
+						: undefined,
+				)
+			: undefined,
 		search ? inArray(personalExpense.id, searchIds(userId, search)) : undefined,
 	);
 }

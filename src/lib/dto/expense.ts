@@ -88,10 +88,10 @@ const columns = {
 };
 
 export interface ExpenseFilter {
-	category?: string;
+	categories?: string[];
 	search?: string;
 	kind?: (typeof expenseKinds)[number];
-	merchantId?: string;
+	merchantIds?: string[];
 }
 
 /** The ids of `groupId`'s expenses whose description or merchant fuzzily matches `search`. */
@@ -115,15 +115,17 @@ function searchIds(groupId: string, search: string): string[] {
 
 function matching(
 	groupId: string,
-	{ category, search, kind, merchantId }: ExpenseFilter,
+	{ categories = [], search, kind, merchantIds = [] }: ExpenseFilter,
 ) {
 	return and(
 		eq(expense.groupId, groupId),
 		kind ? eq(expense.kind, kind) : undefined,
-		category
-			? and(eq(expense.category, category), eq(expense.kind, "expense"))
+		categories.length > 0
+			? and(inArray(expense.category, categories), eq(expense.kind, "expense"))
 			: undefined,
-		merchantId ? eq(expense.merchantId, merchantId) : undefined,
+		merchantIds.length > 0
+			? inArray(expense.merchantId, merchantIds)
+			: undefined,
 		search ? inArray(expense.id, searchIds(groupId, search)) : undefined,
 	);
 }
