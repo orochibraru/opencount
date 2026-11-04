@@ -35,6 +35,7 @@ interface LedgerEntry {
 	date: string;
 	kind?: string;
 	category: string;
+	note: string | null;
 	merchant?: string | null;
 	folderId?: string | null;
 }
@@ -47,6 +48,7 @@ interface Ledger {
 		uncategorizedOnly: boolean,
 	): { total: number; expenses: LedgerEntry[] };
 	recategorize(ids: string[], category: string): number;
+	setNotes(changes: { id: string; note: string }[]): number;
 	addCategory(name: string, icon: string): { id: string; name: string };
 }
 
@@ -155,7 +157,7 @@ class McpEndpoint {
 			{
 				title: "List expenses",
 				description:
-					"Expenses latest first, the person's own or a group's with groupId: id, description, amount, currency, date and category (and expense or income for personal ones). Uncategorized ones (category other) only, unless uncategorizedOnly is false. Who paid and how it was split never show.",
+					"Expenses latest first, the person's own or a group's with groupId: id, description, note, amount, currency, date and category (and expense or income for personal ones). Uncategorized ones (category other) only, unless uncategorizedOnly is false. Who paid and how it was split never show.",
 				inputSchema: z.object({
 					groupId: groupIdField,
 					uncategorizedOnly: z.boolean().default(true),
@@ -211,6 +213,7 @@ class McpEndpoint {
 					};
 				}),
 		);
+		this.#registerSetNotes(server, userId);
 		this.#registerCreateCategory(server, userId);
 		this.#registerMerchantTools(server, userId);
 		this.#registerFolderTools(server, userId);
@@ -359,6 +362,39 @@ class McpEndpoint {
 				}
 				return this.#reply({ updated, unknownFolders });
 			},
+		);
+	}
+
+	/** Adds the tool that sets or clears the notes on the person's own expenses or a group's. */
+	#registerSetNotes(server: McpServer, userId: string): void {
+		server.registerTool(
+			"set_notes",
+			{
+				title: "Write notes on expenses",
+				description:
+					"Sets the note on expenses, up to 200 at once, the person's own or a group's with groupId: each change names an expense id from list_expenses for the same groupId and the note, up to 500 characters, or an empty string to clear it. Unknown ids are skipped.",
+				inputSchema: z.object({
+					groupId: groupIdField,
+					changes: z
+						.array(
+							z.object({
+								id: z.string().min(1),
+								note: z.string().max(500),
+							}),
+						)
+						.min(1)
+						.max(200),
+				}),
+				annotations: {
+					readOnlyHint: false,
+					destructiveHint: false,
+					idempotentHint: true,
+				},
+			},
+			({ groupId, changes }) =>
+				this.#withLedger(userId, groupId, (ledger) => ({
+					updated: ledger.setNotes(changes),
+				})),
 		);
 	}
 
@@ -570,6 +606,7 @@ class McpEndpoint {
 							date: row.spentOn,
 							kind: row.kind,
 							category: row.category,
+							note: row.note,
 							folderId: row.folderId,
 						};
 					}),
@@ -577,6 +614,7 @@ class McpEndpoint {
 			},
 			recategorize: (ids, category) =>
 				PersonalExpenseDTO.recategorize(userId, ids, category),
+			setNotes: (changes) => PersonalExpenseDTO.setNotes(userId, changes),
 			addCategory: (name, icon) =>
 				this.#idAndName(PersonalCategoryDTO.create(userId, name, icon)),
 		};
@@ -619,6 +657,7 @@ class McpEndpoint {
 							currency,
 							date: row.spentOn,
 							category: row.category,
+							note: row.note,
 							merchant: merchantName(row.merchantId),
 						};
 					}),
@@ -626,6 +665,7 @@ class McpEndpoint {
 			},
 			recategorize: (ids, category) =>
 				ExpenseDTO.recategorize(groupId, ids, category),
+			setNotes: (changes) => ExpenseDTO.setNotes(groupId, changes),
 			addCategory: (name, icon) =>
 				this.#idAndName(GroupCategoryDTO.create(groupId, name, icon)),
 		};

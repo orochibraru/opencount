@@ -223,15 +223,17 @@
   with its tokens, so the app must sign in again, and a revoke bites at once.
 - Tools take an optional `groupId` (checked with `GroupDTO.findForMember`) and
   work on the person's ledger or that group's through one `Ledger`; group
-  transfers stay out. They expose description, amount, currency, date, category
-  and the personal `kind` only, never members, payer, shares or balances.
-  `create_category` and `create_merchant` return the existing entry for a name
-  already taken (built-ins included), never rename it; merchants are group-only.
-  Folders are personal-only: `list_folders`, `create_folder` (same rule for a
-  name taken), `rename_folder`, `delete_folder` (its expenses stay, out of any
-  folder) and `set_folders`; personal entries carry their `folderId`.
-  `csrfHandler` lets `/api/auth/oauth2/token`, `revoke` and `introspect`
-  through: AI apps call them server to server with no `Origin`.
+  transfers stay out. They expose description, note, amount, currency, date,
+  category and the personal `kind` only, never members, payer, shares or
+  balances. `create_category` and `create_merchant` return the existing entry
+  for a name already taken (built-ins included), never rename it; merchants are
+  group-only. Folders are personal-only: `list_folders`, `create_folder` (same
+  rule for a name taken), `rename_folder`, `delete_folder` (its expenses stay,
+  out of any folder) and `set_folders`; personal entries carry their `folderId`.
+  `set_notes` writes or clears (empty string) notes on either ledger through
+  `Ledger.setNotes`, scoped by user or group in the DTO. `csrfHandler` lets
+  `/api/auth/oauth2/token`, `revoke` and `introspect` through: AI apps call them
+  server to server with no `Origin`.
 - `browserPaths` in `auth.ts` lets the OAuth endpoints AI apps call
   (`authorize`, `token`, `register`, `consent`, `revoke`, `userinfo`, `/jwks`,
   `/.well-known/`) through the 404 every other direct better-auth call gets.

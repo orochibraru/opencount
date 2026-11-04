@@ -196,6 +196,75 @@ describe("ExpenseDTO", () => {
 	});
 });
 
+describe("notes", () => {
+	beforeEach(resetDatabase);
+
+	test("a group expense keeps its note through create, update and setNotes", () => {
+		const { ada, group, adaMember, sam } = setUp();
+		const share = [{ memberId: sam.id, amountMinor: 500, weight: 1 }];
+		const dinner = ExpenseDTO.create(
+			group.id,
+			expenseInput(adaMember.id, share, { note: "Bring the receipt" }),
+			"ada",
+		);
+		const other = GroupDTO.create({
+			name: "Trip",
+			currency: "EUR",
+			owner: ada,
+		});
+		const note = () =>
+			ExpenseDTO.findInGroup(group.id, dinner.id)?.toJSON().note;
+		expect(note()).toBe("Bring the receipt");
+		expect(
+			ExpenseDTO.page(group.id, { limit: 10, search: "receipt" }).total,
+		).toBe(1);
+		dinner.update(expenseInput(adaMember.id, share, { note: null }));
+		expect(note()).toBeNull();
+		expect(
+			ExpenseDTO.setNotes(group.id, [
+				{ id: dinner.id, note: " Paid in cash " },
+				{ id: "missing", note: "Nothing" },
+			]),
+		).toBe(1);
+		expect(note()).toBe("Paid in cash");
+		expect(ExpenseDTO.setNotes(other.id, [{ id: dinner.id, note: "" }])).toBe(
+			0,
+		);
+		expect(note()).toBe("Paid in cash");
+		expect(ExpenseDTO.setNotes(group.id, [{ id: dinner.id, note: "" }])).toBe(
+			1,
+		);
+		expect(note()).toBeNull();
+		expect(ExpenseDTO.setNotes(group.id, [])).toBe(0);
+	});
+
+	test("setNotes only writes on the person's own expenses", async () => {
+		const { PersonalExpenseDTO } = await import("#lib/dto/personal-expense.js");
+		const ada = createUser("ada");
+		const grace = createUser("grace");
+		const id = PersonalExpenseDTO.create(ada.id, {
+			description: "Paint",
+			category: "other",
+			amountMinor: 4_000,
+			currency: "EUR",
+			spentOn: "2026-10-05",
+		});
+		const note = () =>
+			PersonalExpenseDTO.findForUser(id, ada.id)?.toJSON().note;
+		expect(PersonalExpenseDTO.setNotes(grace.id, [{ id, note: "Hers" }])).toBe(
+			0,
+		);
+		expect(note()).toBeNull();
+		expect(
+			PersonalExpenseDTO.setNotes(ada.id, [{ id, note: "For the hallway" }]),
+		).toBe(1);
+		expect(note()).toBe("For the hallway");
+		expect(PersonalExpenseDTO.setNotes(ada.id, [{ id, note: "  " }])).toBe(1);
+		expect(note()).toBeNull();
+		expect(PersonalExpenseDTO.setNotes(ada.id, [])).toBe(0);
+	});
+});
+
 describe("RecurringExpenseDTO", () => {
 	beforeEach(resetDatabase);
 

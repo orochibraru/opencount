@@ -7,10 +7,10 @@ the ones loaded.
 
 ## Searching and filtering
 
-The search box looks in descriptions and merchant names, ignoring case, as you
-type. **Filter** opens a sheet of categories; the active one shows next to the
-button with a clear button. Both are kept in the page's URL, so a link keeps
-them.
+The search box looks in descriptions, notes and merchant names, ignoring case,
+as you type. **Filter** opens a sheet of categories; the active one shows next
+to the button with a clear button. Both are kept in the page's URL, so a link
+keeps them.
 
 ## Adding one
 
@@ -29,6 +29,8 @@ them.
   [Categories and merchants](categories-and-merchants).
 - **Where**: the merchant, optional. Pick one the group already used or type a
   new name.
+- **Note**: anything to add, optional, up to 500 characters. It shows in italics
+  under the expense in the list, for everyone in the group.
 - **Split**: who it was for, and how.
 - **Repeat**: never, or every week, month or year. See
   [Repeating expenses](recurring-expenses).

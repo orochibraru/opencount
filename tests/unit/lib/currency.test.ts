@@ -109,6 +109,27 @@ describe("parseExpenseForm in another currency", () => {
 		expect(parsed.success && parsed.data.originalCurrency).toBeUndefined();
 		expect(parsed.success && parsed.data.amountMinor).toBe(1200);
 	});
+
+	test("keeps a trimmed note, none when blank, and refuses a long one", () => {
+		const noted = parseExpenseForm(
+			form({ ...base, amount: "12", note: "  Split the tip too " }),
+			context,
+		);
+		expect(noted.success && noted.data.note).toBe("Split the tip too");
+		const blank = parseExpenseForm(
+			form({ ...base, amount: "12", note: "   " }),
+			context,
+		);
+		expect(blank.success && blank.data.note).toBeNull();
+		const long = parseExpenseForm(
+			form({ ...base, amount: "12", note: "x".repeat(501) }),
+			context,
+		);
+		expect(long.success).toBe(false);
+		expect(!long.success && long.errors.note).toEqual([
+			"Keep the note under 500 characters.",
+		]);
+	});
 });
 
 const runs = globalThis as unknown as { __rateTestRuns?: number };

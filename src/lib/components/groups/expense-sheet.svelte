@@ -2,6 +2,7 @@
 	export interface EditableExpense {
 		id: string;
 		description: string;
+		note: string | null;
 		category: string;
 		amountMinor: number;
 		originalCurrency: string | null;
@@ -37,6 +38,7 @@
 	import { Button } from "#lib/components/ui/button/index.js";
 	import * as Field from "#lib/components/ui/field/index.js";
 	import { Input } from "#lib/components/ui/input/index.js";
+	import { Textarea } from "#lib/components/ui/textarea/index.js";
 	import { currencies } from "#lib/currencies.js";
 	import { haptic } from "#lib/haptics.js";
 	import {
@@ -120,6 +122,7 @@
 			...money,
 			clientId: crypto.randomUUID(),
 			description: expense?.description ?? "",
+			note: expense?.note ?? "",
 			merchant:
 				merchants.find((merchant) => merchant.id === expense?.merchantId)
 					?.name ?? "",
@@ -597,6 +600,19 @@
 				{/if}
 			</Field.Field>
 		{/if}
+
+		<Field.Field>
+			<Field.Label for="expense-note">Note</Field.Label>
+			<Textarea
+				id="expense-note"
+				name="note"
+				rows={2}
+				maxlength={500}
+				placeholder="Optional"
+				bind:value={form.note}
+			/>
+			<Field.Error errors={errors.note?.map((message) => ({ message }))} />
+		</Field.Field>
 
 		<fieldset class="flex flex-col gap-3">
 			<legend class="mb-2 text-sm font-medium">Split</legend>

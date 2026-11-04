@@ -510,6 +510,7 @@ export const expense = sqliteTable(
 			.references(() => group.id, { onDelete: "cascade" }),
 		kind: text("kind", { enum: expenseKinds }).notNull().default("expense"),
 		description: text("description").notNull(),
+		note: text("note"),
 		category: text("category").notNull().default("other"),
 		amountMinor: integer("amount_minor").notNull(),
 		originalCurrency: text("original_currency"),

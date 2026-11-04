@@ -400,6 +400,12 @@
 														? `${names.get(entry.paidBy)} paid ${names.get(entry.shares[0]?.memberId ?? "")}`
 														: `${names.get(entry.paidBy) ?? "Someone"} paid${entry.merchantId && merchantNames.has(entry.merchantId) ? ` at ${merchantNames.get(entry.merchantId)}` : ""}`}
 												</span>
+												{#if entry.note}
+													<span
+														class="text-muted-foreground block truncate text-sm italic"
+														>{entry.note}</span
+													>
+												{/if}
 											</span>
 											<span class="text-right">
 												<span class="font-display block font-semibold tabular"

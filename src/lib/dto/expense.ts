@@ -23,6 +23,7 @@ export interface ExpenseRow {
 	id: string;
 	kind: (typeof expenseKinds)[number];
 	description: string;
+	note: string | null;
 	category: string;
 	amountMinor: number;
 	originalCurrency: string | null;
@@ -37,7 +38,11 @@ export interface ExpenseRow {
 }
 
 type OptionalFields =
-	"recurringId" | "originalCurrency" | "originalAmountMinor" | "exchangeRate";
+	| "note"
+	| "recurringId"
+	| "originalCurrency"
+	| "originalAmountMinor"
+	| "exchangeRate";
 
 export type ExpenseInput = Omit<ExpenseRow, "id" | OptionalFields> &
 	Partial<Pick<ExpenseRow, OptionalFields>>;
@@ -75,6 +80,7 @@ const columns = {
 	id: expense.id,
 	kind: expense.kind,
 	description: expense.description,
+	note: expense.note,
 	category: expense.category,
 	amountMinor: expense.amountMinor,
 	originalCurrency: expense.originalCurrency,
@@ -94,13 +100,14 @@ export interface ExpenseFilter {
 	merchantId?: string;
 }
 
-/** The ids of `groupId`'s expenses whose description or merchant fuzzily matches `search`. */
+/** The ids of `groupId`'s expenses whose description, note or merchant fuzzily matches `search`. */
 function searchIds(groupId: string, search: string): string[] {
 	return databaseConnection
 		.get()
 		.select({
 			id: expense.id,
 			description: expense.description,
+			note: expense.note,
 			merchant: merchant.name,
 		})
 		.from(expense)
@@ -108,7 +115,10 @@ function searchIds(groupId: string, search: string): string[] {
 		.where(eq(expense.groupId, groupId))
 		.all()
 		.filter((row) =>
-			fuzzyMatches(`${row.description} ${row.merchant ?? ""}`, search),
+			fuzzyMatches(
+				`${row.description} ${row.note ?? ""} ${row.merchant ?? ""}`,
+				search,
+			),
 		)
 		.map((row) => row.id);
 }
@@ -160,7 +170,7 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 
 	/**
 	 * The latest `limit` expenses and transfers of `groupId` after the first `offset`, newest first, only those of
-	 * `kind`, filed under `category` and whose description or merchant contains `search` (whatever the case) when
+	 * `kind`, filed under `category` and whose description, note or merchant contains `search` (whatever the case) when
 	 * given, with how many match in all.
 	 */
 	static page(
@@ -301,6 +311,34 @@ export class ExpenseDTO extends BaseDTO<ExpenseRow> {
 			)
 			.returning({ id: expense.id })
 			.all().length;
+	}
+
+	/** Sets or clears (an empty note) the note of each expense of `groupId` in `changes`, transfers left alone; returns how many changed. */
+	static setNotes(
+		groupId: string,
+		changes: { id: string; note: string }[],
+	): number {
+		if (changes.length === 0) {
+			return 0;
+		}
+		return databaseConnection.get().transaction((transaction) => {
+			let changed = 0;
+			for (const { id, note } of changes) {
+				changed += transaction
+					.update(expense)
+					.set({ note: note.trim() || null })
+					.where(
+						and(
+							eq(expense.groupId, groupId),
+							eq(expense.kind, "expense"),
+							eq(expense.id, id),
+						),
+					)
+					.returning({ id: expense.id })
+					.all().length;
+			}
+			return changed;
+		});
 	}
 
 	/**

@@ -162,6 +162,7 @@ class GroupExport {
 			"Original amount",
 			"Original currency",
 			"Exchange rate",
+			"Note",
 			...source.members.map((member) => `Share of ${member.displayName}`),
 		];
 		const rows = source.expenses.map((entry) => {
@@ -181,6 +182,7 @@ class GroupExport {
 					: "",
 				entry.originalCurrency ?? "",
 				entry.exchangeRate === null ? "" : String(entry.exchangeRate),
+				entry.note ?? "",
 				...source.members.map((member) => {
 					const share = shares.get(member.id);
 					return share === undefined

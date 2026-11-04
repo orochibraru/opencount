@@ -25,6 +25,11 @@ const baseSchema = z.object({
 		.trim()
 		.max(80, "Keep the merchant under 80 characters.")
 		.default(""),
+	note: z
+		.string()
+		.trim()
+		.max(500, "Keep the note under 500 characters.")
+		.default(""),
 	repeat: z.enum(["never", ...recurrenceFrequencies]).default("never"),
 	clientId: z.union([z.literal(""), z.uuid()]).default(""),
 });
@@ -102,8 +107,8 @@ function exactShares(
 /**
  * Validates the add or edit expense form against the group's currency and members, and computes each member's share:
  * equal parts, weights (`weight:<memberId>`) or exact amounts (`exact:<memberId>`) that must add up to the total.
- * Amounts typed in another `currency` are converted at `exchangeRate` and the original kept. `merchant` and `repeat`
- * are optional.
+ * Amounts typed in another `currency` are converted at `exchangeRate` and the original kept. `merchant`, `note` and
+ * `repeat` are optional.
  */
 export function parseExpenseForm(
 	formData: FormData,
@@ -121,6 +126,7 @@ export function parseExpenseForm(
 	const {
 		amount,
 		merchant,
+		note,
 		repeat,
 		clientId,
 		currency: entered,
@@ -205,6 +211,7 @@ export function parseExpenseForm(
 				exchangeRate: rate,
 			}),
 			shares,
+			note: note || null,
 			merchant: merchant || undefined,
 			clientId: clientId || undefined,
 			repeat: repeat === "never" ? undefined : repeat,

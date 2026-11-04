@@ -65,11 +65,11 @@ categories (guessed from the description and the group's own categories) and
 dates, and you get a notification when it's done. Tricount no longer offers its
 own CSV export; the link is read from Tricount's servers.
 
-**Settings, Export** builds the group's expenses as a CSV spreadsheet or a PDF
-summary in the background. The PDF embeds Noto Sans, so Latin, Greek and
-Cyrillic names print; CJK and emoji print as `?`. In the CSV, a cell that would
-read as a formula is prefixed so a spreadsheet shows it as text. The file waits
-in the list for a day and only you can download it.
+**Settings, Export** builds the group's expenses as a CSV spreadsheet (notes
+included) or a PDF summary in the background. The PDF embeds Noto Sans, so
+Latin, Greek and Cyrillic names print; CJK and emoji print as `?`. In the CSV, a
+cell that would read as a formula is prefixed so a spreadsheet shows it as text.
+The file waits in the list for a day and only you can download it.
 
 ## Leaving and deleting
 

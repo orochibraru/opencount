@@ -39,6 +39,7 @@ function setUp() {
 			splitMode: "equal",
 			spentOn: "2026-02-01",
 			merchantId: null,
+			note: "Booked, ask for the window",
 			shares: [
 				{ memberId: adaMember, amountMinor: 1500, weight: 1 },
 				{ memberId: sam.id, amountMinor: 1500, weight: 1 },
@@ -70,12 +71,12 @@ describe("downloads", () => {
 		const csv = groupExport.csv(groupExport.source(group.id, group.toJSON()));
 		const lines = csv.replace("﻿", "").trim().split("\r\n");
 		expect(lines[0]).toStartWith(
-			"Date,Description,Category,Type,Paid by,Amount,Currency,Original amount,Original currency,Exchange rate,",
+			"Date,Description,Category,Type,Paid by,Amount,Currency,Original amount,Original currency,Exchange rate,Note,",
 		);
 		expect(lines[0]).toContain('"Share of Sam, Jr."');
 		expect(lines[0]).toContain("Share of Ada");
 		expect(lines[1]).toBe(
-			'2026-02-01,"The ""big"" dinner",Food & drinks,Expense,Ada,30.00,EUR,33.00,USD,0.9,15.00,15.00',
+			'2026-02-01,"The ""big"" dinner",Food & drinks,Expense,Ada,30.00,EUR,33.00,USD,0.9,"Booked, ask for the window",15.00,15.00',
 		);
 	});
 

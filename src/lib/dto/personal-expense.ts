@@ -678,6 +678,30 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 			.all().length;
 	}
 
+	/** Sets or clears (an empty note) the note of each of `userId`'s expenses in `changes`; returns how many changed. */
+	static setNotes(
+		userId: string,
+		changes: { id: string; note: string }[],
+	): number {
+		if (changes.length === 0) {
+			return 0;
+		}
+		return databaseConnection.get().transaction((transaction) => {
+			let changed = 0;
+			for (const { id, note } of changes) {
+				changed += transaction
+					.update(personalExpense)
+					.set({ note: note.trim() || null })
+					.where(
+						and(eq(personalExpense.userId, userId), eq(personalExpense.id, id)),
+					)
+					.returning({ id: personalExpense.id })
+					.all().length;
+			}
+			return changed;
+		});
+	}
+
 	/** Records an expense `userId` typed in. */
 	static create(userId: string, input: PersonalExpenseInput): string {
 		return databaseConnection

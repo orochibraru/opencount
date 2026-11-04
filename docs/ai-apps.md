@@ -26,13 +26,14 @@ group and add new ones (with an icon), list the expenses (the uncategorized ones
 by default), and file them under a category. In a group it can also list the
 merchants, add one, and put merchants on expenses; personal expenses have no
 merchants. Adding a category or merchant that already exists under that name,
-whatever its case, hands back the existing one instead of a copy. For each
-expense it sees the description, amount, currency, date and category, and for a
-personal one whether it's an expense or income. It only reaches groups you're
-in, and a category it sets in a group changes it for everyone there; transfers
-between members are left alone. It never sees your email, password, banks, bank
-accounts or keys, notes, folders, who's in a group, who paid, the splits or the
-balances.
+whatever its case, hands back the existing one instead of a copy. It can also
+write or clear the note on your expenses or a group's, and sort your personal
+expenses into folders. For each expense it sees the description, note, amount,
+currency, date and category, and for a personal one whether it's an expense or
+income and its folder. It only reaches groups you're in, and a category or note
+it sets in a group changes it for everyone there; transfers between members are
+left alone. It never sees your email, password, banks, bank accounts or keys,
+who's in a group, who paid, the splits or the balances.
 
 ## Staying in control
 
