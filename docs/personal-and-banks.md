@@ -57,6 +57,24 @@ pay. **Not my pay** undoes it.
 The category bars on Personal's totals card count this month only, like the
 total above them; a folder or a search shows them for every month.
 
+## Rules
+
+**Rules** in Personal's menu says once what a line means: every line whose
+description has some words in it (case, accents and plurals don't matter) gets a
+category, a tag, a recurring series, or counts as your pay. A rule applies to
+every line you already have when you save it, and to each new line from your
+bank. A newer rule wins over an older one; deleting a rule leaves the lines it
+filed as they are.
+
+**To sort** in the same menu is an inbox of lines still under Other, one at a
+time: tap a category to file it, with **Every line like it** on to make a rule
+from its description at the same time (cut what changes each time, like a
+reference number). **Skip for now** moves to the next one.
+
+**Salary** shows the next payday, the paydays found so far and the rules that
+say what your pay is. When your pay will land on another day than usual, set
+**Expect the next one on**: your month runs until then.
+
 ## Tags
 
 Give any line tags in its sheet, separated by commas: they show under the line

@@ -21,8 +21,13 @@ import { type CardRole, cardRoleOf } from "#lib/deferred-card.js";
 import { AppearanceDTO } from "#lib/dto/appearance.js";
 import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
 import { BaseDTO } from "#lib/dto/base-dto.js";
+import {
+	PersonalRuleDTO,
+	type PersonalRuleRow,
+} from "#lib/dto/personal-rule.js";
 import { fuzzyMatches } from "#lib/fuzzy.js";
 import { MonthCalendar, type MonthStarts } from "#lib/pay-month.js";
+import { ruleMatches } from "#lib/personal-rules.js";
 import type { RecurringLine } from "#lib/recurring-schedule.js";
 import { databaseConnection } from "#lib/server/db/database.js";
 import {
@@ -459,28 +464,42 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 		};
 	}
 
-	/** Where `userId`'s months start: their chosen day, and the days their pay came in when months follow it. */
+	/**
+	 * Where `userId`'s months start: their chosen day, and when months follow their pay, the days it came in plus the day
+	 * they expect the next one when that is still to come.
+	 */
 	static monthStarts(userId: string): MonthStarts {
 		const setting = AppearanceDTO.monthSettingFor(userId);
+		if (!setting.fromPay) {
+			return { startDay: setting.startDay, paydays: [] };
+		}
+		const paydays = PersonalExpenseDTO.paydays(userId);
+		const expected = AppearanceDTO.expectedPaydayFor(userId);
 		return {
 			startDay: setting.startDay,
-			paydays: setting.fromPay
-				? databaseConnection
-						.get()
-						.selectDistinct({ day: personalExpense.spentOn })
-						.from(personalExpense)
-						.where(
-							and(
-								visible(userId),
-								eq(personalExpense.kind, "income"),
-								eq(personalExpense.pay, true),
-							),
-						)
-						.orderBy(personalExpense.spentOn)
-						.all()
-						.map((row) => row.day)
-				: [],
+			paydays:
+				expected && paydays.length > 0 && expected > (paydays.at(-1) ?? "")
+					? [...paydays, expected]
+					: paydays,
 		};
+	}
+
+	/** The days `userId`'s pay came in, oldest first. */
+	static paydays(userId: string): string[] {
+		return databaseConnection
+			.get()
+			.selectDistinct({ day: personalExpense.spentOn })
+			.from(personalExpense)
+			.where(
+				and(
+					visible(userId),
+					eq(personalExpense.kind, "income"),
+					eq(personalExpense.pay, true),
+				),
+			)
+			.orderBy(personalExpense.spentOn)
+			.all()
+			.map((row) => row.day);
 	}
 
 	/** The calendar `userId`'s months follow. */
@@ -955,6 +974,76 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 			.all();
 	}
 
+	/**
+	 * Applies `rules` (oldest first, so a newer one wins) to `userId`'s lines, or only to `ids` when given: each matching
+	 * line takes the rule's category, tag, recurring series, and pay on income. Returns how many lines changed.
+	 */
+	static applyRules(
+		userId: string,
+		rules: PersonalRuleRow[],
+		ids?: string[],
+	): number {
+		if (rules.length === 0 || ids?.length === 0) {
+			return 0;
+		}
+		const lines = databaseConnection
+			.get()
+			.select({
+				id: personalExpense.id,
+				description: personalExpense.description,
+				kind: personalExpense.kind,
+				category: personalExpense.category,
+				tags: personalExpense.tags,
+				pay: personalExpense.pay,
+				recurringId: personalExpense.recurringId,
+			})
+			.from(personalExpense)
+			.where(
+				and(
+					visible(userId),
+					ids ? inArray(personalExpense.id, ids) : undefined,
+				),
+			)
+			.all();
+		let changed = 0;
+		databaseConnection.get().transaction((transaction) => {
+			for (const line of lines) {
+				const next = { ...line, tags: [...line.tags] };
+				for (const rule of rules) {
+					if (!ruleMatches(rule.pattern, line.description)) {
+						continue;
+					}
+					next.category = rule.category ?? next.category;
+					next.recurringId = rule.recurringId ?? next.recurringId;
+					next.pay = (rule.pay && line.kind === "income") || next.pay;
+					if (rule.tag && !next.tags.includes(rule.tag)) {
+						next.tags.push(rule.tag);
+					}
+				}
+				if (
+					next.category === line.category &&
+					next.recurringId === line.recurringId &&
+					next.pay === line.pay &&
+					next.tags.length === line.tags.length
+				) {
+					continue;
+				}
+				transaction
+					.update(personalExpense)
+					.set({
+						category: next.category,
+						recurringId: next.recurringId,
+						pay: next.pay,
+						tags: next.tags,
+					})
+					.where(eq(personalExpense.id, line.id))
+					.run();
+				changed += 1;
+			}
+		});
+		return changed;
+	}
+
 	/** Records an expense `userId` typed in. */
 	static create(userId: string, input: PersonalExpenseInput): string {
 		return databaseConnection
@@ -1006,7 +1095,7 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 				recurringId: row.recurringId,
 			});
 		}
-		return databaseConnection
+		const added = databaseConnection
 			.get()
 			.insert(personalExpense)
 			.values(
@@ -1028,7 +1117,14 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 				target: [personalExpense.userId, personalExpense.bankRef],
 			})
 			.returning({ id: personalExpense.id })
-			.all().length;
+			.all()
+			.map((row) => row.id);
+		PersonalExpenseDTO.applyRules(
+			userId,
+			PersonalRuleDTO.forUser(userId).map((rule) => rule.toJSON()),
+			added,
+		);
+		return added.length;
 	}
 
 	/** `userId`'s visible bank lines, paired as a transfer or not, for matching transfers between their own accounts. */

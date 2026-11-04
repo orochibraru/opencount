@@ -246,7 +246,11 @@
   money stand": `get_period_summary` and the home widget both call it, and the
   arithmetic of what's left until payday is `leftUntilPayday` in
   `#lib/left-until-payday.ts`, shared with the browser so toggling an account
-  there gives the number the AI app would. `csrfHandler` lets
+  there gives the number the AI app would. Rules live in `personal_rule`;
+  `PersonalExpenseDTO.applyRules` (oldest first, newest wins) runs on the lines
+  `importFromBank` adds, and on every line through `ruleBook` when a rule is
+  saved. `appearance.expected_payday` adds one future payday to `monthStarts`
+  while it's after the last real one. `csrfHandler` lets
   `/api/auth/oauth2/token`, `revoke` and `introspect` through: AI apps call them
   server to server with no `Origin`.
 - `browserPaths` in `auth.ts` lets the OAuth endpoints AI apps call

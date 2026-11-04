@@ -33,6 +33,7 @@ import { configuration } from "#lib/server/core/config.js";
 import { accountBook } from "#lib/server/money/accounts.js";
 import { periodSummary } from "#lib/server/money/period-summary.js";
 import { recurringBook } from "#lib/server/money/recurring.js";
+import { ruleBook } from "#lib/server/money/rules.js";
 import { type Flow, flowOf } from "#lib/spending-kind.js";
 
 const jwksCacheKey = {};
@@ -269,6 +270,7 @@ class McpEndpoint {
 		this.#registerRecurringTools(server, userId);
 		this.#registerPeriodSummary(server, userId);
 		this.#registerSetTags(server, userId);
+		this.#registerRuleTools(server, userId);
 		this.#registerCreateCategory(server, userId);
 		this.#registerMerchantTools(server, userId);
 		this.#registerFolderTools(server, userId);
@@ -417,6 +419,101 @@ class McpEndpoint {
 				}
 				return this.#reply({ updated, unknownFolders });
 			},
+		);
+	}
+
+	/** Adds the tools that list, save and delete the person's rules for their own expenses. */
+	#registerRuleTools(server: McpServer, userId: string): void {
+		const ruleFields = {
+			pattern: z
+				.string()
+				.trim()
+				.min(2)
+				.max(60)
+				.describe(
+					"Words a line's description must contain; case, accents and plurals don't matter.",
+				),
+			category: z
+				.string()
+				.min(1)
+				.nullable()
+				.default(null)
+				.describe("A category id from list_categories, or null to leave it."),
+			tag: z
+				.string()
+				.trim()
+				.toLowerCase()
+				.min(1)
+				.max(24)
+				.nullable()
+				.default(null),
+			pay: z
+				.boolean()
+				.default(false)
+				.describe("Money in that matches is the person's salary."),
+			recurringId: z
+				.string()
+				.min(1)
+				.nullable()
+				.default(null)
+				.describe("A series id from list_recurring, or null."),
+		};
+		const errors = {
+			category: "Unknown category. Call list_categories for the ids.",
+			series: "Unknown series. Call list_recurring for the ids.",
+			missing: "No such rule. Call list_rules for the ids.",
+			empty: "A rule has to set a category, a tag, a series or pay.",
+		};
+		server.registerTool(
+			"list_rules",
+			{
+				title: "List rules",
+				description:
+					"The person's rules for their own expenses, oldest first: a line whose description contains pattern gets the rule's category, tag, recurring series (recurringId) and, for money in, counts as pay. A newer rule wins where two set the same thing. Rules apply to every line when saved and to each new bank line.",
+				annotations: { readOnlyHint: true },
+			},
+			() => this.#reply({ rules: ruleBook.list(userId) }),
+		);
+		server.registerTool(
+			"set_rule",
+			{
+				title: "Save a rule",
+				description:
+					"Adds a rule for the person's own expenses, or replaces rule id (from list_rules), then applies every rule to all their lines, past ones included, and says how many changed. Use it for merchants (pattern STATION, category transport) or the salary (pattern naming the employer, pay true).",
+				inputSchema: z.object({
+					id: z.string().min(1).optional(),
+					...ruleFields,
+				}),
+				annotations: {
+					readOnlyHint: false,
+					destructiveHint: false,
+					idempotentHint: true,
+				},
+			},
+			({ id, ...input }) => {
+				const outcome = ruleBook.save(userId, input, id);
+				return "error" in outcome
+					? { ...this.#reply({ error: errors[outcome.error] }), isError: true }
+					: this.#reply({ rule: outcome.rule, linesChanged: outcome.applied });
+			},
+		);
+		server.registerTool(
+			"delete_rule",
+			{
+				title: "Delete a rule",
+				description:
+					"Deletes rule id (from list_rules). The lines it already filed keep their category, tag, series and pay.",
+				inputSchema: z.object({ id: z.string().min(1) }),
+				annotations: {
+					readOnlyHint: false,
+					destructiveHint: true,
+					idempotentHint: true,
+				},
+			},
+			({ id }) =>
+				ruleBook.remove(userId, id)
+					? this.#reply({ deleted: true })
+					: { ...this.#reply({ error: errors.missing }), isError: true },
 		);
 	}
 

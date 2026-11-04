@@ -6,7 +6,12 @@ import { appearance, type homePages } from "#lib/server/db/schema.js";
 
 export type Appearance = Omit<
 	typeof appearance.$inferSelect,
-	"userId" | "updatedAt" | "home" | "monthStartDay" | "monthFromPay"
+	| "userId"
+	| "updatedAt"
+	| "home"
+	| "monthStartDay"
+	| "monthFromPay"
+	| "expectedPayday"
 >;
 
 export interface MonthSetting {
@@ -79,6 +84,34 @@ export class AppearanceDTO extends BaseDTO<Appearance> {
 			.where(eq(appearance.userId, userId))
 			.get();
 		return row ?? { startDay: 1, fromPay: false };
+	}
+
+	/** The day `userId` said their next pay should land, or null when the app works it out. */
+	static expectedPaydayFor(userId: string): string | null {
+		return (
+			databaseConnection
+				.get()
+				.select({ expectedPayday: appearance.expectedPayday })
+				.from(appearance)
+				.where(eq(appearance.userId, userId))
+				.get()?.expectedPayday ?? null
+		);
+	}
+
+	/** Stores the day `userId` expects their next pay, or null to let the app work it out. */
+	static saveExpectedPayday(
+		userId: string,
+		expectedPayday: string | null,
+	): void {
+		databaseConnection
+			.get()
+			.insert(appearance)
+			.values({ userId, ...defaultAppearance, expectedPayday })
+			.onConflictDoUpdate({
+				target: appearance.userId,
+				set: { expectedPayday, updatedAt: new Date() },
+			})
+			.run();
 	}
 
 	/** Stores how `userId`'s months start, keeping the rest of their appearance. */

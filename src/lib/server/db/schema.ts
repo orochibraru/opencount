@@ -470,6 +470,7 @@ export const appearance = sqliteTable("appearance", {
 	corners: text("corners", { enum: cornerStyles }).notNull().default("rounded"),
 	home: text("home", { enum: homePages }),
 	monthStartDay: integer("month_start_day").notNull().default(1),
+	expectedPayday: text("expected_payday"),
 	monthFromPay: integer("month_from_pay", { mode: "boolean" })
 		.notNull()
 		.default(false),
@@ -732,6 +733,27 @@ export const recurringSeries = sqliteTable(
 			table.label,
 		),
 	],
+);
+
+export const personalRule = sqliteTable(
+	"personal_rule",
+	{
+		id: text("id")
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		pattern: text("pattern").notNull(),
+		category: text("category"),
+		tag: text("tag"),
+		pay: integer("pay", { mode: "boolean" }).notNull().default(false),
+		recurringId: text("recurring_id").references(() => recurringSeries.id, {
+			onDelete: "set null",
+		}),
+		createdAt: createdAt(),
+	},
+	(table) => [index("personal_rule_user_id_idx").on(table.userId)],
 );
 
 export const personalCategory = sqliteTable(

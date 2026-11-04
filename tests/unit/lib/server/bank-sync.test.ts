@@ -14,6 +14,7 @@ import {
 	PersonalExpenseDTO,
 } from "#lib/dto/personal-expense.js";
 import { setSetting } from "#lib/dto/setting.js";
+import { ruleMatches } from "#lib/personal-rules.js";
 import { bankSync } from "#lib/server/banking/bank-sync.js";
 import type { Transaction } from "#lib/server/banking/enable-banking-api.js";
 import { EnableBankingClient } from "#lib/server/banking/enable-banking.js";
@@ -22,6 +23,7 @@ import { jobHandlers } from "#lib/server/jobs/handlers.js";
 import { accountBook } from "#lib/server/money/accounts.js";
 import { periodSummary } from "#lib/server/money/period-summary.js";
 import { recurringBook } from "#lib/server/money/recurring.js";
+import { ruleBook } from "#lib/server/money/rules.js";
 
 import { createUser, resetDatabase } from "../../database.js";
 
@@ -1174,6 +1176,145 @@ describe("transfers between own accounts", () => {
 			PersonalExpenseDTO.stats(ada.id, {}, { today: "2026-10-15" }).totals,
 		).toEqual([{ currency: "EUR", minor: 6_500 }]);
 		expect(PersonalExpenseDTO.reimbursable(ada.id)).toEqual([]);
+	});
+
+	test("rules file past lines and every new one from the bank", () => {
+		const ada = createUser("ada");
+		const connection = twoAccounts(ada.id);
+		PersonalExpenseDTO.importFromBank(ada.id, connection.id, [
+			line("main", "fuel-1", {
+				description: "STATION NORTH 0042",
+				amountMinor: 6_000,
+				spentOn: "2026-10-02",
+			}),
+			line("main", "pay", {
+				description: "TRANSFER FROM EMPLOYER",
+				kind: "income",
+				category: "income",
+				amountMinor: 300_000,
+				spentOn: "2026-09-28",
+			}),
+		]);
+		expect(ruleMatches("station", "Stations North 7")).toBe(true);
+		expect(ruleMatches(" ", "anything")).toBe(false);
+		expect(
+			ruleBook.save(ada.id, {
+				pattern: "station",
+				category: null,
+				tag: null,
+				pay: false,
+				recurringId: null,
+			}),
+		).toEqual({ error: "empty" });
+		expect(
+			ruleBook.save(ada.id, {
+				pattern: "station",
+				category: "nope",
+				tag: null,
+				pay: false,
+				recurringId: null,
+			}),
+		).toEqual({ error: "category" });
+		expect(
+			ruleBook.save(ada.id, {
+				pattern: "station",
+				category: null,
+				tag: "car",
+				pay: false,
+				recurringId: "nope",
+			}),
+		).toEqual({ error: "series" });
+		const fuel = ruleBook.save(ada.id, {
+			pattern: "station",
+			category: "transport",
+			tag: "car",
+			pay: false,
+			recurringId: null,
+		});
+		expect(fuel).toEqual(expect.objectContaining({ applied: 1 }));
+		const salary = ruleBook.save(ada.id, {
+			pattern: "employer",
+			category: null,
+			tag: null,
+			pay: true,
+			recurringId: null,
+		});
+		expect(salary).toEqual(expect.objectContaining({ applied: 1 }));
+		expect(PersonalExpenseDTO.paydays(ada.id)).toEqual(["2026-09-28"]);
+
+		PersonalExpenseDTO.importFromBank(ada.id, connection.id, [
+			line("main", "fuel-2", {
+				description: "STATION SOUTH 0077",
+				amountMinor: 5_000,
+				spentOn: "2026-10-20",
+			}),
+		]);
+		const fuelLines = PersonalExpenseDTO.page(ada.id, {
+			limit: 10,
+			search: "station",
+		}).entries.map((entry) => entry.toJSON());
+		expect(fuelLines.map((row) => [row.category, row.tags])).toEqual([
+			["transport", ["car"]],
+			["transport", ["car"]],
+		]);
+
+		const ruleId = "rule" in fuel ? fuel.rule.id : "";
+		expect(
+			ruleBook.save(
+				ada.id,
+				{
+					pattern: "station",
+					category: "car",
+					tag: null,
+					pay: false,
+					recurringId: null,
+				},
+				ruleId,
+			),
+		).toEqual({ error: "category" });
+		expect(
+			ruleBook.save(
+				ada.id,
+				{
+					pattern: "station",
+					category: "food",
+					tag: null,
+					pay: false,
+					recurringId: null,
+				},
+				"missing",
+			),
+		).toEqual({ error: "missing" });
+		expect(ruleBook.list(ada.id)).toHaveLength(2);
+		expect(ruleBook.remove(ada.id, ruleId)).toBe(true);
+		expect(ruleBook.remove(ada.id, ruleId)).toBe(false);
+		expect(ruleBook.apply(ada.id)).toBe(0);
+	});
+
+	test("an expected payday opens the next month when it's still to come", () => {
+		const ada = createUser("ada");
+		const connection = twoAccounts(ada.id);
+		PersonalExpenseDTO.importFromBank(ada.id, connection.id, [
+			line("main", "pay", {
+				description: "SALARY",
+				kind: "income",
+				category: "income",
+				amountMinor: 300_000,
+				spentOn: "2026-10-23",
+			}),
+		]);
+		const [pay] = PersonalExpenseDTO.page(ada.id, { limit: 1 }).entries;
+		PersonalExpenseDTO.markPay(ada.id, pay?.id ?? "", true);
+		AppearanceDTO.saveMonthStart(ada.id, { startDay: 1, fromPay: true });
+		const calendar = () => PersonalExpenseDTO.monthCalendar(ada.id);
+		expect(calendar().next("2026-10-23")).toBe("2026-11-23");
+		AppearanceDTO.saveExpectedPayday(ada.id, "2026-11-20");
+		expect(AppearanceDTO.expectedPaydayFor(ada.id)).toBe("2026-11-20");
+		expect(calendar().next("2026-10-23")).toBe("2026-11-20");
+		AppearanceDTO.saveExpectedPayday(ada.id, "2026-10-01");
+		expect(calendar().next("2026-10-23")).toBe("2026-11-23");
+		AppearanceDTO.saveExpectedPayday(ada.id, null);
+		expect(AppearanceDTO.expectedPaydayFor(ada.id)).toBeNull();
 	});
 
 	test("a shared account's lines count at half", () => {

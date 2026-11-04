@@ -2,16 +2,19 @@
 	import { enhance } from "$app/forms";
 	import { goto } from "$app/navigation";
 	import { resolve } from "$app/paths";
+	import BanknoteIcon from "@lucide/svelte/icons/banknote";
 	import CalendarRangeIcon from "@lucide/svelte/icons/calendar-range";
 	import ChartColumnIcon from "@lucide/svelte/icons/chart-column";
 	import CheckIcon from "@lucide/svelte/icons/check";
 	import FolderIcon from "@lucide/svelte/icons/folder";
 	import FolderPlusIcon from "@lucide/svelte/icons/folder-plus";
+	import InboxIcon from "@lucide/svelte/icons/inbox";
 	import LandmarkIcon from "@lucide/svelte/icons/landmark";
 	import PlusIcon from "@lucide/svelte/icons/plus";
 	import RepeatIcon from "@lucide/svelte/icons/repeat";
 	import TagsIcon from "@lucide/svelte/icons/tags";
 	import WalletIcon from "@lucide/svelte/icons/wallet";
+	import WandIcon from "@lucide/svelte/icons/wand-sparkles";
 	import { untrack } from "svelte";
 
 	import PersonalView from "#lib/components/personal/personal-view.svelte";
@@ -46,6 +49,21 @@
 			label: "Insights",
 			icon: ChartColumnIcon,
 			href: resolve("/(protected)/personal/analytics"),
+		},
+		{
+			label: "To sort",
+			icon: InboxIcon,
+			href: resolve("/(protected)/personal/triage"),
+		},
+		{
+			label: "Rules",
+			icon: WandIcon,
+			href: resolve("/(protected)/personal/rules"),
+		},
+		{
+			label: "Salary",
+			icon: BanknoteIcon,
+			href: resolve("/(protected)/personal/salary"),
 		},
 		{
 			label: "Recurring",
