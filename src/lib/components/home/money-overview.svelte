@@ -16,6 +16,7 @@
 	interface Props {
 		overview: MoneyOverview & {
 			syncedAt: Date | null;
+			recurring: { description: string; amountMinor: number }[];
 			categories: CustomCategory[];
 		};
 	}
@@ -224,7 +225,8 @@
 			</span>
 			{#if overview.recurring.length === 0}
 				<p class="text-muted-foreground text-sm">
-					No repeating payment spotted yet.
+					Nothing marked as recurring yet: pick Mark as recurring on a
+					subscription or a loan in Personal.
 				</p>
 			{:else}
 				<p class="font-display text-2xl font-semibold tabular">

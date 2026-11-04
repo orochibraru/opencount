@@ -32,12 +32,10 @@ export interface MoneyOverview {
 		totalMinor: number;
 		lastMonthMinor: number;
 	} | null;
-	recurring: { description: string; amountMinor: number }[];
 	daily: { key: string; totalMinor: number }[];
 }
 
 const habitWindowDays = 90;
-const recurringWindowDays = 100;
 
 function utc(day: string): Date {
 	return new Date(`${day}T00:00:00Z`);
@@ -76,33 +74,6 @@ function byKey(rows: SpendingRow[]): Map<string, SpendingRow[]> {
 		}
 	}
 	return groups;
-}
-
-function recurringPayments(rows: SpendingRow[]): MoneyOverview["recurring"] {
-	return [...byKey(rows).values()]
-		.flatMap((group) => {
-			const latest = group.at(-1);
-			const months = new Set(group.map((row) => row.spentOn.slice(0, 7)));
-			const steady =
-				latest !== undefined &&
-				months.size >= 2 &&
-				group.length <= months.size + 1 &&
-				group.every(
-					(row) =>
-						Math.abs(row.amountMinor - latest.amountMinor) <=
-						latest.amountMinor * 0.05,
-				);
-			return steady
-				? [
-						{
-							description: latest.description,
-							amountMinor: latest.amountMinor,
-						},
-					]
-				: [];
-		})
-		.toSorted((left, right) => right.amountMinor - left.amountMinor)
-		.slice(0, 5);
 }
 
 function biggestHabit(
@@ -149,7 +120,7 @@ function topCategory(
  * Where someone's money stands on `today`, from their personal ledger `rows` (oldest first) in their main currency, with
  * months following `calendar` (payday to payday when it says so):
  * this month's spending, income and savings, a forecast for the month's end, yesterday's report, their biggest habit,
- * their top category, the payments that repeat every month, and spending day by day.
+ * their top category, and spending day by day.
  */
 export function moneyOverview(
 	rows: SpendingRow[],
@@ -239,11 +210,6 @@ export function moneyOverview(
 		},
 		habit: biggestHabit(recent, observedDays),
 		topCategory: topCategory(thisMonth, lastMonth),
-		recurring: recurringPayments(
-			spent.filter(
-				(row) => row.spentOn >= shift(today, -recurringWindowDays + 1),
-			),
-		),
 		daily: [...daily].map(([key, totalMinor]) => ({ key, totalMinor })),
 	};
 }

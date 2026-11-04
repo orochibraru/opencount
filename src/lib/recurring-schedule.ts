@@ -63,6 +63,8 @@ const cadenceDays: Record<(typeof cadences)[number], number> = {
 	yearly: 365,
 };
 
+const minimumGapDays = 3;
+
 function addDays(day: string, days: number): string {
 	const date = new Date(`${day}T00:00:00Z`);
 	date.setUTCDate(date.getUTCDate() + days);
@@ -170,7 +172,8 @@ export function recurringSchedule(
 			const days = [...new Set(sorted.map((line) => line.spentOn))];
 			const gaps = days
 				.slice(1)
-				.map((day, index) => daysApart(days[index] ?? day, day));
+				.map((day, index) => daysApart(days[index] ?? day, day))
+				.filter((gap) => gap >= minimumGapDays);
 			const gap = entry.frequency
 				? cadenceDays[entry.frequency]
 				: gaps.length > 0

@@ -77,9 +77,6 @@ describe("moneyOverview", () => {
 			totalMinor: 6_500,
 			lastMonthMinor: 5_000,
 		});
-		expect(overview.recurring).toEqual([
-			{ description: "Netflix", amountMinor: 1_399 },
-		]);
 		expect(overview.daily).toHaveLength(10);
 		expect(overview.daily.at(-2)).toEqual({
 			key: "2026-10-09",
@@ -93,9 +90,6 @@ describe("moneyOverview", () => {
 		);
 		const monthly = moneyOverview(rent, "2026-10-10");
 		expect(monthly.habit).toBeNull();
-		expect(monthly.recurring).toEqual([
-			{ description: "Rent", amountMinor: 80_000 },
-		]);
 	});
 
 	test("a payday month runs from payday, and so does last month's pace", () => {

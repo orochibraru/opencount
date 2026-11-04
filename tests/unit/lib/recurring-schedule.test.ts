@@ -87,6 +87,8 @@ describe("recurring schedule", () => {
 			"2026-10-05",
 		);
 		expect(twice?.duplicate).toBe(true);
+		expect(twice?.cadence).toBe("monthly");
+		expect(monthlyCost(twice!)).toBe(30_000);
 	});
 
 	test("lists series soonest first and ended ones last", () => {

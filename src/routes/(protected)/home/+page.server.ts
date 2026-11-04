@@ -6,7 +6,9 @@ import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
 import { PersonalCategoryDTO } from "#lib/dto/personal-category.js";
 import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
 import { moneyOverview } from "#lib/money-overview.js";
+import { monthlyCost } from "#lib/recurring-schedule.js";
 import { periodSummary } from "#lib/server/money/period-summary.js";
+import { recurringBook } from "#lib/server/money/recurring.js";
 
 export const load = async ({ parent }) => {
 	const { user } = await parent();
@@ -30,6 +32,18 @@ export const load = async ({ parent }) => {
 				PersonalExpenseDTO.monthCalendar(user.id),
 			),
 			syncedAt: syncedAt ?? null,
+			recurring: recurringBook
+				.list(user.id)
+				.filter(
+					(payment) =>
+						!payment.ended &&
+						payment.kind === "expense" &&
+						payment.currency === summary.currency,
+				)
+				.map((payment) => ({
+					description: payment.label,
+					amountMinor: monthlyCost(payment),
+				})),
 			categories: PersonalCategoryDTO.forUser(user.id).map((entry) =>
 				entry.toJSON(),
 			),
