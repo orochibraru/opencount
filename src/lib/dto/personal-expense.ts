@@ -8,6 +8,7 @@ import {
 	isNotNull,
 	isNull,
 	lt,
+	lte,
 	ne,
 	notInArray,
 	or,
@@ -85,6 +86,9 @@ export interface PersonalFilter {
 	search?: string;
 	bankId?: string;
 	accountUid?: string;
+	from?: string;
+	to?: string;
+	kind?: PersonalKind;
 }
 
 export interface SpendingRow {
@@ -215,11 +219,23 @@ function searchIds(userId: string, search: string): string[] {
 
 function visible(
 	userId: string,
-	{ folderId, category, search, bankId, accountUid }: PersonalFilter = {},
+	{
+		folderId,
+		category,
+		search,
+		bankId,
+		accountUid,
+		from,
+		to,
+		kind,
+	}: PersonalFilter = {},
 ) {
 	return and(
 		eq(personalExpense.userId, userId),
 		isNull(personalExpense.hiddenAt),
+		from ? gte(personalExpense.spentOn, from) : undefined,
+		to ? lte(personalExpense.spentOn, to) : undefined,
+		kind ? eq(personalExpense.kind, kind) : undefined,
 		folderId ? eq(personalExpense.folderId, folderId) : undefined,
 		category ? eq(personalExpense.category, category) : undefined,
 		bankId ? eq(personalExpense.bankConnectionId, bankId) : undefined,

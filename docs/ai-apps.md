@@ -35,10 +35,15 @@ they're shared and their latest balance (synced or typed in, with its date), and
 record a balance for an account your bank doesn't report; each personal expense
 names the account it came from. It can list your recurring payments (amount, how
 often, next date, payments left, the account they come from) and file an expense
-as recurring, or out of it. It only reaches groups you're in, and a category or
-note it sets in a group changes it for everyone there; transfers between members
-are left alone. It never sees your email, password, bank credentials or keys,
-who's in a group, who paid, the splits or the balances.
+as recurring, or out of it. It can sum up any period (by default since your last
+payday, when your months follow your pay): income, spending by category and by
+account, savings and finance apart, and what is left to spend until your next
+payday and per day, from the accounts it's told to count. Its expense list can
+be narrowed by dates, account, category, kind and search. It only reaches groups
+you're in, and a category or note it sets in a group changes it for everyone
+there; transfers between members are left alone. It never sees your email,
+password, bank credentials or keys, who's in a group, who paid, the splits or
+the balances.
 
 ## Staying in control
 

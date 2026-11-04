@@ -20,6 +20,7 @@ import { EnableBankingClient } from "#lib/server/banking/enable-banking.js";
 import { secrets } from "#lib/server/core/secrets.js";
 import { jobHandlers } from "#lib/server/jobs/handlers.js";
 import { accountBook } from "#lib/server/money/accounts.js";
+import { periodSummary } from "#lib/server/money/period-summary.js";
 import { recurringBook } from "#lib/server/money/recurring.js";
 
 import { createUser, resetDatabase } from "../../database.js";
@@ -967,6 +968,167 @@ describe("transfers between own accounts", () => {
 		).toBeUndefined();
 		expect(recurringBook.remove(ada.id, "missing")).toBe(false);
 		expect(recurringBook.unfile(ada.id, "missing")).toBe(false);
+	});
+
+	test("sums up a pay period and what is left until the next payday", () => {
+		const ada = createUser("ada");
+		const connection = BankConnectionDTO.create(ada.id, {
+			sessionId: "session-1",
+			bankName: "Bank",
+			bankCountry: "FR",
+			accounts: [
+				{ uid: "main", name: "Main", currency: "EUR" },
+				{ uid: "joint", name: "Joint", currency: "EUR" },
+				{ uid: "save", name: "Savings", currency: "EUR" },
+			],
+			validUntil: new Date(Date.now() + 86_400_000),
+		});
+		connection.setAccountType("joint", "joint");
+		connection.setAccountType("save", "savings");
+		connection.setBalances(
+			new Map([
+				["main", { minor: 200_000, currency: "EUR" }],
+				["joint", { minor: 100_000, currency: "EUR" }],
+				["save", { minor: 500_000, currency: "EUR" }],
+			]),
+			new Date("2026-11-04T06:00:00Z"),
+		);
+		const salary = (ref: string, spentOn: string) =>
+			line("main", ref, {
+				description: "SALARY EMPLOYER",
+				kind: "income",
+				category: "income",
+				amountMinor: 300_000,
+				spentOn,
+			});
+		PersonalExpenseDTO.importFromBank(ada.id, connection.id, [
+			salary("sep", "2026-09-25"),
+			salary("oct", "2026-10-23"),
+			line("main", "before", {
+				category: "food",
+				amountMinor: 9_999,
+				spentOn: "2026-10-22",
+			}),
+			line("main", "food", {
+				category: "food",
+				amountMinor: 4_000,
+				spentOn: "2026-10-24",
+			}),
+			line("main", "to-joint", {
+				description: "TO JOINT",
+				amountMinor: 50_000,
+				spentOn: "2026-10-24",
+			}),
+			line("joint", "from-main", {
+				description: "FROM MAIN",
+				kind: "income",
+				category: "income",
+				amountMinor: 50_000,
+				spentOn: "2026-10-24",
+			}),
+			line("main", "to-save", {
+				description: "TO SAVINGS",
+				amountMinor: 10_000,
+				spentOn: "2026-10-25",
+			}),
+			line("save", "from-main", {
+				description: "FROM MAIN",
+				kind: "income",
+				category: "income",
+				amountMinor: 10_000,
+				spentOn: "2026-10-25",
+			}),
+			line("main", "stmt", {
+				description: "RELEVE CARTE",
+				category: "finance",
+				amountMinor: 3_000,
+				spentOn: "2026-10-30",
+			}),
+			line("main", "card", {
+				description: "SHOP CARTE 1234",
+				category: "shopping",
+				amountMinor: 3_000,
+				spentOn: "2026-10-28",
+			}),
+			line("main", "card-new", {
+				description: "SHOP CARTE 1234",
+				category: "shopping",
+				amountMinor: 2_500,
+				spentOn: "2026-11-02",
+			}),
+			line("main", "loan", {
+				description: "LOAN 01",
+				category: "finance",
+				amountMinor: 20_000,
+				spentOn: "2026-10-06",
+			}),
+			line("joint", "rent", {
+				description: "RENT",
+				category: "home",
+				amountMinor: 80_000,
+				spentOn: "2026-10-10",
+			}),
+		]);
+		bankSync.pairTransfers(ada.id);
+		const [october] = PersonalExpenseDTO.page(ada.id, {
+			limit: 1,
+			search: "salary",
+		}).entries;
+		PersonalExpenseDTO.markPay(ada.id, october?.id ?? "", true);
+		AppearanceDTO.saveMonthStart(ada.id, { startDay: 1, fromPay: true });
+		const loan = PersonalExpenseDTO.page(ada.id, { limit: 1, search: "loan" })
+			.entries[0];
+		const rent = PersonalExpenseDTO.page(ada.id, { limit: 1, search: "rent" })
+			.entries[0];
+		recurringBook.file(ada.id, loan?.id ?? "", { label: "Loan", type: "loan" });
+		recurringBook.file(ada.id, rent?.id ?? "", { label: "Rent" });
+
+		const summary = periodSummary.summarize(ada.id, { today: "2026-11-04" });
+		expect(summary).toEqual(
+			expect.objectContaining({
+				from: "2026-10-23",
+				to: "2026-11-04",
+				followsPay: true,
+				incomeMinor: 300_000,
+				spentMinor: 4_000 + 3_000 + 2_500,
+				savedMinor: 10_000,
+				financeMinor: 0,
+			}),
+		);
+		expect(summary.byCategory.map((row) => row.key)).toEqual([
+			"shopping",
+			"food",
+		]);
+		expect(summary.byAccount).toEqual([
+			{ key: "main", label: "Main", minor: 9_500 },
+		]);
+		expect(summary.left).toEqual(
+			expect.objectContaining({ nextPayday: "2026-11-23", daysLeft: 19 }),
+		);
+		expect(summary.included).toEqual(["main"]);
+		expect(summary.leftNow).toEqual({
+			balancesMinor: 200_000,
+			upcomingMinor: 20_000,
+			pendingMinor: 2_500,
+			leftMinor: 177_500,
+			perDayMinor: Math.trunc(177_500 / 19),
+		});
+
+		const withJoint = periodSummary.summarize(ada.id, {
+			today: "2026-11-04",
+			accounts: ["main", "joint", "unknown"],
+		});
+		expect(withJoint.included).toEqual(["main", "joint"]);
+		expect(withJoint.leftNow.balancesMinor).toBe(200_000 + 50_000);
+		expect(withJoint.leftNow.upcomingMinor).toBe(20_000 + 40_000);
+
+		const september = periodSummary.summarize(ada.id, {
+			from: "2026-09-25",
+			to: "2026-10-22",
+			today: "2026-11-04",
+		});
+		expect(september.spentMinor).toBe(9_999 + 40_000);
+		expect(september.financeMinor).toBe(20_000);
 	});
 
 	test("a shared account's lines count at half", () => {

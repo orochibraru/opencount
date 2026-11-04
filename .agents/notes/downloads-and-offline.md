@@ -241,7 +241,12 @@
   line in the series of an older line with the same kind and `similarKey`, like
   pay. `recurringBook` (`#lib/server/money/recurring.ts`) turns series and lines
   into payments with `recurringSchedule`; `list_recurring`, `set_recurring` and
-  the Recurring page all go through it. `csrfHandler` lets
+  the Recurring page all go through it. `periodSummary`
+  (`#lib/server/money/period-summary.ts`) is the one answer to "where does my
+  money stand": `get_period_summary` and the home widget both call it, and the
+  arithmetic of what's left until payday is `leftUntilPayday` in
+  `#lib/left-until-payday.ts`, shared with the browser so toggling an account
+  there gives the number the AI app would. `csrfHandler` lets
   `/api/auth/oauth2/token`, `revoke` and `introspect` through: AI apps call them
   server to server with no `Origin`.
 - `browserPaths` in `auth.ts` lets the OAuth endpoints AI apps call

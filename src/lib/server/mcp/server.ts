@@ -31,6 +31,7 @@ import {
 import { authService } from "#lib/server/auth/auth.js";
 import { configuration } from "#lib/server/core/config.js";
 import { accountBook } from "#lib/server/money/accounts.js";
+import { periodSummary } from "#lib/server/money/period-summary.js";
 import { recurringBook } from "#lib/server/money/recurring.js";
 import { type Flow, flowOf } from "#lib/spending-kind.js";
 
@@ -54,12 +55,22 @@ interface LedgerEntry {
 	recurringId?: string | null;
 }
 
+interface LedgerFilter {
+	uncategorizedOnly: boolean;
+	from?: string;
+	to?: string;
+	accountId?: string;
+	category?: string;
+	kind?: "expense" | "income";
+	search?: string;
+}
+
 interface Ledger {
 	categories: { id: string; name: string }[];
 	page(
 		limit: number,
 		offset: number,
-		uncategorizedOnly: boolean,
+		filter: LedgerFilter,
 	): { total: number; expenses: LedgerEntry[] };
 	recategorize(ids: string[], category: string): number;
 	setNotes(changes: { id: string; note: string }[]): number;
@@ -171,18 +182,35 @@ class McpEndpoint {
 			{
 				title: "List expenses",
 				description:
-					"Expenses latest first, the person's own or a group's with groupId: id, description, note, amount, currency, date and category (and for personal ones: expense or income, the accountId from list_accounts or null when typed in by hand, transferPairId linking both sides of a move between the person's own accounts, deferred for a purchase on a deferred debit card, and flow: spending, income, finance (loans, fees, cash: counted apart), transfer_internal, transfer_to_savings, transfer_from_savings or card_statement). Transfers and card statements never count as spending or income: a statement settles deferred purchases that already count on the day they were made. Uncategorized ones (category other) only, unless uncategorizedOnly is false. Who paid and how it was split never show.",
+					"Expenses latest first, the person's own or a group's with groupId: id, description, note, amount, currency, date and category (and for personal ones: expense or income, the accountId from list_accounts or null when typed in by hand, transferPairId linking both sides of a move between the person's own accounts, deferred for a purchase on a deferred debit card, and flow: spending, income, finance (loans, fees, cash: counted apart), transfer_internal, transfer_to_savings, transfer_from_savings or card_statement). Transfers and card statements never count as spending or income: a statement settles deferred purchases that already count on the day they were made. Uncategorized ones (category other) only, unless uncategorizedOnly is false or a category is given. Narrow with from and to (YYYY-MM-DD, both included), category, search (description and note) and, for personal ones, accountId and kind. total counts every match, not just this page.",
 				inputSchema: z.object({
 					groupId: groupIdField,
 					uncategorizedOnly: z.boolean().default(true),
 					limit: z.number().int().min(1).max(200).default(100),
 					offset: z.number().int().min(0).default(0),
+					from: z.iso.date().optional(),
+					to: z.iso.date().optional(),
+					category: z
+						.string()
+						.min(1)
+						.optional()
+						.describe("A category id from list_categories."),
+					search: z.string().trim().min(1).max(100).optional(),
+					accountId: z
+						.string()
+						.min(1)
+						.optional()
+						.describe("Personal only: an account id from list_accounts."),
+					kind: z
+						.enum(["expense", "income"])
+						.optional()
+						.describe("Personal only."),
 				}),
 				annotations: { readOnlyHint: true },
 			},
-			({ groupId, uncategorizedOnly, limit, offset }) =>
+			({ groupId, limit, offset, ...filter }) =>
 				this.#withLedger(userId, groupId, (ledger) =>
-					ledger.page(limit, offset, uncategorizedOnly),
+					ledger.page(limit, offset, filter),
 				),
 		);
 		server.registerTool(
@@ -230,6 +258,7 @@ class McpEndpoint {
 		this.#registerSetNotes(server, userId);
 		this.#registerAccountTools(server, userId);
 		this.#registerRecurringTools(server, userId);
+		this.#registerPeriodSummary(server, userId);
 		this.#registerCreateCategory(server, userId);
 		this.#registerMerchantTools(server, userId);
 		this.#registerFolderTools(server, userId);
@@ -377,6 +406,79 @@ class McpEndpoint {
 					);
 				}
 				return this.#reply({ updated, unknownFolders });
+			},
+		);
+	}
+
+	/** Adds the tool that sums up the person's money over a period and says what is left to spend until payday. */
+	#registerPeriodSummary(server: McpServer, userId: string): void {
+		server.registerTool(
+			"get_period_summary",
+			{
+				title: "Sum up a period",
+				description:
+					"The person's own money from `from` to `to` (YYYY-MM-DD, both included; by default from the start of their current month, which is their last payday when their months follow their pay, to today), in their main currency, the same numbers the app shows. income: money in, refunds included, transfers between their own accounts and money back from savings excluded. spent: everyday spending, excluding transfers between their own accounts, money moved to savings, card statements (their deferred purchases count on the day they were made) and finance. finance: loans, bank fees and cash, apart. saved: money moved to savings and investments. spentByCategory and spentByAccount split spent (accountId from list_accounts; empty for lines typed in by hand). A line on a shared account counts at half. leftUntilPayday is computed from today to the day before nextPayday over the accounts in `accounts` (account ids; by default every everyday account and card with a balance, never a joint, shared, savings or investment one): the person's share of those balances (half of a shared one), minus the recurring debits still due before payday from those accounts or from no known account (upcoming lists each one), minus deferred card purchases made since their card's last statement and not yet taken from those accounts; perDay divides what is left by daysLeft. Balances are as of each account's balanceAsOf.",
+				inputSchema: z.object({
+					from: z.iso.date().optional(),
+					to: z.iso.date().optional(),
+					accounts: z
+						.array(z.string().min(1))
+						.optional()
+						.describe(
+							"Account ids from list_accounts to count in leftUntilPayday, replacing the default set.",
+						),
+				}),
+				annotations: { readOnlyHint: true },
+			},
+			({ from, to, accounts }) => {
+				const summary = periodSummary.summarize(userId, { from, to, accounts });
+				const money = (minor: number) =>
+					minorToDecimal(minor, summary.currency);
+				const included = new Set(summary.included);
+				return this.#reply({
+					from: summary.from,
+					to: summary.to,
+					currency: summary.currency,
+					periodsFollowPay: summary.followsPay,
+					income: money(summary.incomeMinor),
+					spent: money(summary.spentMinor),
+					finance: money(summary.financeMinor),
+					saved: money(summary.savedMinor),
+					spentByCategory: summary.byCategory.map((row) => ({
+						categoryId: row.key,
+						name: row.label,
+						amount: money(row.minor),
+					})),
+					spentByAccount: summary.byAccount.map((row) => ({
+						accountId: row.key,
+						name: row.label,
+						amount: money(row.minor),
+					})),
+					leftUntilPayday: {
+						today: summary.left.today,
+						nextPayday: summary.left.nextPayday,
+						daysLeft: summary.left.daysLeft,
+						accounts: summary.left.accounts.map((account) => ({
+							accountId: account.id,
+							name: account.name,
+							type: account.type,
+							counted: included.has(account.id),
+							ownShare: money(account.ownShareMinor),
+							balanceAsOf: account.balanceAt,
+						})),
+						balances: money(summary.leftNow.balancesMinor),
+						upcoming: summary.left.upcoming.map((entry) => ({
+							label: entry.label,
+							accountId: entry.accountId,
+							date: entry.on,
+							amount: money(entry.minor),
+						})),
+						upcomingTotal: money(summary.leftNow.upcomingMinor),
+						pendingCardPurchases: money(summary.leftNow.pendingMinor),
+						left: money(summary.leftNow.leftMinor),
+						perDay: money(summary.leftNow.perDayMinor),
+					},
+				});
 			},
 		);
 	}
@@ -765,11 +867,17 @@ class McpEndpoint {
 					this.#idAndName(entry),
 				),
 			],
-			page: (limit, offset, uncategorizedOnly) => {
+			page: (limit, offset, filter) => {
 				const page = PersonalExpenseDTO.page(userId, {
 					limit,
 					offset,
-					category: uncategorizedOnly ? "other" : undefined,
+					category:
+						filter.category ?? (filter.uncategorizedOnly ? "other" : undefined),
+					from: filter.from,
+					to: filter.to,
+					accountUid: filter.accountId,
+					kind: filter.kind,
+					search: filter.search,
 				});
 				return {
 					total: page.total,
@@ -816,12 +924,16 @@ class McpEndpoint {
 					this.#idAndName(entry),
 				),
 			],
-			page: (limit, offset, uncategorizedOnly) => {
+			page: (limit, offset, filter) => {
 				const page = ExpenseDTO.page(groupId, {
 					limit,
 					offset,
 					kind: "expense",
-					category: uncategorizedOnly ? "other" : undefined,
+					category:
+						filter.category ?? (filter.uncategorizedOnly ? "other" : undefined),
+					from: filter.from,
+					to: filter.to,
+					search: filter.search,
 				});
 				const merchantName = (merchantId: string | null) =>
 					merchantId

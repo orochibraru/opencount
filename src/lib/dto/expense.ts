@@ -1,4 +1,15 @@
-import { and, count, desc, eq, inArray, ne, sql, sum } from "drizzle-orm";
+import {
+	and,
+	count,
+	desc,
+	eq,
+	gte,
+	inArray,
+	lte,
+	ne,
+	sql,
+	sum,
+} from "drizzle-orm";
 
 import { BaseDTO } from "#lib/dto/base-dto.js";
 import { fuzzyMatches } from "#lib/fuzzy.js";
@@ -98,6 +109,8 @@ export interface ExpenseFilter {
 	search?: string;
 	kind?: (typeof expenseKinds)[number];
 	merchantId?: string;
+	from?: string;
+	to?: string;
 }
 
 /** The ids of `groupId`'s expenses whose description, note or merchant fuzzily matches `search`. */
@@ -125,10 +138,12 @@ function searchIds(groupId: string, search: string): string[] {
 
 function matching(
 	groupId: string,
-	{ category, search, kind, merchantId }: ExpenseFilter,
+	{ category, search, kind, merchantId, from, to }: ExpenseFilter,
 ) {
 	return and(
 		eq(expense.groupId, groupId),
+		from ? gte(expense.spentOn, from) : undefined,
+		to ? lte(expense.spentOn, to) : undefined,
 		kind ? eq(expense.kind, kind) : undefined,
 		category
 			? and(eq(expense.category, category), eq(expense.kind, "expense"))
