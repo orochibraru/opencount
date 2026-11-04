@@ -51,16 +51,14 @@
 	function detail(payment: Payment): string {
 		const today = new Date().toISOString().slice(0, 10);
 		return [
-			recurringTypeLabels[payment.type],
-			cadenceLabel(payment),
 			payment.nextOn
-				? `${payment.nextOn < today ? "expected" : "next"} ${day(payment.nextOn)}`
+				? `${payment.nextOn < today ? "Expected" : "Next"} ${day(payment.nextOn)}`
 				: payment.lastOn
-					? `last ${day(payment.lastOn)}`
+					? `Last ${day(payment.lastOn)}`
 					: null,
-			payment.remaining
-				? `${payment.remaining} ${payment.remaining === 1 ? "payment" : "payments"} left`
-				: null,
+			payment.remaining ? `${payment.remaining} left` : null,
+			cadenceLabel(payment),
+			recurringTypeLabels[payment.type],
 			accountNames.get(payment.accountUid ?? ""),
 		]
 			.filter(Boolean)
@@ -108,8 +106,8 @@
 				<RepeatIcon class="size-5" />
 			</span>
 			<span class="min-w-0 flex-1">
-				<span class="flex items-center gap-2">
-					<span class="truncate font-medium">{payment.label}</span>
+				<span class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+					<span class="max-w-full truncate font-medium">{payment.label}</span>
 					{#if payment.duplicate}
 						<span
 							class="bg-negative/15 text-negative inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
@@ -119,7 +117,7 @@
 						</span>
 					{/if}
 				</span>
-				<span class="text-muted-foreground block truncate text-sm"
+				<span class="text-muted-foreground line-clamp-2 block text-sm"
 					>{detail(payment)}</span
 				>
 			</span>

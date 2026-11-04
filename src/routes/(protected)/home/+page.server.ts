@@ -6,6 +6,7 @@ import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
 import { PersonalCategoryDTO } from "#lib/dto/personal-category.js";
 import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
 import { moneyOverview } from "#lib/money-overview.js";
+import { periodSummary } from "#lib/server/money/period-summary.js";
 
 export const load = async ({ parent }) => {
 	const { user } = await parent();
@@ -16,7 +17,12 @@ export const load = async ({ parent }) => {
 		.map((entry) => entry.toJSON().syncedAt)
 		.filter((date) => date !== null)
 		.toSorted((left, right) => right.getTime() - left.getTime())[0];
+	const summary = periodSummary.summarize(user.id);
 	return {
+		left:
+			summary.left.accounts.length > 0
+				? { parts: summary.left, included: summary.included }
+				: null,
 		overview: {
 			...moneyOverview(
 				PersonalExpenseDTO.spending(user.id),

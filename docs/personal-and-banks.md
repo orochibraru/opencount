@@ -150,6 +150,16 @@ AMZN MKTP" can say what it was for. A sync never overwrites it.
 
 ## Money overview
 
+**Left until payday** sits on top: what you can still spend until your next
+payday, and per day. It's the balance of your everyday accounts and cards, minus
+the recurring payments due before payday from them and the deferred card
+purchases not yet taken from them. Tap it for the breakdown and to switch each
+account on or off (a joint account starts off and counts at half when on;
+savings and investments never count). Your choice stays on that device. With
+your months following your pay, payday is the next day your pay is expected;
+otherwise it's the start of your next month. AI apps get the same number from
+`get_period_summary`.
+
 Off by default. Once a bank is linked, Groups asks once whether to add a
 **Home** tab; you can change it later with **Home tab** under **Account, Bank
 sync**. Home shows this month's spent, came in, set aside and left over, your
