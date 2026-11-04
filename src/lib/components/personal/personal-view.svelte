@@ -70,6 +70,7 @@
 		search: string;
 		tag: string | null;
 		showTransfers: boolean;
+		transferPeers?: PersonalExpenseRow[];
 		statements: {
 			id: string;
 			purchasesMinor: number;
@@ -113,6 +114,7 @@
 		search,
 		tag,
 		showTransfers,
+		transferPeers = [],
 		statements,
 		reimbursable,
 		accounts,
@@ -398,21 +400,22 @@
 	const statementsById = $derived(
 		new Map(statements.map((statement) => [statement.id, statement])),
 	);
-	const pairOf = $derived(
-		Map.groupBy(
-			expenses.filter((entry) => entry.transferPairId),
-			(entry) => entry.transferPairId ?? "",
-		),
+	const byId = $derived(
+		new Map([...transferPeers, ...expenses].map((entry) => [entry.id, entry])),
+	);
+	const listedAt = $derived(
+		new Map(expenses.map((entry, index) => [entry.id, index])),
 	);
 
 	function counterpart(entry: PersonalExpenseRow) {
-		return pairOf
-			.get(entry.transferPairId ?? "")
-			?.find((other) => other.id !== entry.id);
+		const other = byId.get(entry.transferPairId ?? "");
+		return other?.transferPairId === entry.id ? other : undefined;
 	}
 
 	function shown(entry: PersonalExpenseRow): boolean {
-		return !(entry.kind === "income" && counterpart(entry));
+		const other = counterpart(entry);
+		const otherAt = other ? listedAt.get(other.id) : undefined;
+		return otherAt === undefined || (listedAt.get(entry.id) ?? 0) < otherAt;
 	}
 
 	function accountName(uid: string | null): string {
@@ -422,7 +425,9 @@
 	function detail(entry: PersonalExpenseRow): string {
 		const other = counterpart(entry);
 		if (other) {
-			return `${accountName(entry.bankAccountUid)} → ${accountName(other.bankAccountUid)}`;
+			const [from, to] =
+				entry.kind === "expense" ? [entry, other] : [other, entry];
+			return `${accountName(from.bankAccountUid)} → ${accountName(to.bankAccountUid)}`;
 		}
 		const statement = statementsById.get(entry.id);
 		if (statement) {

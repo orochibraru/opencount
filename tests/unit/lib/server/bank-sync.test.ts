@@ -1317,6 +1317,32 @@ describe("transfers between own accounts", () => {
 		expect(AppearanceDTO.expectedPaydayFor(ada.id)).toBeNull();
 	});
 
+	test("brings the other side of a transfer a page left out", () => {
+		const ada = createUser("ada");
+		const connection = twoAccounts(ada.id);
+		PersonalExpenseDTO.importFromBank(ada.id, connection.id, [
+			line("main", "out", { spentOn: "2026-10-10" }),
+			line("joint", "in", {
+				kind: "income",
+				category: "income",
+				spentOn: "2026-10-11",
+			}),
+		]);
+		bankSync.pairTransfers(ada.id);
+		const [newest] = PersonalExpenseDTO.page(ada.id, { limit: 1 }).entries.map(
+			(entry) => entry.toJSON(),
+		);
+		const peers = PersonalExpenseDTO.transferPeers(
+			ada.id,
+			newest ? [newest] : [],
+		);
+		expect(peers).toHaveLength(1);
+		expect(peers[0]?.id).toBe(newest?.transferPairId ?? "");
+		expect(peers[0]?.transferPairId).toBe(newest?.id);
+		expect(peers[0]?.bankAccountUid).toBe("main");
+		expect(PersonalExpenseDTO.transferPeers(ada.id, [])).toEqual([]);
+	});
+
 	test("a shared account's lines count at half", () => {
 		const ada = createUser("ada");
 		const connection = twoAccounts(ada.id);

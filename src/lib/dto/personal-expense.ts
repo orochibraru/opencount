@@ -840,6 +840,36 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 		return row ? new PersonalExpenseDTO(toRow(row)) : undefined;
 	}
 
+	/** The other side of each transfer in `entries` that `entries` lacks, so a pair never splits across pages. */
+	static transferPeers(
+		userId: string,
+		entries: PersonalExpenseRow[],
+	): PersonalExpenseRow[] {
+		const loaded = new Set(entries.map((entry) => entry.id));
+		const missing = [
+			...new Set(
+				entries.flatMap((entry) =>
+					entry.transferPairId && !loaded.has(entry.transferPairId)
+						? [entry.transferPairId]
+						: [],
+				),
+			),
+		];
+		if (missing.length === 0) {
+			return [];
+		}
+		return select()
+			.where(
+				and(
+					eq(personalExpense.userId, userId),
+					isNull(personalExpense.hiddenAt),
+					inArray(personalExpense.id, missing),
+				),
+			)
+			.all()
+			.map(toRow);
+	}
+
 	/**
 	 * Up to 50 of `userId`'s other expenses whose description spells like `source`'s (see `similarKey`), filed under
 	 * another category than `category`; newest first.

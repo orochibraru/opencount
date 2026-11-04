@@ -68,7 +68,8 @@ class PersonalPage {
 			limit: limitSchema.parse(url.searchParams.get("limit") ?? pageSize),
 			...filter,
 		});
-		const shown = new Set(page.entries.map((entry) => entry.id));
+		const rows = page.entries.map((entry) => entry.toJSON());
+		const shown = new Set(rows.map((entry) => entry.id));
 		const statements = PersonalExpenseDTO.cardStatements(userId)
 			.filter((statement) => shown.has(statement.id))
 			.map((statement) => ({
@@ -86,7 +87,8 @@ class PersonalPage {
 		const defaultCurrency =
 			stats.totals[0]?.currency ?? page.entries[0]?.toJSON().currency ?? "EUR";
 		return {
-			expenses: page.entries.map((entry) => entry.toJSON()),
+			expenses: rows,
+			transferPeers: PersonalExpenseDTO.transferPeers(userId, rows),
 			hasMore: page.total > page.entries.length,
 			matching: page.total,
 			pageSize,

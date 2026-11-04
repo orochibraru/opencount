@@ -68,6 +68,7 @@
 	search={data.search}
 	tag={data.tag}
 	showTransfers={data.showTransfers}
+	transferPeers={data.transferPeers}
 	statements={data.statements}
 	reimbursable={data.reimbursable}
 	accounts={data.accounts}
