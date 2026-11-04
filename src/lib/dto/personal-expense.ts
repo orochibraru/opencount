@@ -15,6 +15,7 @@ import {
 	sql,
 } from "drizzle-orm";
 
+import { type CardRole, cardRoleOf } from "#lib/deferred-card.js";
 import { AppearanceDTO } from "#lib/dto/appearance.js";
 import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
 import { BaseDTO } from "#lib/dto/base-dto.js";
@@ -44,6 +45,8 @@ export interface PersonalExpenseRow {
 	kind: PersonalKind;
 	aside: boolean;
 	pay: boolean;
+	cardRole: CardRole | null;
+	transferPairId: string | null;
 	folderId: string | null;
 	folderName: string | null;
 	bankName: string | null;
@@ -109,6 +112,24 @@ export interface TransferLine {
 
 export const internalCategory = "internal";
 
+export interface CardStatement {
+	id: string;
+	accountUid: string | null;
+	spentOn: string;
+	amountMinor: number;
+	currency: string;
+	purchaseIds: string[];
+	purchasesMinor: number;
+}
+
+export interface PendingDeferred {
+	accountUid: string | null;
+	currency: string;
+	since: string;
+	count: number;
+	minor: number;
+}
+
 export interface PersonalStats {
 	totals: MoneyTotal[];
 	thisMonth: MoneyTotal[];
@@ -137,6 +158,8 @@ function select() {
 			kind: personalExpense.kind,
 			aside: personalExpense.aside,
 			pay: personalExpense.pay,
+			cardRole: personalExpense.cardRole,
+			transferPairId: personalExpense.transferPairId,
 			folderId: personalExpense.folderId,
 			folderName: personalFolder.name,
 			bankName: bankConnection.bankName,
@@ -199,6 +222,14 @@ function visible(
 		bankId ? eq(personalExpense.bankConnectionId, bankId) : undefined,
 		accountUid ? eq(personalExpense.bankAccountUid, accountUid) : undefined,
 		search ? inArray(personalExpense.id, searchIds(userId, search)) : undefined,
+	);
+}
+
+/** Leaves out deferred card statements: the purchases they settle already count, each on its own day. */
+function notStatement(): SQL | undefined {
+	return or(
+		isNull(personalExpense.cardRole),
+		ne(personalExpense.cardRole, "statement"),
 	);
 }
 
@@ -310,6 +341,7 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 		const matching = and(
 			visible(userId, filter),
 			ne(personalExpense.category, internalCategory),
+			notStatement(),
 			ownIncome(userId),
 		);
 		const spent = and(matching, eq(personalExpense.kind, "expense"));
@@ -441,6 +473,105 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 					.all().length;
 	}
 
+	/**
+	 * Each of `userId`'s deferred card statements, latest first, with the purchases it settles: those on its account
+	 * since the statement before it. Their sum can differ from the statement when the bank lists some elsewhere.
+	 */
+	static cardStatements(userId: string): CardStatement[] {
+		const lines = databaseConnection
+			.get()
+			.select({
+				id: personalExpense.id,
+				cardRole: personalExpense.cardRole,
+				amountMinor: personalExpense.amountMinor,
+				currency: personalExpense.currency,
+				spentOn: personalExpense.spentOn,
+				accountUid: personalExpense.bankAccountUid,
+			})
+			.from(personalExpense)
+			.where(and(visible(userId), isNotNull(personalExpense.cardRole)))
+			.orderBy(personalExpense.spentOn)
+			.all();
+		const statements: CardStatement[] = [];
+		for (const [accountUid, own] of Map.groupBy(
+			lines,
+			(line) => line.accountUid,
+		)) {
+			let from = "";
+			for (const line of own.filter(
+				(entry) => entry.cardRole === "statement",
+			)) {
+				const purchases = own.filter(
+					(entry) =>
+						entry.cardRole === "deferred" &&
+						entry.spentOn > from &&
+						entry.spentOn <= line.spentOn,
+				);
+				statements.push({
+					id: line.id,
+					accountUid,
+					spentOn: line.spentOn,
+					amountMinor: line.amountMinor,
+					currency: line.currency,
+					purchaseIds: purchases.map((entry) => entry.id),
+					purchasesMinor: purchases.reduce(
+						(total, entry) => total + entry.amountMinor,
+						0,
+					),
+				});
+				from = line.spentOn;
+			}
+		}
+		return statements.toSorted((left, right) =>
+			right.spentOn.localeCompare(left.spentOn),
+		);
+	}
+
+	/**
+	 * What `userId` bought with deferred cards since each card's last statement, per account and currency: already
+	 * counted as spent, not yet taken from the account. An account that never had a statement has nothing pending.
+	 */
+	static pendingDeferred(userId: string): PendingDeferred[] {
+		const lines = databaseConnection
+			.get()
+			.select({
+				cardRole: personalExpense.cardRole,
+				amountMinor: mine(userId).mapWith(Number),
+				currency: personalExpense.currency,
+				spentOn: personalExpense.spentOn,
+				accountUid: personalExpense.bankAccountUid,
+			})
+			.from(personalExpense)
+			.where(and(visible(userId), isNotNull(personalExpense.cardRole)))
+			.all();
+		return [...Map.groupBy(lines, (line) => line.accountUid)].flatMap(
+			([accountUid, own]) => {
+				const last = own
+					.filter((line) => line.cardRole === "statement")
+					.map((line) => line.spentOn)
+					.toSorted()
+					.at(-1);
+				if (!last) {
+					return [];
+				}
+				return [
+					...Map.groupBy(
+						own.filter(
+							(line) => line.cardRole === "deferred" && line.spentOn > last,
+						),
+						(line) => line.currency,
+					),
+				].map(([currency, pending]) => ({
+					accountUid,
+					currency,
+					since: last,
+					count: pending.length,
+					minor: pending.reduce((total, line) => total + line.amountMinor, 0),
+				}));
+			},
+		);
+	}
+
 	/** The oldest day each of `userId`'s bank links brought a line for, keyed by link id: how far back its history goes. */
 	static historyFromBank(userId: string): Record<string, string> {
 		return Object.fromEntries(
@@ -487,6 +618,7 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 				and(
 					visible(userId),
 					ne(personalExpense.category, internalCategory),
+					notStatement(),
 					ownIncome(userId),
 				),
 			)
@@ -747,6 +879,7 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 					pay:
 						entry.kind === "income" &&
 						payKeys.has(similarKey(entry.description)),
+					cardRole: cardRoleOf(entry.description),
 				})),
 			)
 			.onConflictDoNothing({

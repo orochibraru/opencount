@@ -25,6 +25,7 @@ import { minorToDecimal, parseSignedMoney } from "#lib/money.js";
 import { authService } from "#lib/server/auth/auth.js";
 import { configuration } from "#lib/server/core/config.js";
 import { accountBook } from "#lib/server/money/accounts.js";
+import { type Flow, flowOf } from "#lib/spending-kind.js";
 
 const jwksCacheKey = {};
 
@@ -40,6 +41,9 @@ interface LedgerEntry {
 	merchant?: string | null;
 	folderId?: string | null;
 	accountId?: string | null;
+	flow?: Flow;
+	deferred?: boolean;
+	transferPairId?: string | null;
 }
 
 interface Ledger {
@@ -159,7 +163,7 @@ class McpEndpoint {
 			{
 				title: "List expenses",
 				description:
-					"Expenses latest first, the person's own or a group's with groupId: id, description, note, amount, currency, date and category (and expense or income and the accountId from list_accounts for personal ones, null when typed in by hand). Uncategorized ones (category other) only, unless uncategorizedOnly is false. Who paid and how it was split never show.",
+					"Expenses latest first, the person's own or a group's with groupId: id, description, note, amount, currency, date and category (and for personal ones: expense or income, the accountId from list_accounts or null when typed in by hand, transferPairId linking both sides of a move between the person's own accounts, deferred for a purchase on a deferred debit card, and flow: spending, income, finance (loans, fees, cash: counted apart), transfer_internal, transfer_to_savings, transfer_from_savings or card_statement). Transfers and card statements never count as spending or income: a statement settles deferred purchases that already count on the day they were made. Uncategorized ones (category other) only, unless uncategorizedOnly is false. Who paid and how it was split never show.",
 				inputSchema: z.object({
 					groupId: groupIdField,
 					uncategorizedOnly: z.boolean().default(true),
@@ -693,6 +697,9 @@ class McpEndpoint {
 							note: row.note,
 							folderId: row.folderId,
 							accountId: row.bankAccountUid,
+							flow: flowOf(row),
+							deferred: row.cardRole === "deferred",
+							transferPairId: row.transferPairId,
 						};
 					}),
 				};

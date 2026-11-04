@@ -782,6 +782,89 @@ describe("transfers between own accounts", () => {
 		expect(accountBook.connectionOf(ada.id, "gone")).toBeUndefined();
 	});
 
+	test("a deferred card counts each purchase once, never its statement", () => {
+		const ada = createUser("ada");
+		const connection = twoAccounts(ada.id);
+		PersonalExpenseDTO.importFromBank(ada.id, connection.id, [
+			line("main", "old", {
+				description: "BOOKSHOP CARTE 1234",
+				category: "shopping",
+				amountMinor: 2_000,
+				spentOn: "2026-09-20",
+			}),
+			line("main", "sep", {
+				description: "RELEVE CARTE",
+				category: "finance",
+				amountMinor: 2_000,
+				spentOn: "2026-09-30",
+			}),
+			line("main", "a", {
+				description: "BAKERY CARTE 1234",
+				category: "food",
+				amountMinor: 1_000,
+				spentOn: "2026-10-05",
+			}),
+			line("main", "b", {
+				description: "GARAGE CARTE 1234",
+				category: "transport",
+				amountMinor: 4_000,
+				spentOn: "2026-10-20",
+			}),
+			line("main", "oct", {
+				description: "RELEVE CARTE",
+				category: "finance",
+				amountMinor: 6_000,
+				spentOn: "2026-10-30",
+			}),
+			line("main", "c", {
+				description: "CINEMA CARTE 1234",
+				category: "activities",
+				amountMinor: 1_500,
+				spentOn: "2026-11-02",
+			}),
+			line("main", "now", {
+				description: "PAIEMENT CB 0211 PARIS",
+				category: "food",
+				amountMinor: 700,
+				spentOn: "2026-11-02",
+			}),
+		]);
+		const stats = PersonalExpenseDTO.stats(ada.id, {}, { today: "2026-11-04" });
+		expect(stats.totals).toEqual([{ currency: "EUR", minor: 9_200 }]);
+		expect(stats.finance).toEqual([]);
+		expect(
+			PersonalExpenseDTO.spending(ada.id).some(
+				(row) => row.description === "RELEVE CARTE",
+			),
+		).toBe(false);
+		expect(PersonalExpenseDTO.pendingDeferred(ada.id)).toEqual([
+			{
+				accountUid: "main",
+				currency: "EUR",
+				since: "2026-10-30",
+				count: 1,
+				minor: 1_500,
+			},
+		]);
+		const [october, september] = PersonalExpenseDTO.cardStatements(ada.id);
+		expect(october).toEqual(
+			expect.objectContaining({
+				spentOn: "2026-10-30",
+				amountMinor: 6_000,
+				purchasesMinor: 5_000,
+			}),
+		);
+		expect(october?.purchaseIds).toHaveLength(2);
+		expect(september?.purchasesMinor).toBe(2_000);
+		const rows = PersonalExpenseDTO.page(ada.id, { limit: 50 }).entries.map(
+			(entry) => entry.toJSON(),
+		);
+		expect(
+			rows.find((row) => row.description === "PAIEMENT CB 0211 PARIS")
+				?.cardRole,
+		).toBeNull();
+	});
+
 	test("a shared account's lines count at half", () => {
 		const ada = createUser("ada");
 		const connection = twoAccounts(ada.id);

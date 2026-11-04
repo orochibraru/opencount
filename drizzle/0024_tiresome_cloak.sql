@@ -1,0 +1,3 @@
+ALTER TABLE `personal_expense` ADD `card_role` text;--> statement-breakpoint
+UPDATE `personal_expense` SET `card_role` = 'statement' WHERE `bank_ref` IS NOT NULL AND (`description` LIKE 'relev_ carte%' OR `description` LIKE 'relev_s carte%' OR `description` LIKE 'relev_ de carte%' OR `description` LIKE 'relev_s de carte%' OR `description` LIKE 'facture carte% diff%' OR `description` LIKE 'd_bit carte% diff%');--> statement-breakpoint
+UPDATE `personal_expense` SET `card_role` = 'deferred' WHERE `bank_ref` IS NOT NULL AND `card_role` IS NULL AND (`description` GLOB '* [Cc][Aa][Rr][Tt][Ee] [0-9][0-9][0-9][0-9]' OR `description` GLOB '* [Cc][Aa][Rr][Tt][Ee] [Xx][0-9][0-9][0-9][0-9]');

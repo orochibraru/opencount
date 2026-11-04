@@ -9,6 +9,7 @@ import {
 } from "drizzle-orm/sqlite-core";
 
 import type { AccountType } from "#lib/account-types.js";
+import { cardRoles } from "#lib/deferred-card.js";
 
 const createdAt = () =>
 	integer("created_at", { mode: "timestamp_ms" })
@@ -793,6 +794,7 @@ export const personalExpense = sqliteTable(
 		kind: text("kind", { enum: personalKinds }).notNull().default("expense"),
 		aside: integer("aside", { mode: "boolean" }).notNull().default(false),
 		pay: integer("pay", { mode: "boolean" }).notNull().default(false),
+		cardRole: text("card_role", { enum: cardRoles }),
 		currency: text("currency").notNull(),
 		spentOn: text("spent_on").notNull(),
 		bankRef: text("bank_ref"),

@@ -117,6 +117,12 @@ already have stay put, and the bank's full history comes in again without
 doubling anything. A link where Enable Banking can read no account is refused
 with the reason, and nothing is linked.
 
+A deferred debit card shows each purchase on its own day (a line ending in
+"CARTE 1234") and, once a month, the statement that takes their total from your
+account ("RELEVE CARTE"). Purchases count as spent on the day you made them; the
+statement never counts, so nothing is counted twice. Purchases made since the
+last statement are already spent but not yet taken from your balance.
+
 Delete an expense that came from your bank and it is hidden, so the next sync
 doesn't bring it back. A line from your bank keeps its amount, currency and
 description as the bank gave them: only its category, date, folder, set aside
