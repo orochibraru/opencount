@@ -1,5 +1,5 @@
 import type { SpendingRow } from "#lib/dto/personal-expense.js";
-import { monthEndFrom, monthStartOn, shiftMonth } from "#lib/pay-month.js";
+import { MonthCalendar } from "#lib/pay-month.js";
 import { similarKey } from "#lib/similar-key.js";
 import { spendingKind } from "#lib/spending-kind.js";
 
@@ -147,24 +147,24 @@ function topCategory(
 
 /**
  * Where someone's money stands on `today`, from their personal ledger `rows` (oldest first) in their main currency, with
- * months starting on day `startDay` (payday to payday when not 1):
+ * months following `calendar` (payday to payday when it says so):
  * this month's spending, income and savings, a forecast for the month's end, yesterday's report, their biggest habit,
  * their top category, the payments that repeat every month, and spending day by day.
  */
 export function moneyOverview(
 	rows: SpendingRow[],
 	today: string,
-	startDay = 1,
+	calendar = new MonthCalendar(),
 ): MoneyOverview {
 	const currency = mainCurrency(rows);
 	const own = rows.filter(
 		(row) => row.currency === currency && row.spentOn <= today,
 	);
 	const spent = own.filter((row) => spendingKind(row) === "spent");
-	const monthStart = monthStartOn(today, startDay);
+	const monthStart = calendar.startOf(today);
 	const elapsedDays = daysBetween(monthStart, today);
-	const monthEnd = monthEndFrom(monthStart);
-	const lastMonthStart = shiftMonth(monthStart, -1);
+	const monthEnd = calendar.endOf(monthStart);
+	const lastMonthStart = calendar.previous(monthStart);
 	const lastMonthEnd = shift(monthStart, -1);
 	const thisMonth = spent.filter((row) => row.spentOn >= monthStart);
 	const lastMonth = spent.filter(

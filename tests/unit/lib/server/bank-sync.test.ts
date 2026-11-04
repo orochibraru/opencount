@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { createVerify, generateKeyPairSync } from "node:crypto";
 
+import { AppearanceDTO } from "#lib/dto/appearance.js";
 import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
 import {
 	bankCredentialsFor,
@@ -638,6 +639,72 @@ describe("transfers between own accounts", () => {
 		expect(
 			PersonalExpenseDTO.spending(ada.id).map((row) => row.category),
 		).toEqual(["food", "income"]);
+	});
+
+	test("a line marked as pay brings the lines like it along and opens each month", () => {
+		const ada = createUser("ada");
+		const connection = twoAccounts(ada.id);
+		const salary = (ref: string, spentOn: string) =>
+			line("main", ref, {
+				kind: "income",
+				category: "income",
+				description: "Salary ACME",
+				amountMinor: 300_000,
+				spentOn,
+			});
+		PersonalExpenseDTO.importFromBank(ada.id, connection.id, [
+			salary("aug", "2026-08-28"),
+			salary("sep", "2026-09-25"),
+			line("main", "rent", { category: "housing", spentOn: "2026-09-26" }),
+			line("main", "car", {
+				category: "car",
+				amountMinor: 1_800_000,
+				spentOn: "2026-08-30",
+			}),
+			line("main", "late", {
+				category: "food",
+				amountMinor: 1_000,
+				spentOn: "2026-10-24",
+			}),
+		]);
+		const september = PersonalExpenseDTO.page(ada.id, {
+			limit: 50,
+			search: "salary",
+		}).entries.map((entry) => entry.toJSON());
+		expect(
+			PersonalExpenseDTO.markPay(ada.id, september[0]?.id ?? "", true),
+		).toBe(2);
+		expect(PersonalExpenseDTO.monthStarts(ada.id).paydays).toEqual([]);
+		AppearanceDTO.saveMonthStart(ada.id, { startDay: 1, fromPay: true });
+		PersonalExpenseDTO.importFromBank(ada.id, connection.id, [
+			salary("oct", "2026-10-23"),
+		]);
+		expect(PersonalExpenseDTO.monthStarts(ada.id).paydays).toEqual([
+			"2026-08-28",
+			"2026-09-25",
+			"2026-10-23",
+		]);
+		const stats = PersonalExpenseDTO.stats(
+			ada.id,
+			{},
+			{
+				calendar: PersonalExpenseDTO.monthCalendar(ada.id),
+				today: "2026-10-30",
+			},
+		);
+		expect(stats.thisMonth).toEqual([{ currency: "EUR", minor: 1_000 }]);
+		expect(stats.byCategoryThisMonth).toEqual([
+			{ category: "food", currency: "EUR", minor: 1_000 },
+		]);
+		expect(stats.byCategory[0]?.category).toBe("car");
+		expect(stats.byMonth.map((row) => row.month)).toEqual([
+			"2026-10-23",
+			"2026-09-25",
+			"2026-08-28",
+		]);
+		expect(
+			PersonalExpenseDTO.markPay(ada.id, september[0]?.id ?? "", false),
+		).toBe(3);
 	});
 
 	test("money into savings counts as set aside, and a refiled line stays as the person left it", () => {

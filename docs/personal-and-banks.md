@@ -45,6 +45,18 @@ month", its month headings ("25 Oct – 24 Nov"), the Home tab and Personal
 Insights then count each month from that day to the day before it comes back.
 Groups keep calendar months.
 
+Paid on a different day each month? Choose **The day my pay comes in** instead,
+then pick **This is my pay** in your salary's menu. Every income line with the
+same description is marked with it, and so are those the next bank syncs bring.
+Each month then opens the day your pay landed and runs until the next one: paid
+early on the 23rd, your new month starts on the 23rd. A second payment within
+three weeks stays in the same month. Before your first marked pay and while the
+next one hasn't landed, months fall on the same day of the month as the nearest
+pay. **Not my pay** undoes it.
+
+The category bars on Personal's totals card count this month only, like the
+total above them; a folder or a search shows them for every month.
+
 ## Folders
 
 A folder is a project inside Personal: a trip, a renovation. Create one with

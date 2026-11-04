@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from "$app/paths";
+	import BanknoteIcon from "@lucide/svelte/icons/banknote";
 	import FolderIcon from "@lucide/svelte/icons/folder";
 	import FolderInputIcon from "@lucide/svelte/icons/folder-input";
 	import HandCoinsIcon from "@lucide/svelte/icons/hand-coins";
@@ -45,7 +46,7 @@
 	} from "#lib/dto/personal-expense.js";
 	import { listBlocks } from "#lib/list-blocks.js";
 	import { formatMoney } from "#lib/money.js";
-	import { monthLabel, monthStartOn } from "#lib/pay-month.js";
+	import { MonthCalendar, type MonthStarts } from "#lib/pay-month.js";
 
 	interface Props {
 		expenses: PersonalExpenseRow[];
@@ -53,7 +54,7 @@
 		matching: number;
 		pageSize: number;
 		stats: PersonalStats;
-		monthStartDay: number;
+		months: MonthStarts;
 		categories: CustomCategory[];
 		category: string | null;
 		search: string;
@@ -82,7 +83,7 @@
 		matching,
 		pageSize,
 		stats,
-		monthStartDay,
+		months,
 		categories,
 		category,
 		search,
@@ -197,16 +198,13 @@
 			: (entry.bankName ?? undefined);
 	}
 
-	const months = $derived(
-		listBlocks(
-			expenses,
-			(entry) => monthStartOn(entry.spentOn, monthStartDay),
-			leftOff,
-		),
+	const calendar = $derived(new MonthCalendar(months));
+	const monthBlocks = $derived(
+		listBlocks(expenses, (entry) => calendar.startOf(entry.spentOn), leftOff),
 	);
 
 	const topCategories = $derived(
-		stats.byCategory
+		(folder || filtered ? stats.byCategory : stats.byCategoryThisMonth)
 			.filter((row) => row.currency === defaultCurrency)
 			.slice(0, 5),
 	);
@@ -274,6 +272,22 @@
 						},
 					]
 				: []),
+			...(entry.kind === "income"
+				? [
+						{
+							label: entry.pay ? "Not my pay" : "This is my pay",
+							icon: BanknoteIcon,
+							form: {
+								action: `${action}?/pay`,
+								fields: { id: entry.id, pay: String(!entry.pay) },
+								loading: entry.pay ? "Unmarking your pay" : "Marking your pay",
+								success: entry.pay
+									? "No longer counted as your pay."
+									: "Marked as your pay, with every line like it.",
+							},
+						},
+					]
+				: []),
 			...(shareGroups.length > 0 && !entry.sharedGroupId
 				? [
 						{
@@ -317,6 +331,7 @@
 		);
 		return [
 			entry.aside ? "Set aside" : day,
+			entry.pay ? "Pay" : null,
 			!folder ? entry.folderName : null,
 			sourceOf(entry),
 		]
@@ -464,14 +479,14 @@
 			</EmptyState>
 		{:else}
 			<div class="flex flex-col gap-6">
-				{#each months as block (block.key)}
+				{#each monthBlocks as block (block.key)}
 					{#if block.loadedFromHere}<LoadedFromHere />{/if}
 					<div>
 						{#if block.heading}
 							<h2
 								class="text-muted-foreground mb-2 flex items-baseline justify-between px-1 text-sm font-medium"
 							>
-								<span>{monthLabel(block.group)}</span>
+								<span>{calendar.label(block.group)}</span>
 								<span class="tabular">{monthTotal(block.group)}</span>
 							</h2>
 						{/if}

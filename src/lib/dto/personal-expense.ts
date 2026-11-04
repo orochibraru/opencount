@@ -15,10 +15,11 @@ import {
 	sql,
 } from "drizzle-orm";
 
+import { AppearanceDTO } from "#lib/dto/appearance.js";
 import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
 import { BaseDTO } from "#lib/dto/base-dto.js";
 import { fuzzyMatches } from "#lib/fuzzy.js";
-import { monthStartOn, shiftMonth } from "#lib/pay-month.js";
+import { MonthCalendar, type MonthStarts } from "#lib/pay-month.js";
 import { databaseConnection } from "#lib/server/db/database.js";
 import {
 	bankConnection,
@@ -42,6 +43,7 @@ export interface PersonalExpenseRow {
 	spentOn: string;
 	kind: PersonalKind;
 	aside: boolean;
+	pay: boolean;
 	folderId: string | null;
 	folderName: string | null;
 	bankName: string | null;
@@ -117,6 +119,7 @@ export interface PersonalStats {
 	income: MoneyTotal[];
 	incomeThisMonth: MoneyTotal[];
 	byCategory: (MoneyTotal & { category: string })[];
+	byCategoryThisMonth: (MoneyTotal & { category: string })[];
 	byMonth: (MoneyTotal & { month: string })[];
 }
 
@@ -133,6 +136,7 @@ function select() {
 			spentOn: personalExpense.spentOn,
 			kind: personalExpense.kind,
 			aside: personalExpense.aside,
+			pay: personalExpense.pay,
 			folderId: personalExpense.folderId,
 			folderName: personalFolder.name,
 			bankName: bankConnection.bankName,
@@ -218,6 +222,48 @@ function mine(userId: string): SQL<number> {
 		: sql<number>`case when ${inArray(personalExpense.bankAccountUid, shared)} then ${personalExpense.amountMinor} / 2 else ${personalExpense.amountMinor} end`;
 }
 
+/** The ids of `userId`'s lines of `kind` (line `id`'s own when left out) whose description matches line `id`'s, its own included. */
+function lookAlikeIds(
+	userId: string,
+	id: string,
+	kind?: PersonalKind,
+): string[] {
+	const database = databaseConnection.get();
+	const line = database
+		.select({
+			description: personalExpense.description,
+			kind: personalExpense.kind,
+		})
+		.from(personalExpense)
+		.where(
+			and(
+				eq(personalExpense.userId, userId),
+				eq(personalExpense.id, id),
+				kind ? eq(personalExpense.kind, kind) : undefined,
+			),
+		)
+		.get();
+	if (!line) {
+		return [];
+	}
+	const key = similarKey(line.description);
+	return database
+		.select({
+			id: personalExpense.id,
+			description: personalExpense.description,
+		})
+		.from(personalExpense)
+		.where(
+			and(
+				eq(personalExpense.userId, userId),
+				eq(personalExpense.kind, line.kind),
+			),
+		)
+		.all()
+		.filter((row) => row.id === id || similarKey(row.description) === key)
+		.map((row) => row.id);
+}
+
 export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 	/** The latest `limit` of `userId`'s own expenses matching `filter`, skipping the first `offset`, with how many match. */
 	static page(
@@ -248,16 +294,16 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 	}
 
 	/**
-	 * Totals of `userId`'s expenses matching `filter`: spent in all, this month, by category and by month, and what was
-	 * set aside or came in, in all and this month, apart. Months start on day `startDay`, payday to payday when not 1.
+	 * Totals of `userId`'s expenses matching `filter`: spent in all and this month, by category in all and this month, by
+	 * month, and what was set aside or came in, in all and this month, apart. Months follow `calendar`.
 	 */
 	static stats(
 		userId: string,
 		filter: PersonalFilter = {},
 		{
-			startDay = 1,
+			calendar = new MonthCalendar(),
 			today = new Date().toISOString().slice(0, 10),
-		}: { startDay?: number; today?: string } = {},
+		}: { calendar?: MonthCalendar; today?: string } = {},
 	): PersonalStats {
 		const database = databaseConnection.get();
 		const minor = sql<number>`sum(${mine(userId)})`.mapWith(Number);
@@ -283,10 +329,10 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 			eq(personalExpense.kind, "income"),
 			eq(personalExpense.aside, false),
 		);
-		const monthStart = monthStartOn(today, startDay);
+		const monthStart = calendar.startOf(today);
 		const thisMonth = and(
 			gte(personalExpense.spentOn, monthStart),
-			lt(personalExpense.spentOn, shiftMonth(monthStart, 1)),
+			lt(personalExpense.spentOn, calendar.next(monthStart)),
 		);
 		const totalsOf = (where: SQL | undefined) =>
 			database
@@ -294,6 +340,18 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 				.from(personalExpense)
 				.where(where)
 				.groupBy(personalExpense.currency)
+				.orderBy(desc(minor))
+				.all();
+		const byCategoryOf = (where: SQL | undefined) =>
+			database
+				.select({
+					category: personalExpense.category,
+					currency: personalExpense.currency,
+					minor,
+				})
+				.from(personalExpense)
+				.where(where)
+				.groupBy(personalExpense.category, personalExpense.currency)
 				.orderBy(desc(minor))
 				.all();
 		const byMonth = new Map<string, MoneyTotal & { month: string }>();
@@ -307,7 +365,7 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 			.where(scope)
 			.groupBy(personalExpense.spentOn, personalExpense.currency)
 			.all()) {
-			const month = monthStartOn(row.day, startDay);
+			const month = calendar.startOf(row.day);
 			const key = `${month}:${row.currency}`;
 			const entry = byMonth.get(key) ?? {
 				month,
@@ -326,22 +384,61 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 			financeThisMonth: totalsOf(and(finance, thisMonth)),
 			totals: totalsOf(scope),
 			thisMonth: totalsOf(and(scope, thisMonth)),
-			byCategory: database
-				.select({
-					category: personalExpense.category,
-					currency: personalExpense.currency,
-					minor,
-				})
-				.from(personalExpense)
-				.where(scope)
-				.groupBy(personalExpense.category, personalExpense.currency)
-				.orderBy(desc(minor))
-				.all(),
+			byCategory: byCategoryOf(scope),
+			byCategoryThisMonth: byCategoryOf(and(scope, thisMonth)),
 			byMonth: [...byMonth.values()].toSorted(
 				(left, right) =>
 					right.month.localeCompare(left.month) || right.minor - left.minor,
 			),
 		};
+	}
+
+	/** Where `userId`'s months start: their chosen day, and the days their pay came in when months follow it. */
+	static monthStarts(userId: string): MonthStarts {
+		const setting = AppearanceDTO.monthSettingFor(userId);
+		return {
+			startDay: setting.startDay,
+			paydays: setting.fromPay
+				? databaseConnection
+						.get()
+						.selectDistinct({ day: personalExpense.spentOn })
+						.from(personalExpense)
+						.where(
+							and(
+								visible(userId),
+								eq(personalExpense.kind, "income"),
+								eq(personalExpense.pay, true),
+							),
+						)
+						.orderBy(personalExpense.spentOn)
+						.all()
+						.map((row) => row.day)
+				: [],
+		};
+	}
+
+	/** The calendar `userId`'s months follow. */
+	static monthCalendar(userId: string): MonthCalendar {
+		return new MonthCalendar(PersonalExpenseDTO.monthStarts(userId));
+	}
+
+	/**
+	 * Marks `userId`'s income line `id` as their pay, or not, and every income line with the same description with it;
+	 * returns how many lines changed.
+	 */
+	static markPay(userId: string, id: string, pay: boolean): number {
+		const ids = lookAlikeIds(userId, id, "income");
+		return ids.length === 0
+			? 0
+			: databaseConnection
+					.get()
+					.update(personalExpense)
+					.set({ pay })
+					.where(
+						and(inArray(personalExpense.id, ids), ne(personalExpense.pay, pay)),
+					)
+					.returning({ id: personalExpense.id })
+					.all().length;
 	}
 
 	/** The oldest day each of `userId`'s bank links brought a line for, keyed by link id: how far back its history goes. */
@@ -600,6 +697,21 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 		if (expenses.length === 0) {
 			return 0;
 		}
+		const payKeys = new Set(
+			databaseConnection
+				.get()
+				.selectDistinct({ description: personalExpense.description })
+				.from(personalExpense)
+				.where(
+					and(
+						eq(personalExpense.userId, userId),
+						eq(personalExpense.kind, "income"),
+						eq(personalExpense.pay, true),
+					),
+				)
+				.all()
+				.map((row) => similarKey(row.description)),
+		);
 		return databaseConnection
 			.get()
 			.insert(personalExpense)
@@ -608,6 +720,9 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 					...entry,
 					userId,
 					bankConnectionId: connectionId,
+					pay:
+						entry.kind === "income" &&
+						payKeys.has(similarKey(entry.description)),
 				})),
 			)
 			.onConflictDoNothing({

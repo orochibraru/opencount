@@ -7,7 +7,6 @@ import {
 	summarize,
 } from "#lib/analytics.js";
 import { categoryOptions } from "#lib/categories.js";
-import { AppearanceDTO } from "#lib/dto/appearance.js";
 import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
 import { PersonalCategoryDTO } from "#lib/dto/personal-category.js";
 import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
@@ -83,7 +82,7 @@ export const load = async ({ parent, url }) => {
 		period,
 		new Date().toISOString().slice(0, 10),
 		inCurrency[0]?.spentOn,
-		AppearanceDTO.monthStartFor(user.id),
+		PersonalExpenseDTO.monthCalendar(user.id),
 	);
 	const inRange = inCurrency.filter(
 		(row) => row.spentOn >= range.from && row.spentOn <= range.to,

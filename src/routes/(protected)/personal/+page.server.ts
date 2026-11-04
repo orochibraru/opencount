@@ -19,6 +19,7 @@ import { idSchema, parseForm } from "#lib/server/validation/form.js";
 import {
 	monthStartSchema,
 	parsePersonalForm,
+	paySchema,
 } from "#lib/server/validation/personal.js";
 import { splitByWeight } from "#lib/split.js";
 
@@ -168,8 +169,29 @@ export const actions = {
 		if (!parsed.success) {
 			return fail(400, { errors: parsed.errors });
 		}
-		AppearanceDTO.saveMonthStart(locals.user.id, parsed.data.monthStartDay);
-		return { monthStartDay: parsed.data.monthStartDay };
+		AppearanceDTO.saveMonthStart(locals.user.id, {
+			startDay: parsed.data.monthStartDay,
+			fromPay: parsed.data.fromPay,
+		});
+		return { monthSaved: true };
+	},
+	pay: async ({ locals, request }) => {
+		if (!locals.user) {
+			return fail(401, { error: "Sign in again to continue." });
+		}
+		const parsed = parseForm(paySchema, await request.formData());
+		if (!parsed.success) {
+			return fail(400, { errors: parsed.errors });
+		}
+		const changed = PersonalExpenseDTO.markPay(
+			locals.user.id,
+			parsed.data.id,
+			parsed.data.pay,
+		);
+		if (changed === 0) {
+			return fail(404, { error: "That income line no longer exists." });
+		}
+		return { changed };
 	},
 	moveToFolder: async ({ locals, request }) => {
 		if (!locals.user) {

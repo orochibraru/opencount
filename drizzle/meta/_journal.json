@@ -155,6 +155,13 @@
       "when": 1793184577831,
       "tag": "0021_optimal_squadron_sinister",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1793811088704,
+      "tag": "0022_foamy_white_queen",
+      "breakpoints": true
     }
   ]
 }

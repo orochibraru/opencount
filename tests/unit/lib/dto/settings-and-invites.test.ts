@@ -177,13 +177,19 @@ describe("AppearanceDTO", () => {
 	test("the month starts on the 1st until someone picks their payday", () => {
 		const ada = createUser("ada");
 		const grace = createUser("grace");
-		expect(AppearanceDTO.monthStartFor(ada.id)).toBe(1);
-		AppearanceDTO.saveMonthStart(grace.id, 25);
-		expect(AppearanceDTO.monthStartFor(grace.id)).toBe(25);
+		expect(AppearanceDTO.monthSettingFor(ada.id)).toEqual({
+			startDay: 1,
+			fromPay: false,
+		});
+		AppearanceDTO.saveMonthStart(grace.id, { startDay: 25, fromPay: true });
+		expect(AppearanceDTO.monthSettingFor(grace.id)).toEqual({
+			startDay: 25,
+			fromPay: true,
+		});
 		const custom = { ...defaultAppearance, accent: "rose" as const };
 		AppearanceDTO.save(ada.id, custom);
-		AppearanceDTO.saveMonthStart(ada.id, 3);
-		expect(AppearanceDTO.monthStartFor(ada.id)).toBe(3);
+		AppearanceDTO.saveMonthStart(ada.id, { startDay: 3, fromPay: false });
+		expect(AppearanceDTO.monthSettingFor(ada.id).startDay).toBe(3);
 		expect(AppearanceDTO.forUser(ada.id).toJSON()).toEqual(custom);
 	});
 });

@@ -6,8 +6,13 @@ import { appearance, type homePages } from "#lib/server/db/schema.js";
 
 export type Appearance = Omit<
 	typeof appearance.$inferSelect,
-	"userId" | "updatedAt" | "home" | "monthStartDay"
+	"userId" | "updatedAt" | "home" | "monthStartDay" | "monthFromPay"
 >;
+
+export interface MonthSetting {
+	startDay: number;
+	fromPay: boolean;
+}
 
 export type HomePage = (typeof homePages)[number];
 
@@ -62,27 +67,41 @@ export class AppearanceDTO extends BaseDTO<Appearance> {
 			.run();
 	}
 
-	/** The day `userId`'s month starts on, 1 for calendar months or their payday for pay-to-pay months. */
-	static monthStartFor(userId: string): number {
-		return (
-			databaseConnection
-				.get()
-				.select({ monthStartDay: appearance.monthStartDay })
-				.from(appearance)
-				.where(eq(appearance.userId, userId))
-				.get()?.monthStartDay ?? 1
-		);
+	/** How `userId`'s months start: on day `startDay`, 1 for calendar months, or on the days their pay came in. */
+	static monthSettingFor(userId: string): MonthSetting {
+		const row = databaseConnection
+			.get()
+			.select({
+				startDay: appearance.monthStartDay,
+				fromPay: appearance.monthFromPay,
+			})
+			.from(appearance)
+			.where(eq(appearance.userId, userId))
+			.get();
+		return row ?? { startDay: 1, fromPay: false };
 	}
 
-	/** Stores the day `userId`'s month starts on, keeping the rest of their appearance. */
-	static saveMonthStart(userId: string, monthStartDay: number): void {
+	/** Stores how `userId`'s months start, keeping the rest of their appearance. */
+	static saveMonthStart(
+		userId: string,
+		{ startDay, fromPay }: MonthSetting,
+	): void {
 		databaseConnection
 			.get()
 			.insert(appearance)
-			.values({ userId, ...defaultAppearance, monthStartDay })
+			.values({
+				userId,
+				...defaultAppearance,
+				monthStartDay: startDay,
+				monthFromPay: fromPay,
+			})
 			.onConflictDoUpdate({
 				target: appearance.userId,
-				set: { monthStartDay, updatedAt: new Date() },
+				set: {
+					monthStartDay: startDay,
+					monthFromPay: fromPay,
+					updatedAt: new Date(),
+				},
 			})
 			.run();
 	}

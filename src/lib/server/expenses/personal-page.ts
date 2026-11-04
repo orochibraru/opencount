@@ -6,6 +6,7 @@ import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
 import { PersonalCategoryDTO } from "#lib/dto/personal-category.js";
 import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
 import { PersonalFolderDTO } from "#lib/dto/personal-folder.js";
+import { MonthCalendar } from "#lib/pay-month.js";
 
 const pageSize = 50;
 const limitSchema = z.coerce
@@ -54,10 +55,11 @@ class PersonalPage {
 			limit: limitSchema.parse(url.searchParams.get("limit") ?? pageSize),
 			...filter,
 		});
-		const monthStartDay = AppearanceDTO.monthStartFor(userId);
-		const stats = PersonalExpenseDTO.stats(userId, filter, {
-			startDay: monthStartDay,
-		});
+		const months = PersonalExpenseDTO.monthStarts(userId);
+		const calendar = new MonthCalendar(months);
+		const stats = PersonalExpenseDTO.stats(userId, filter, { calendar });
+		const defaultCurrency =
+			stats.totals[0]?.currency ?? page.entries[0]?.toJSON().currency ?? "EUR";
 		return {
 			expenses: page.entries.map((entry) => entry.toJSON()),
 			hasMore: page.total > page.entries.length,
@@ -70,12 +72,10 @@ class PersonalPage {
 			account: accountUid ?? null,
 			search: search ?? "",
 			stats,
-			monthStartDay,
+			months,
+			monthSetting: AppearanceDTO.monthSettingFor(userId),
 			folders: PersonalFolderDTO.forUser(userId).map((entry) => entry.toJSON()),
-			defaultCurrency:
-				stats.totals[0]?.currency ??
-				page.entries[0]?.toJSON().currency ??
-				"EUR",
+			defaultCurrency,
 		};
 	}
 }

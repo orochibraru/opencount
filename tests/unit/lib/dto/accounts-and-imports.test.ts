@@ -5,6 +5,7 @@ import { ExpenseDTO } from "#lib/dto/expense.js";
 import { GroupMemberDTO } from "#lib/dto/group-member.js";
 import { GroupDTO } from "#lib/dto/group.js";
 import { UserDTO } from "#lib/dto/user.js";
+import { MonthCalendar } from "#lib/pay-month.js";
 import { databaseConnection } from "#lib/server/db/database.js";
 import {
 	account,
@@ -335,7 +336,7 @@ describe("personal folders, stats and similar expenses", () => {
 		const payday = PersonalExpenseDTO.stats(
 			ada.id,
 			{},
-			{ startDay: 3, today: "2026-10-04" },
+			{ calendar: new MonthCalendar({ startDay: 3 }), today: "2026-10-04" },
 		);
 		expect(payday.thisMonth).toEqual([{ currency: "EUR", minor: 15_000 }]);
 		expect(payday.byMonth).toEqual([

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { SpendingRow } from "#lib/dto/personal-expense.js";
 import { moneyOverview } from "#lib/money-overview.js";
+import { MonthCalendar } from "#lib/pay-month.js";
 
 function row(
 	spentOn: string,
@@ -106,7 +107,7 @@ describe("moneyOverview", () => {
 				row("2026-10-26", "Bakery", 500),
 			],
 			"2026-10-27",
-			25,
+			new MonthCalendar({ startDay: 25 }),
 		);
 		expect(payday.monthStart).toBe("2026-10-25");
 		expect(payday.monthEnd).toBe("2026-11-24");

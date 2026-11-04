@@ -29,13 +29,14 @@
 	let monthOpen = $state(false);
 	let monthStart = $state("1");
 
-	const monthStartOptions = Array.from(
-		{ length: monthStartDays },
-		(_, index) => ({
+	const monthStartOptions = [
+		{ value: "pay", label: "The day my pay comes in" },
+		...Array.from({ length: monthStartDays }, (_, index) => ({
 			value: String(index + 1),
 			label: index === 0 ? "Day 1 (calendar months)" : `Day ${index + 1}`,
-		}),
-	);
+		})),
+	];
+	const fromPay = $derived(monthStart === "pay");
 	let folderErrors = $state<Record<string, string[]>>({});
 
 	setPageTitle("Personal", undefined, [
@@ -53,7 +54,9 @@
 			label: "Month start",
 			icon: CalendarRangeIcon,
 			onSelect: () => {
-				monthStart = String(data.monthStartDay);
+				monthStart = data.monthSetting.fromPay
+					? "pay"
+					: String(data.monthSetting.startDay);
 				monthOpen = true;
 			},
 		},
@@ -86,7 +89,7 @@
 	matching={data.matching}
 	pageSize={data.pageSize}
 	stats={data.stats}
-	monthStartDay={data.monthStartDay}
+	months={data.months}
 	categories={data.categories}
 	category={data.category}
 	search={data.search}
@@ -160,11 +163,24 @@
 			<Field.Label for="month-start">My month starts on</Field.Label>
 			<Picker
 				id="month-start"
-				name="monthStartDay"
+				name="monthStart"
 				label="Month start"
 				options={monthStartOptions}
 				bind:value={monthStart}
 			/>
+			<input
+				type="hidden"
+				name="monthStartDay"
+				value={fromPay ? data.monthSetting.startDay : monthStart}
+			/>
+			<input type="hidden" name="fromPay" value={String(fromPay)} />
+			{#if fromPay}
+				<Field.Description>
+					Each month opens the day your pay landed and runs until the next one.
+					Pick This is my pay in an income line's menu: lines like it, imported
+					later too, count as your pay.
+				</Field.Description>
+			{/if}
 		</Field.Field>
 		<Button type="submit" class="h-11 rounded-xl">
 			<CheckIcon />

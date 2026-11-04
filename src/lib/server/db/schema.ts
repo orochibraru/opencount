@@ -466,6 +466,9 @@ export const appearance = sqliteTable("appearance", {
 	corners: text("corners", { enum: cornerStyles }).notNull().default("rounded"),
 	home: text("home", { enum: homePages }),
 	monthStartDay: integer("month_start_day").notNull().default(1),
+	monthFromPay: integer("month_from_pay", { mode: "boolean" })
+		.notNull()
+		.default(false),
 	updatedAt: updatedAt(),
 });
 
@@ -784,6 +787,7 @@ export const personalExpense = sqliteTable(
 		amountMinor: integer("amount_minor").notNull(),
 		kind: text("kind", { enum: personalKinds }).notNull().default("expense"),
 		aside: integer("aside", { mode: "boolean" }).notNull().default(false),
+		pay: integer("pay", { mode: "boolean" }).notNull().default(false),
 		currency: text("currency").notNull(),
 		spentOn: text("spent_on").notNull(),
 		bankRef: text("bank_ref"),

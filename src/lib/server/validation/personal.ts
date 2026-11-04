@@ -42,6 +42,12 @@ export const monthStartSchema = z.object({
 		.int()
 		.min(1, "Pick a day.")
 		.max(monthStartDays, "Pick a day."),
+	fromPay: z.stringbool().default(false),
+});
+
+export const paySchema = z.object({
+	id: z.string().trim().min(1),
+	pay: z.stringbool(),
 });
 
 /** Validates the add or edit form of a personal expense. */
