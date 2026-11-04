@@ -8,7 +8,7 @@ import {
 	uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
-import type { AccountType } from "#lib/account-types.js";
+import { type AccountType, accountTypes } from "#lib/account-types.js";
 import { cardRoles } from "#lib/deferred-card.js";
 import { cadences, recurringTypes } from "#lib/recurring-schedule.js";
 
@@ -754,6 +754,26 @@ export const personalRule = sqliteTable(
 		createdAt: createdAt(),
 	},
 	(table) => [index("personal_rule_user_id_idx").on(table.userId)],
+);
+
+export const manualAccount = sqliteTable(
+	"manual_account",
+	{
+		id: text("id")
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		name: text("name").notNull(),
+		type: text("type", { enum: accountTypes }).notNull().default("checking"),
+		currency: text("currency").notNull(),
+		shared: integer("shared", { mode: "boolean" }).notNull().default(false),
+		balanceMinor: integer("balance_minor").notNull().default(0),
+		balanceAt: text("balance_at").notNull(),
+		createdAt: createdAt(),
+	},
+	(table) => [index("manual_account_user_id_idx").on(table.userId)],
 );
 
 export const personalCategory = sqliteTable(

@@ -90,13 +90,13 @@
 			icon: FolderPlusIcon,
 			onSelect: () => (folderOpen = true),
 		},
+		{
+			label: "Accounts",
+			icon: WalletIcon,
+			href: resolve("/(protected)/personal/accounts"),
+		},
 		...(untrack(() => data.bankSyncEnabled)
 			? [
-					{
-						label: "Accounts",
-						icon: WalletIcon,
-						href: resolve("/(protected)/personal/accounts"),
-					},
 					{
 						label: "Bank accounts",
 						icon: LandmarkIcon,

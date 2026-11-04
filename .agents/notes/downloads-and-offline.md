@@ -233,15 +233,16 @@
   `set_notes` writes or clears (empty string) notes on either ledger through
   `Ledger.setNotes`, scoped by user or group in the DTO. `list_accounts` and
   `set_balance` go through `accountBook` (`#lib/server/money/accounts.ts`), the
-  one reader of linked accounts: type (stored in the account JSON, else derived
-  from the shared and savings flags), and the newer of the synced and typed-in
-  balance; personal entries carry `accountId` (the bank account uid). Recurring
-  series live in `recurring_series` (label, type, frequency override, end date);
-  lines point at one through `recurring_id`, and `importFromBank` files a new
-  line in the series of an older line with the same kind and `similarKey`, like
-  pay. `recurringBook` (`#lib/server/money/recurring.ts`) turns series and lines
-  into payments with `recurringSchedule`; `list_recurring`, `set_recurring` and
-  the Recurring page all go through it. `periodSummary`
+  one reader of accounts, linked ones and those in `manual_account` added by
+  hand: type (stored in the account JSON, else derived from the shared and
+  savings flags), and the newer of the synced and typed-in balance; personal
+  entries carry `accountId` (the bank account uid). Recurring series live in
+  `recurring_series` (label, type, frequency override, end date); lines point at
+  one through `recurring_id`, and `importFromBank` files a new line in the
+  series of an older line with the same kind and `similarKey`, like pay.
+  `recurringBook` (`#lib/server/money/recurring.ts`) turns series and lines into
+  payments with `recurringSchedule`; `list_recurring`, `set_recurring` and the
+  Recurring page all go through it. `periodSummary`
   (`#lib/server/money/period-summary.ts`) is the one answer to "where does my
   money stand": `get_period_summary` and the home widget both call it, and the
   arithmetic of what's left until payday is `leftUntilPayday` in

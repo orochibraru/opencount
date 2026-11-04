@@ -782,8 +782,60 @@ describe("transfers between own accounts", () => {
 
 		connection.setAccountType("main", "investment");
 		expect(accountBook.held(ada.id, "EUR", true)).toBe(90_000);
-		expect(accountBook.connectionOf(ada.id, "main")?.id).toBe(connection.id);
-		expect(accountBook.connectionOf(ada.id, "gone")).toBeUndefined();
+		expect(accountBook.setType(ada.id, "gone", "savings")).toBe(false);
+		expect(accountBook.setShared(ada.id, "gone", true)).toBe(false);
+		expect(accountBook.setBalance(ada.id, "gone", 1, new Date())).toBe(false);
+		expect(accountBook.setShared(ada.id, "main", true)).toBe(true);
+		expect(accountBook.find(ada.id, "main")?.shared).toBe(true);
+		expect(
+			accountBook.setBalance(
+				ada.id,
+				"main",
+				80_000,
+				new Date("2026-10-05T12:00:00Z"),
+			),
+		).toBe(true);
+		expect(accountBook.find(ada.id, "main")?.balance?.minor).toBe(80_000);
+
+		const cash = accountBook.add(ada.id, {
+			name: "Cash",
+			type: "checking",
+			currency: "EUR",
+			shared: false,
+			minor: 12_000,
+			at: new Date("2026-10-05T12:00:00Z"),
+		});
+		expect(cash).toEqual(
+			expect.objectContaining({
+				name: "Cash",
+				connectionId: null,
+				bankName: null,
+				balance: {
+					minor: 12_000,
+					currency: "EUR",
+					at: "2026-10-05T12:00:00.000Z",
+					manual: true,
+				},
+			}),
+		);
+		const id = cash?.id ?? "";
+		expect(accountBook.setType(ada.id, id, "joint")).toBe(true);
+		expect(accountBook.find(ada.id, id)).toEqual(
+			expect.objectContaining({ type: "joint", shared: true }),
+		);
+		expect(accountBook.setShared(ada.id, id, false)).toBe(true);
+		expect(
+			accountBook.setBalance(
+				ada.id,
+				id,
+				-500,
+				new Date("2026-10-06T12:00:00Z"),
+			),
+		).toBe(true);
+		expect(accountBook.find(ada.id, id)?.balance?.minor).toBe(-500);
+		expect(accountBook.remove(ada.id, "main")).toBe(false);
+		expect(accountBook.remove(ada.id, id)).toBe(true);
+		expect(accountBook.find(ada.id, id)).toBeUndefined();
 	});
 
 	test("a deferred card counts each purchase once, never its statement", () => {

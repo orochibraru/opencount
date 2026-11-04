@@ -5,14 +5,6 @@ box while it's being worked on, and delete the entry once it's done.
 
 ## Medium
 
-- [ ] Accounts only exist through a linked bank: an account with no bank link
-      (cash, a broker the bank API can't reach) can't be added, so its balance
-      can't count in what's left until payday.
-- [ ] The money home's "Every month" card still guesses repeating payments from
-      descriptions; show the recurring series instead, so it matches the
-      Recurring page.
-- [ ] A transfer reads as one row only when both sides are on the loaded page;
-      load the other side with the page so a pair never splits at "Load more".
 - [ ] Adding someone to a group by email adds their account without asking them
       and tells the adder whether an account uses that email: turn it into an
       invite they accept.

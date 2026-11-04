@@ -7,7 +7,9 @@
 	import LandmarkIcon from "@lucide/svelte/icons/landmark";
 	import PencilIcon from "@lucide/svelte/icons/pencil";
 	import PiggyBankIcon from "@lucide/svelte/icons/piggy-bank";
+	import PlusIcon from "@lucide/svelte/icons/plus";
 	import TagIcon from "@lucide/svelte/icons/tag";
+	import Trash2Icon from "@lucide/svelte/icons/trash-2";
 	import UsersIcon from "@lucide/svelte/icons/users";
 	import WalletIcon from "@lucide/svelte/icons/wallet";
 	import type { Component } from "svelte";
@@ -19,18 +21,55 @@
 	} from "#lib/account-types.js";
 	import DateField from "#lib/components/date-field.svelte";
 	import EmptyState from "#lib/components/empty-state.svelte";
+	import Fab from "#lib/components/fab.svelte";
 	import ItemMenu from "#lib/components/item-menu.svelte";
+	import Picker from "#lib/components/picker.svelte";
 	import ResponsiveSheet from "#lib/components/responsive-sheet.svelte";
 	import { Button } from "#lib/components/ui/button/index.js";
 	import * as Field from "#lib/components/ui/field/index.js";
 	import { Input } from "#lib/components/ui/input/index.js";
+	import { currencies } from "#lib/currencies.js";
 	import { currencyDigits, formatMoney } from "#lib/money.js";
 	import { setPageTitle } from "#lib/page-title.svelte.js";
 	import { enhanceToast } from "#lib/toast.js";
 
 	const { data } = $props();
 
-	setPageTitle("Accounts", resolve("/(protected)/personal"));
+	let adding = $state(false);
+	let newName = $state("");
+	let newType = $state<string>("checking");
+	let newCurrency = $state("EUR");
+	let newAmount = $state("");
+	let newAsOf = $state("");
+	let addErrors = $state<Record<string, string[]>>({});
+
+	const typeOptions = accountTypes.map((type) => ({
+		value: type,
+		label: accountTypeLabels[type],
+	}));
+	const currencyOptions = currencies.map((code) => ({
+		value: code,
+		label: code,
+	}));
+
+	function startAdding() {
+		newName = "";
+		newType = "checking";
+		newCurrency = data.accounts[0]?.currency ?? "EUR";
+		newAmount = "";
+		newAsOf = new Date().toISOString().slice(0, 10);
+		addErrors = {};
+		adding = true;
+	}
+
+	setPageTitle("Accounts", resolve("/(protected)/personal"), [
+		{
+			label: "Add an account",
+			icon: PlusIcon,
+			onSelect: startAdding,
+			primary: true,
+		},
+	]);
 
 	type Account = (typeof data.accounts)[number];
 
@@ -59,7 +98,7 @@
 
 	function detail(account: Account): string {
 		return [
-			account.bankName,
+			account.bankName ?? "Added by hand",
 			accountTypeLabels[account.type],
 			account.shared ? "Shared, counts half" : null,
 		]
@@ -100,16 +139,23 @@
 		<EmptyState
 			icon={LandmarkIcon}
 			title="No account yet"
-			subtitle="Link a bank to see its accounts and balances here."
+			subtitle="Link a bank to see its accounts here, or add one by hand, like cash or a broker, and keep its balance yourself."
 		>
-			<Button
-				href={resolve("/(protected)/account/banks/linked")}
-				size="lg"
-				class="h-11 rounded-xl px-6"
-			>
-				<LandmarkIcon />
-				Link a bank
-			</Button>
+			<div class="flex flex-wrap justify-center gap-2">
+				<Button size="lg" class="h-11 rounded-xl px-6" onclick={startAdding}>
+					<PlusIcon />
+					Add an account
+				</Button>
+				<Button
+					href={resolve("/(protected)/account/banks/linked")}
+					size="lg"
+					variant="secondary"
+					class="h-11 rounded-xl px-6"
+				>
+					<LandmarkIcon />
+					Link a bank
+				</Button>
+			</div>
 		</EmptyState>
 	{:else}
 		<ul
@@ -151,6 +197,27 @@
 									success: "Saved.",
 								},
 							},
+							...(account.connectionId === null
+								? [
+										{
+											label: "Delete",
+											icon: Trash2Icon,
+											destructive: true,
+											form: {
+												action: "?/remove",
+												fields: { id: account.id },
+												loading: "Deleting the account",
+												success: "Account deleted.",
+												confirm: {
+													title: `Delete ${account.name}?`,
+													description:
+														"Its balance stops counting anywhere. Your expenses stay.",
+													confirmLabel: "Delete",
+												},
+											},
+										},
+									]
+								: []),
 						]}
 					>
 						<span
@@ -181,6 +248,84 @@
 		</ul>
 	{/if}
 </div>
+
+<Fab label="Add an account" icon={PlusIcon} onclick={startAdding} />
+
+<ResponsiveSheet
+	bind:open={adding}
+	title="Add an account"
+	description="For money no linked bank reports, like cash or a broker. You keep its balance up to date."
+>
+	<form
+		method="POST"
+		action="?/add"
+		class="flex flex-col gap-4 pb-4"
+		use:enhance={enhanceToast({
+			loading: "Adding the account",
+			success: "Account added.",
+			onFailure: (result) =>
+				(addErrors = (result?.errors as Record<string, string[]>) ?? {}),
+			onSuccess: () => {
+				adding = false;
+			},
+		})}
+	>
+		<Field.Field>
+			<Field.Label for="new-name">Name</Field.Label>
+			<Input
+				id="new-name"
+				name="name"
+				required
+				maxlength={60}
+				placeholder="Cash"
+				class="h-11"
+				bind:value={newName}
+			/>
+			<Field.Error errors={addErrors.name?.map((message) => ({ message }))} />
+		</Field.Field>
+		<Field.Field>
+			<Field.Label for="new-type">Type</Field.Label>
+			<Picker
+				id="new-type"
+				name="type"
+				label="Type"
+				options={typeOptions}
+				bind:value={newType}
+			/>
+		</Field.Field>
+		<Field.Field>
+			<Field.Label for="new-currency">Currency</Field.Label>
+			<Picker
+				id="new-currency"
+				name="currency"
+				label="Currency"
+				options={currencyOptions}
+				bind:value={newCurrency}
+			/>
+		</Field.Field>
+		<Field.Field>
+			<Field.Label for="new-amount">Balance</Field.Label>
+			<Input
+				id="new-amount"
+				name="amount"
+				inputmode="decimal"
+				required
+				placeholder="250.00"
+				class="h-11"
+				bind:value={newAmount}
+			/>
+			<Field.Error errors={addErrors.amount?.map((message) => ({ message }))} />
+		</Field.Field>
+		<Field.Field>
+			<Field.Label for="new-day">On</Field.Label>
+			<DateField id="new-day" name="asOf" label="Day" bind:value={newAsOf} />
+		</Field.Field>
+		<Button type="submit" class="h-11 rounded-xl">
+			<CheckIcon />
+			Add the account
+		</Button>
+	</form>
+</ResponsiveSheet>
 
 {#if typing}
 	<ResponsiveSheet

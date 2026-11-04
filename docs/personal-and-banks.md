@@ -157,7 +157,9 @@ overdrawn account: type a minus). Each account has a type: everyday account,
 joint account, savings, investments or credit card. Savings and investments hold
 money set aside, so money moved into them counts as set aside, and a joint
 account is shared: it counts at half. **Shared with someone** marks any account
-that way without changing its type.
+that way without changing its type. **Add an account** adds one no bank reports,
+like cash or a broker: you keep its balance with **Set the balance**, it counts
+like any other, and it can be deleted.
 
 **Relink or change accounts** sends you through the bank's consent screen again
 for the same bank: use it when the 90 days run out or to add or drop accounts

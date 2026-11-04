@@ -706,7 +706,7 @@ class McpEndpoint {
 			accountBook.list(userId).map((account) => ({
 				id: account.id,
 				name: account.name,
-				bank: account.bankName,
+				bank: account.bankName ?? "Added by hand",
 				type: account.type,
 				currency: account.currency,
 				isShared: account.shared,
@@ -755,11 +755,10 @@ class McpEndpoint {
 			},
 			({ accountId, amount, asOf }) => {
 				const account = accountBook.find(userId, accountId);
-				const connection = accountBook.connectionOf(userId, accountId);
 				const minor = account
 					? parseSignedMoney(amount, account.currency)
 					: undefined;
-				if (!account || !connection || minor === undefined) {
+				if (!account || minor === undefined) {
 					return {
 						...this.#reply({
 							error: account
@@ -769,7 +768,8 @@ class McpEndpoint {
 						isError: true,
 					};
 				}
-				connection.setManualBalance(
+				accountBook.setBalance(
+					userId,
 					accountId,
 					minor,
 					new Date(`${asOf}T12:00:00Z`),
