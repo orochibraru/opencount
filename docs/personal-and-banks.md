@@ -101,6 +101,15 @@ when the link lasts, or why the last sync failed. Its menu has **Sync now**,
 only hand it over shortly after you confirm the link), **Relink or change
 accounts** and **Unlink**, which stops the sync.
 
+**Accounts** in Personal's menu lists every linked account with its balance: the
+one your bank reported at the last sync, or one you typed in with **Set the
+balance** when that is newer (handy when a bank reports none, or for an
+overdrawn account: type a minus). Each account has a type: everyday account,
+joint account, savings, investments or credit card. Savings and investments hold
+money set aside, so money moved into them counts as set aside, and a joint
+account is shared: it counts at half. **Shared with someone** marks any account
+that way without changing its type.
+
 **Relink or change accounts** sends you through the bank's consent screen again
 for the same bank: use it when the 90 days run out or to add or drop accounts
 (some banks let you pick them there, others share every account). The lines you

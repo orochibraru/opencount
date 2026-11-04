@@ -1,5 +1,3 @@
-import { fail } from "@sveltejs/kit";
-
 import {
 	type Period,
 	periodRange,
@@ -12,9 +10,7 @@ import { PersonalCategoryDTO } from "#lib/dto/personal-category.js";
 import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
 import { PersonalFolderDTO } from "#lib/dto/personal-folder.js";
 import { fuzzyMatches } from "#lib/fuzzy.js";
-import { bankSync } from "#lib/server/banking/bank-sync.js";
-import { parseForm } from "#lib/server/validation/form.js";
-import { accountFlagSchema } from "#lib/server/validation/personal.js";
+import { accountBook } from "#lib/server/money/accounts.js";
 import { spendingKind } from "#lib/spending-kind.js";
 
 /** The Insights filter in `url`, each value kept only when it is one of `known`. */
@@ -103,21 +99,6 @@ export const load = async ({ parent, url }) => {
 		range,
 		null,
 	);
-	const held = (savings: boolean) =>
-		accounts
-			.filter(
-				(account) =>
-					Boolean(account.savings) === savings &&
-					account.balance?.currency === currency,
-			)
-			.reduce(
-				(total, account) =>
-					total +
-					(account.shared
-						? Math.trunc((account.balance?.minor ?? 0) / 2)
-						: (account.balance?.minor ?? 0)),
-				0,
-			);
 	return {
 		period,
 		filter,
@@ -127,44 +108,15 @@ export const load = async ({ parent, url }) => {
 		incomeMinor: sum((row) => spendingKind(row) === "income"),
 		asideMinor: sum((row) => spendingKind(row) === "aside"),
 		financeMinor: sum((row) => spendingKind(row) === "finance"),
-		availableMinor: held(false),
-		investedMinor: held(true),
-		accounts: accounts.map(
-			({ uid, name, bankName, connectionId, shared, savings, balance }) => ({
-				uid,
-				name,
-				bankName,
-				connectionId,
-				shared: shared ?? false,
-				savings: savings ?? false,
-				balance: balance ?? null,
-			}),
-		),
+		availableMinor: accountBook.held(user.id, currency, false),
+		investedMinor: accountBook.held(user.id, currency, true),
+		accounts: accounts.map(({ uid, name, bankName, connectionId }) => ({
+			uid,
+			name,
+			bankName,
+			connectionId,
+		})),
 		categories: custom,
 		folders,
 	};
-};
-
-export const actions = {
-	setAccount: async ({ locals, request }) => {
-		if (!locals.user) {
-			return fail(401, { error: "Sign in again to continue." });
-		}
-		const parsed = parseForm(accountFlagSchema, await request.formData());
-		const connection = parsed.success
-			? BankConnectionDTO.findForUser(parsed.data.connectionId, locals.user.id)
-			: undefined;
-		if (
-			!parsed.success ||
-			!connection?.setAccountFlags(parsed.data.uid, {
-				[parsed.data.flag]: parsed.data.value,
-			})
-		) {
-			return fail(404, { error: "That account isn't linked anymore." });
-		}
-		if (parsed.data.flag === "savings") {
-			bankSync.pairTransfers(locals.user.id);
-		}
-		return { saved: true };
-	},
 };

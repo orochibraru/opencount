@@ -1,12 +1,20 @@
 import { describe, expect, test } from "bun:test";
 
 import { computeBalances, settleUp } from "#lib/balances.js";
-import { currencyDigits, formatMoney, parseMoney } from "#lib/money.js";
+import {
+	currencyDigits,
+	formatMoney,
+	parseMoney,
+	parseSignedMoney,
+} from "#lib/money.js";
 import { splitByWeight } from "#lib/split.js";
 
 describe("money", () => {
 	test("parses what people type, per currency", () => {
 		expect(parseMoney("12", "EUR")).toBe(1200);
+		expect(parseSignedMoney("-35,10", "EUR")).toBe(-3510);
+		expect(parseSignedMoney("+12", "EUR")).toBe(1200);
+		expect(parseSignedMoney("-x", "EUR")).toBeUndefined();
 		expect(parseMoney("12,5", "EUR")).toBe(1250);
 		expect(parseMoney(" 1 234.56 ", "EUR")).toBe(123_456);
 		expect(parseMoney("1200", "JPY")).toBe(1200);

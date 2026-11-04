@@ -10,6 +10,7 @@
 	import LandmarkIcon from "@lucide/svelte/icons/landmark";
 	import PlusIcon from "@lucide/svelte/icons/plus";
 	import TagsIcon from "@lucide/svelte/icons/tags";
+	import WalletIcon from "@lucide/svelte/icons/wallet";
 	import { untrack } from "svelte";
 
 	import PersonalView from "#lib/components/personal/personal-view.svelte";
@@ -67,6 +68,11 @@
 		},
 		...(untrack(() => data.bankSyncEnabled)
 			? [
+					{
+						label: "Accounts",
+						icon: WalletIcon,
+						href: resolve("/(protected)/personal/accounts"),
+					},
 					{
 						label: "Bank accounts",
 						icon: LandmarkIcon,

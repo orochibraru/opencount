@@ -278,7 +278,9 @@ class BankSync {
 						}),
 						shared: previous.shared,
 						savings: previous.savings ?? account.savings,
+						type: previous.type,
 						balance: previous.balance,
+						manualBalance: previous.manualBalance,
 					}
 				: account;
 		});

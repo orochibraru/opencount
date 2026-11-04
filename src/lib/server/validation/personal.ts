@@ -25,13 +25,6 @@ const personalSchema = z.object({
 		.default(""),
 });
 
-export const accountFlagSchema = z.object({
-	connectionId: z.string().trim().min(1),
-	uid: z.string().trim().min(1),
-	flag: z.enum(["shared", "savings"]),
-	value: z.stringbool(),
-});
-
 export const accountNamesSchema = z
 	.object({ id: z.string().trim().min(1) })
 	.catchall(z.string().trim().max(60, "Keep names under 60 characters."));

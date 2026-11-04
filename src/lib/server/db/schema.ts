@@ -8,6 +8,8 @@ import {
 	uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
+import type { AccountType } from "#lib/account-types.js";
+
 const createdAt = () =>
 	integer("created_at", { mode: "timestamp_ms" })
 		.notNull()
@@ -754,7 +756,9 @@ export const bankConnection = sqliteTable(
 					originalName?: string;
 					shared?: boolean;
 					savings?: boolean;
+					type?: AccountType;
 					balance?: { minor: number; currency: string; at: string };
+					manualBalance?: { minor: number; currency: string; at: string };
 				}[]
 			>()
 			.notNull(),

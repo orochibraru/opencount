@@ -21,9 +21,10 @@ import { MerchantDTO } from "#lib/dto/merchant.js";
 import { PersonalCategoryDTO } from "#lib/dto/personal-category.js";
 import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
 import { PersonalFolderDTO } from "#lib/dto/personal-folder.js";
-import { minorToDecimal } from "#lib/money.js";
+import { minorToDecimal, parseSignedMoney } from "#lib/money.js";
 import { authService } from "#lib/server/auth/auth.js";
 import { configuration } from "#lib/server/core/config.js";
+import { accountBook } from "#lib/server/money/accounts.js";
 
 const jwksCacheKey = {};
 
@@ -38,6 +39,7 @@ interface LedgerEntry {
 	note: string | null;
 	merchant?: string | null;
 	folderId?: string | null;
+	accountId?: string | null;
 }
 
 interface Ledger {
@@ -157,7 +159,7 @@ class McpEndpoint {
 			{
 				title: "List expenses",
 				description:
-					"Expenses latest first, the person's own or a group's with groupId: id, description, note, amount, currency, date and category (and expense or income for personal ones). Uncategorized ones (category other) only, unless uncategorizedOnly is false. Who paid and how it was split never show.",
+					"Expenses latest first, the person's own or a group's with groupId: id, description, note, amount, currency, date and category (and expense or income and the accountId from list_accounts for personal ones, null when typed in by hand). Uncategorized ones (category other) only, unless uncategorizedOnly is false. Who paid and how it was split never show.",
 				inputSchema: z.object({
 					groupId: groupIdField,
 					uncategorizedOnly: z.boolean().default(true),
@@ -214,6 +216,7 @@ class McpEndpoint {
 				}),
 		);
 		this.#registerSetNotes(server, userId);
+		this.#registerAccountTools(server, userId);
 		this.#registerCreateCategory(server, userId);
 		this.#registerMerchantTools(server, userId);
 		this.#registerFolderTools(server, userId);
@@ -361,6 +364,87 @@ class McpEndpoint {
 					);
 				}
 				return this.#reply({ updated, unknownFolders });
+			},
+		);
+	}
+
+	/** Adds the tools that list the person's accounts with their balances and set a balance the bank doesn't report. */
+	#registerAccountTools(server: McpServer, userId: string): void {
+		const accounts = () =>
+			accountBook.list(userId).map((account) => ({
+				id: account.id,
+				name: account.name,
+				bank: account.bankName,
+				type: account.type,
+				currency: account.currency,
+				isShared: account.shared,
+				balance: account.balance
+					? minorToDecimal(account.balance.minor, account.balance.currency)
+					: null,
+				balanceAsOf: account.balance?.at ?? null,
+				balanceSource: account.balance
+					? account.balance.manual
+						? "typed in"
+						: "bank sync"
+					: null,
+				ownShare: account.balance
+					? minorToDecimal(accountBook.share(account), account.balance.currency)
+					: null,
+			}));
+		server.registerTool(
+			"list_accounts",
+			{
+				title: "List accounts",
+				description:
+					"The person's bank accounts: id (the accountId on each personal expense), name, bank, type (checking, joint, savings, investment or credit_card), currency, isShared, and the latest balance with balanceAsOf and where it came from: the bank's last sync, or one the person typed in when that is newer. ownShare is the person's part of the balance: half of a shared account, all of any other. Savings and investment accounts hold money set aside, not money to spend.",
+				annotations: { readOnlyHint: true },
+			},
+			() => this.#reply({ accounts: accounts() }),
+		);
+		server.registerTool(
+			"set_balance",
+			{
+				title: "Set an account's balance",
+				description:
+					"Records what account accountId (from list_accounts) held on asOf (YYYY-MM-DD), in the account's currency, for an account whose bank reports no balance or an old one. A later bank sync takes over again. Negative for an overdrawn account.",
+				inputSchema: z.object({
+					accountId: z.string().min(1),
+					amount: z
+						.string()
+						.regex(/^-?\d+(?:[.,]\d+)?$/)
+						.describe("A decimal number, like 1250.40 or -35.10."),
+					asOf: z.iso.date(),
+				}),
+				annotations: {
+					readOnlyHint: false,
+					destructiveHint: false,
+					idempotentHint: true,
+				},
+			},
+			({ accountId, amount, asOf }) => {
+				const account = accountBook.find(userId, accountId);
+				const connection = accountBook.connectionOf(userId, accountId);
+				const minor = account
+					? parseSignedMoney(amount, account.currency)
+					: undefined;
+				if (!account || !connection || minor === undefined) {
+					return {
+						...this.#reply({
+							error: account
+								? "That amount has too many decimals for the account's currency."
+								: "No such account. Call list_accounts for the ids.",
+						}),
+						isError: true,
+					};
+				}
+				connection.setManualBalance(
+					accountId,
+					minor,
+					new Date(`${asOf}T12:00:00Z`),
+				);
+				return this.#reply({
+					account: accounts().find((entry) => entry.id === accountId),
+				});
 			},
 		);
 	}
@@ -608,6 +692,7 @@ class McpEndpoint {
 							category: row.category,
 							note: row.note,
 							folderId: row.folderId,
+							accountId: row.bankAccountUid,
 						};
 					}),
 				};

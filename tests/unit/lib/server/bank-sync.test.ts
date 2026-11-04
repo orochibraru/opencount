@@ -19,6 +19,7 @@ import type { Transaction } from "#lib/server/banking/enable-banking-api.js";
 import { EnableBankingClient } from "#lib/server/banking/enable-banking.js";
 import { secrets } from "#lib/server/core/secrets.js";
 import { jobHandlers } from "#lib/server/jobs/handlers.js";
+import { accountBook } from "#lib/server/money/accounts.js";
 
 import { createUser, resetDatabase } from "../../database.js";
 
@@ -732,6 +733,53 @@ describe("transfers between own accounts", () => {
 				(entry) => entry.id === out.id,
 			)?.category,
 		).toBe("family");
+	});
+
+	test("an account's type and a typed-in balance drive what it holds", () => {
+		const ada = createUser("ada");
+		const connection = twoAccounts(ada.id);
+		connection.setBalances(
+			new Map([
+				["main", { minor: 100_000, currency: "EUR" }],
+				["joint", { minor: 50_001, currency: "EUR" }],
+			]),
+			new Date("2026-10-01T08:00:00Z"),
+		);
+		expect(accountBook.list(ada.id).map((account) => account.type)).toEqual([
+			"checking",
+			"checking",
+		]);
+		expect(connection.setAccountType("joint", "joint")).toBe(true);
+		expect(connection.setAccountType("gone", "savings")).toBe(false);
+		expect(accountBook.find(ada.id, "joint")).toEqual(
+			expect.objectContaining({ type: "joint", shared: true }),
+		);
+		expect(accountBook.held(ada.id, "EUR", false)).toBe(100_000 + 25_000);
+		expect(accountBook.held(ada.id, "EUR", true)).toBe(0);
+
+		expect(
+			connection.setManualBalance(
+				"main",
+				-3_510,
+				new Date("2026-10-02T12:00:00Z"),
+			),
+		).toBe(true);
+		expect(accountBook.find(ada.id, "main")?.balance).toEqual({
+			minor: -3_510,
+			currency: "EUR",
+			at: "2026-10-02T12:00:00.000Z",
+			manual: true,
+		});
+		connection.setBalances(
+			new Map([["main", { minor: 90_000, currency: "EUR" }]]),
+			new Date("2026-10-03T08:00:00Z"),
+		);
+		expect(accountBook.find(ada.id, "main")?.balance?.manual).toBe(false);
+
+		connection.setAccountType("main", "investment");
+		expect(accountBook.held(ada.id, "EUR", true)).toBe(90_000);
+		expect(accountBook.connectionOf(ada.id, "main")?.id).toBe(connection.id);
+		expect(accountBook.connectionOf(ada.id, "gone")).toBeUndefined();
 	});
 
 	test("a shared account's lines count at half", () => {

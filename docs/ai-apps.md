@@ -30,10 +30,13 @@ whatever its case, hands back the existing one instead of a copy. It can also
 write or clear the note on your expenses or a group's, and sort your personal
 expenses into folders. For each expense it sees the description, note, amount,
 currency, date and category, and for a personal one whether it's an expense or
-income and its folder. It only reaches groups you're in, and a category or note
-it sets in a group changes it for everyone there; transfers between members are
-left alone. It never sees your email, password, banks, bank accounts or keys,
-who's in a group, who paid, the splits or the balances.
+income and its folder. It can list your bank accounts with their type, whether
+they're shared and their latest balance (synced or typed in, with its date), and
+record a balance for an account your bank doesn't report; each personal expense
+names the account it came from. It only reaches groups you're in, and a category
+or note it sets in a group changes it for everyone there; transfers between
+members are left alone. It never sees your email, password, bank credentials or
+keys, who's in a group, who paid, the splits or the balances.
 
 ## Staying in control
 

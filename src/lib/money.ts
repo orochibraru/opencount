@@ -28,6 +28,17 @@ export function formatMoney(
 	}).format(minor / 10 ** digits);
 }
 
+/** Like `parseMoney`, but a leading minus is allowed for money owed, such as an overdrawn balance. */
+export function parseSignedMoney(
+	input: string,
+	currency: string,
+): number | undefined {
+	const trimmed = input.trim();
+	const negative = /^[-−]/.test(trimmed);
+	const minor = parseMoney(trimmed.replace(/^[-−+]/, ""), currency);
+	return minor === undefined ? undefined : negative ? -minor : minor;
+}
+
 /** Parses what someone typed, `12`, `12.5`, `12,50` or `1 234,56`, into minor units; `undefined` when it isn't an amount. */
 export function parseMoney(
 	input: string,

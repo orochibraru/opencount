@@ -231,9 +231,13 @@
   rule for a name taken), `rename_folder`, `delete_folder` (its expenses stay,
   out of any folder) and `set_folders`; personal entries carry their `folderId`.
   `set_notes` writes or clears (empty string) notes on either ledger through
-  `Ledger.setNotes`, scoped by user or group in the DTO. `csrfHandler` lets
-  `/api/auth/oauth2/token`, `revoke` and `introspect` through: AI apps call them
-  server to server with no `Origin`.
+  `Ledger.setNotes`, scoped by user or group in the DTO. `list_accounts` and
+  `set_balance` go through `accountBook` (`#lib/server/money/accounts.ts`), the
+  one reader of linked accounts: type (stored in the account JSON, else derived
+  from the shared and savings flags), and the newer of the synced and typed-in
+  balance; personal entries carry `accountId` (the bank account uid).
+  `csrfHandler` lets `/api/auth/oauth2/token`, `revoke` and `introspect`
+  through: AI apps call them server to server with no `Origin`.
 - `browserPaths` in `auth.ts` lets the OAuth endpoints AI apps call
   (`authorize`, `token`, `register`, `consent`, `revoke`, `userinfo`, `/jwks`,
   `/.well-known/`) through the 404 every other direct better-auth call gets.

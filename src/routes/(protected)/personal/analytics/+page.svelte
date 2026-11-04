@@ -28,24 +28,6 @@
 
 	setPageTitle("Insights", resolve("/(protected)/personal"));
 
-	function accountFlag(
-		account: (typeof data.accounts)[number],
-		flag: "shared" | "savings",
-		value: boolean,
-	) {
-		return {
-			action: "?/setAccount",
-			fields: {
-				connectionId: account.connectionId,
-				uid: account.uid,
-				flag,
-				value: String(value),
-			},
-			loading: "Saving",
-			success: "Saved.",
-		};
-	}
-
 	const sources = $derived<FilterSource[]>(
 		data.accounts.length < 2
 			? []
@@ -229,57 +211,17 @@
 				hint="Savings and investment accounts"
 			/>
 		</div>
-		<section class="glass flex flex-col gap-2 rounded-2xl p-4 md:p-5">
-			<h2 class="font-semibold">Accounts</h2>
-			<p class="text-muted-foreground text-sm">
-				Money moved between your accounts is an internal transfer, left out of
-				spent and income. A shared account counts at half; money into savings
-				counts as set aside.
-			</p>
-			<ul class="divide-border -mx-1 divide-y" aria-label="Accounts">
-				{#each data.accounts as account (account.uid)}
-					<li>
-						<ItemMenu
-							title={account.name}
-							class="min-h-14 px-1 py-2"
-							actions={[
-								{
-									label: account.shared
-										? "Not shared"
-										: "Shared with someone: counts half",
-									icon: UsersIcon,
-									form: accountFlag(account, "shared", !account.shared),
-								},
-								{
-									label: account.savings
-										? "Everyday account"
-										: "Savings or investments",
-									icon: PiggyBankIcon,
-									form: accountFlag(account, "savings", !account.savings),
-								},
-							]}
-						>
-							<span class="min-w-0 flex-1">
-								<span class="block truncate font-medium">{account.name}</span>
-								<span class="text-muted-foreground block truncate text-sm">
-									{[
-										account.bankName,
-										account.shared ? "Shared, counts half" : null,
-										account.savings ? "Savings or investments" : null,
-									]
-										.filter(Boolean)
-										.join(" · ")}
-								</span>
-							</span>
-							<span class="tabular shrink-0 font-medium">
-								{account.balance
-									? formatMoney(account.balance.minor, account.balance.currency)
-									: "–"}
-							</span>
-						</ItemMenu>
-					</li>
-				{/each}
-			</ul>
-		</section>
+		<a
+			href={resolve("/(protected)/personal/accounts")}
+			class="glass hover:bg-muted/50 flex min-h-16 items-center gap-3 rounded-2xl p-4 md:p-5"
+		>
+			<LandmarkIcon class="text-muted-foreground size-5 shrink-0" />
+			<span class="min-w-0 flex-1">
+				<span class="block font-semibold">Accounts</span>
+				<span class="text-muted-foreground block text-sm"
+					>Balances, types and shared accounts</span
+				>
+			</span>
+		</a>
 	</div>
 {/if}

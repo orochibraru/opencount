@@ -1,5 +1,6 @@
 import { and, asc, eq, gt } from "drizzle-orm";
 
+import type { AccountType } from "#lib/account-types.js";
 import { BaseDTO } from "#lib/dto/base-dto.js";
 import { databaseConnection } from "#lib/server/db/database.js";
 import { bankConnection, type BankSyncReport } from "#lib/server/db/schema.js";
@@ -9,6 +10,29 @@ type ConnectionRow = typeof bankConnection.$inferSelect;
 export type BankConnectionRow = Omit<ConnectionRow, "sessionId" | "userId">;
 
 export type LinkedAccount = ConnectionRow["accounts"][number];
+
+/** What account `account` is: the type someone picked, else what its shared and savings flags say. */
+export function accountTypeOf(account: LinkedAccount): AccountType {
+	if (account.type) {
+		return account.type;
+	}
+	if (account.shared) {
+		return "joint";
+	}
+	return account.savings ? "savings" : "checking";
+}
+
+/** The latest balance of `account`: the one its bank reported or the one typed in, whichever is newer; null without either. */
+export function balanceOf(
+	account: LinkedAccount,
+): (NonNullable<LinkedAccount["balance"]> & { manual: boolean }) | null {
+	const synced = account.balance;
+	const typed = account.manualBalance;
+	if (typed && (!synced || typed.at >= synced.at)) {
+		return { ...typed, manual: true };
+	}
+	return synced ? { ...synced, manual: false } : null;
+}
 
 export class BankConnectionDTO extends BaseDTO<BankConnectionRow> {
 	#sessionId: string;
@@ -243,6 +267,52 @@ export class BankConnectionDTO extends BaseDTO<BankConnectionRow> {
 		this.#update({
 			accounts: this.row.accounts.map((account) =>
 				account.uid === uid ? { ...account, ...flags } : account,
+			),
+		});
+		return true;
+	}
+
+	/**
+	 * Makes account `uid` of type `type`: savings and investment accounts hold money set aside, a joint one is shared and
+	 * counts at half. False when the link has no such account.
+	 */
+	setAccountType(uid: string, type: AccountType): boolean {
+		if (!this.row.accounts.some((account) => account.uid === uid)) {
+			return false;
+		}
+		this.#update({
+			accounts: this.row.accounts.map((account) =>
+				account.uid === uid
+					? {
+							...account,
+							type,
+							savings: type === "savings" || type === "investment",
+							shared: type === "joint" ? true : account.shared,
+						}
+					: account,
+			),
+		});
+		return true;
+	}
+
+	/** Records that account `uid` held `minor` on `at`, typed in by its owner; false when the link has no such account. */
+	setManualBalance(uid: string, minor: number, at: Date): boolean {
+		const target = this.row.accounts.find((account) => account.uid === uid);
+		if (!target) {
+			return false;
+		}
+		this.#update({
+			accounts: this.row.accounts.map((account) =>
+				account.uid === uid
+					? {
+							...account,
+							manualBalance: {
+								minor,
+								currency: account.balance?.currency ?? account.currency,
+								at: at.toISOString(),
+							},
+						}
+					: account,
 			),
 		});
 		return true;
