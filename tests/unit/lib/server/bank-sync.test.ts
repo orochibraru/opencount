@@ -1131,6 +1131,51 @@ describe("transfers between own accounts", () => {
 		expect(september.financeMinor).toBe(20_000);
 	});
 
+	test("a reimbursable expense stays out of every total until tagged otherwise", () => {
+		const ada = createUser("ada");
+		const lunch = PersonalExpenseDTO.create(ada.id, {
+			description: "Client lunch",
+			category: "food",
+			amountMinor: 4_500,
+			currency: "EUR",
+			spentOn: "2026-10-12",
+			tags: ["reimbursable", "work"],
+		});
+		PersonalExpenseDTO.create(ada.id, {
+			description: "Groceries",
+			category: "groceries",
+			amountMinor: 2_000,
+			currency: "EUR",
+			spentOn: "2026-10-12",
+		});
+		const stats = PersonalExpenseDTO.stats(ada.id, {}, { today: "2026-10-15" });
+		expect(stats.totals).toEqual([{ currency: "EUR", minor: 2_000 }]);
+		expect(
+			PersonalExpenseDTO.spending(ada.id).map((row) => row.description),
+		).toEqual(["Groceries"]);
+		expect(
+			periodSummary.summarize(ada.id, { today: "2026-10-15" }).spentMinor,
+		).toBe(2_000);
+		expect(PersonalExpenseDTO.reimbursable(ada.id)).toEqual([
+			{ currency: "EUR", minor: 4_500 },
+		]);
+		expect(
+			PersonalExpenseDTO.page(ada.id, { limit: 10, tag: "work" }).entries.map(
+				(entry) => entry.toJSON().tags,
+			),
+		).toEqual([["reimbursable", "work"]]);
+		expect(
+			PersonalExpenseDTO.setTags(ada.id, [
+				{ id: lunch, tags: [" Work ", "work"] },
+				{ id: "missing", tags: [] },
+			]),
+		).toBe(1);
+		expect(
+			PersonalExpenseDTO.stats(ada.id, {}, { today: "2026-10-15" }).totals,
+		).toEqual([{ currency: "EUR", minor: 6_500 }]);
+		expect(PersonalExpenseDTO.reimbursable(ada.id)).toEqual([]);
+	});
+
 	test("a shared account's lines count at half", () => {
 		const ada = createUser("ada");
 		const connection = twoAccounts(ada.id);

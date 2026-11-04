@@ -13,6 +13,7 @@
 	import Trash2Icon from "@lucide/svelte/icons/trash-2";
 	import UsersIcon from "@lucide/svelte/icons/users";
 	import WalletIcon from "@lucide/svelte/icons/wallet";
+	import XIcon from "@lucide/svelte/icons/x";
 	import type { Snippet } from "svelte";
 
 	import {
@@ -62,6 +63,8 @@
 		categories: CustomCategory[];
 		category: string | null;
 		search: string;
+		tag: string | null;
+		reimbursable: MoneyTotal[];
 		accounts: { uid: string; name: string; bankId: string; bankName: string }[];
 		bank: string | null;
 		account: string | null;
@@ -92,6 +95,8 @@
 		categories,
 		category,
 		search,
+		tag,
+		reimbursable,
 		accounts,
 		bank,
 		account,
@@ -165,10 +170,15 @@
 		folderOptions.find((entry) => entry.value === folder?.id),
 	);
 	const filtered = $derived(
-		activeCategory !== undefined || search !== "" || currentSource !== null,
+		activeCategory !== undefined ||
+			search !== "" ||
+			currentSource !== null ||
+			tag !== null,
 	);
 
-	function listHref(change: FilterChange & { limit?: number }): string {
+	function listHref(
+		change: FilterChange & { limit?: number; tag?: string | null },
+	): string {
 		const params = new URLSearchParams();
 		const folderId = change.folder === undefined ? folder?.id : change.folder;
 		const base = folderId
@@ -187,6 +197,10 @@
 		}
 		if (text) {
 			params.set("q", text);
+		}
+		const wantedTag = change.tag === undefined ? tag : change.tag;
+		if (wantedTag) {
+			params.set("tag", wantedTag);
 		}
 		if (change.limit) {
 			params.set("limit", String(change.limit));
@@ -365,6 +379,7 @@
 		return [
 			entry.aside ? "Set aside" : day,
 			entry.pay ? "Pay" : null,
+			...entry.tags.map((name) => `#${name}`),
 			seriesLabels.get(entry.recurringId ?? ""),
 			!folder ? entry.folderName : null,
 			sourceOf(entry),
@@ -394,6 +409,16 @@
 					In these {matching}
 					{matching === 1 ? "result" : "results"}
 				</p>
+				{#if tag}
+					<a
+						href={listHref({ tag: null })}
+						class="bg-muted mb-2 ml-1 inline-flex min-h-7 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
+						aria-label="Stop filtering by #{tag}"
+					>
+						#{tag}
+						<XIcon class="size-3" />
+					</a>
+				{/if}
 			{/if}
 			<p class="text-muted-foreground text-sm">
 				{folder || filtered ? "Spent in all" : "Spent this month"}
@@ -428,6 +453,15 @@
 					+{totals(folder || filtered ? stats.income : stats.incomeThisMonth)} came
 					in{folder || filtered ? "" : " this month"}
 				</p>
+			{/if}
+			{#if !filtered && reimbursable.length > 0}
+				<a
+					href="{action}?tag=reimbursable"
+					class="text-muted-foreground mt-1 flex min-h-11 items-center gap-1.5 text-sm underline-offset-4 hover:underline"
+				>
+					<HandCoinsIcon class="size-4 shrink-0" />
+					{totals(reimbursable)} waiting to be paid back
+				</a>
 			{/if}
 			{#if topCategories.length > 0}
 				<ul class="mt-4 flex flex-col gap-2.5 text-sm" aria-label="By category">

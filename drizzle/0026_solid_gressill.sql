@@ -1,0 +1,1 @@
+ALTER TABLE `personal_expense` ADD `tags` text DEFAULT '[]' NOT NULL;

@@ -819,6 +819,10 @@ export const personalExpense = sqliteTable(
 		aside: integer("aside", { mode: "boolean" }).notNull().default(false),
 		pay: integer("pay", { mode: "boolean" }).notNull().default(false),
 		cardRole: text("card_role", { enum: cardRoles }),
+		tags: text("tags", { mode: "json" })
+			.$type<string[]>()
+			.notNull()
+			.default([]),
 		recurringId: text("recurring_id").references(() => recurringSeries.id, {
 			onDelete: "set null",
 		}),

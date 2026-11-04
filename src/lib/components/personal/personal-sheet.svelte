@@ -3,6 +3,7 @@
 		id: string;
 		description: string;
 		note: string | null;
+		tags: string[];
 		category: string;
 		amountMinor: number;
 		currency: string;
@@ -68,6 +69,7 @@
 			currency: expense?.currency ?? defaultCurrency,
 			description: expense?.description ?? "",
 			note: expense?.note ?? "",
+			tags: expense?.tags.join(", ") ?? "",
 			category: expense?.category ?? "other",
 			categoryPicked: expense !== undefined,
 			aside: expense?.aside ?? false,
@@ -254,6 +256,21 @@
 				bind:value={form.note}
 			/>
 			<Field.Error errors={errors.note?.map((message) => ({ message }))} />
+		</Field.Field>
+		<Field.Field>
+			<Field.Label for="personal-tags">Tags</Field.Label>
+			<Input
+				id="personal-tags"
+				name="tags"
+				maxlength={250}
+				placeholder="reimbursable, work trip"
+				class="h-11"
+				bind:value={form.tags}
+			/>
+			<Field.Description
+				>Separate them with commas. Reimbursable ones stay out of your totals.</Field.Description
+			>
+			<Field.Error errors={errors.tags?.map((message) => ({ message }))} />
 		</Field.Field>
 		<div class="bg-popover sticky bottom-0 z-10 -mb-4 pt-2 pb-4">
 			<Button

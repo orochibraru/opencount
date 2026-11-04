@@ -57,6 +57,15 @@ pay. **Not my pay** undoes it.
 The category bars on Personal's totals card count this month only, like the
 total above them; a folder or a search shows them for every month.
 
+## Tags
+
+Give any line tags in its sheet, separated by commas: they show under the line
+as #tag and `?tag=` in the address narrows the list to one. The tag
+**reimbursable** marks money you paid and expect back, like a work lunch: it
+stays out of every total, and the totals card shows what is still waiting to be
+paid back. Tap that line to see those expenses; remove the tag once you're
+repaid and the expense counts again.
+
 ## Recurring
 
 Pick **Mark as recurring** in any line's menu and give it a label, like Car loan

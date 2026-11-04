@@ -53,6 +53,7 @@ interface LedgerEntry {
 	deferred?: boolean;
 	transferPairId?: string | null;
 	recurringId?: string | null;
+	tags?: string[];
 }
 
 interface LedgerFilter {
@@ -63,6 +64,7 @@ interface LedgerFilter {
 	category?: string;
 	kind?: "expense" | "income";
 	search?: string;
+	tag?: string;
 }
 
 interface Ledger {
@@ -182,7 +184,7 @@ class McpEndpoint {
 			{
 				title: "List expenses",
 				description:
-					"Expenses latest first, the person's own or a group's with groupId: id, description, note, amount, currency, date and category (and for personal ones: expense or income, the accountId from list_accounts or null when typed in by hand, transferPairId linking both sides of a move between the person's own accounts, deferred for a purchase on a deferred debit card, and flow: spending, income, finance (loans, fees, cash: counted apart), transfer_internal, transfer_to_savings, transfer_from_savings or card_statement). Transfers and card statements never count as spending or income: a statement settles deferred purchases that already count on the day they were made. Uncategorized ones (category other) only, unless uncategorizedOnly is false or a category is given. Narrow with from and to (YYYY-MM-DD, both included), category, search (description and note) and, for personal ones, accountId and kind. total counts every match, not just this page.",
+					"Expenses latest first, the person's own or a group's with groupId: id, description, note, amount, currency, date and category (and for personal ones: expense or income, the accountId from list_accounts or null when typed in by hand, transferPairId linking both sides of a move between the person's own accounts, deferred for a purchase on a deferred debit card, and flow: spending, income, finance (loans, fees, cash: counted apart), transfer_internal, transfer_to_savings, transfer_from_savings or card_statement). Transfers and card statements never count as spending or income: a statement settles deferred purchases that already count on the day they were made. Uncategorized ones (category other) only, unless uncategorizedOnly is false or a category is given. Narrow with from and to (YYYY-MM-DD, both included), category, search (description and note) and, for personal ones, accountId, kind and tag. Personal expenses carry their tags; one tagged reimbursable is money expected back and stays out of every total. total counts every match, not just this page.",
 				inputSchema: z.object({
 					groupId: groupIdField,
 					uncategorizedOnly: z.boolean().default(true),
@@ -205,6 +207,13 @@ class McpEndpoint {
 						.enum(["expense", "income"])
 						.optional()
 						.describe("Personal only."),
+					tag: z
+						.string()
+						.trim()
+						.min(1)
+						.max(24)
+						.optional()
+						.describe("Personal only: expenses carrying this tag."),
 				}),
 				annotations: { readOnlyHint: true },
 			},
@@ -259,6 +268,7 @@ class McpEndpoint {
 		this.#registerAccountTools(server, userId);
 		this.#registerRecurringTools(server, userId);
 		this.#registerPeriodSummary(server, userId);
+		this.#registerSetTags(server, userId);
 		this.#registerCreateCategory(server, userId);
 		this.#registerMerchantTools(server, userId);
 		this.#registerFolderTools(server, userId);
@@ -407,6 +417,36 @@ class McpEndpoint {
 				}
 				return this.#reply({ updated, unknownFolders });
 			},
+		);
+	}
+
+	/** Adds the tool that replaces the tags on the person's own expenses. */
+	#registerSetTags(server: McpServer, userId: string): void {
+		server.registerTool(
+			"set_tags",
+			{
+				title: "Tag expenses",
+				description:
+					"Replaces the tags of the person's own expenses, up to 200 at once: each change names an expense id from list_expenses (no groupId) and its full list of tags (lower case, at most 10, each up to 24 characters; an empty list clears them). The tag reimbursable marks money the person expects back: it stays out of every total, spending and summaries included.",
+				inputSchema: z.object({
+					changes: z
+						.array(
+							z.object({
+								id: z.string().min(1),
+								tags: z.array(z.string().trim().min(1).max(24)).max(10),
+							}),
+						)
+						.min(1)
+						.max(200),
+				}),
+				annotations: {
+					readOnlyHint: false,
+					destructiveHint: false,
+					idempotentHint: true,
+				},
+			},
+			({ changes }) =>
+				this.#reply({ updated: PersonalExpenseDTO.setTags(userId, changes) }),
 		);
 	}
 
@@ -878,6 +918,7 @@ class McpEndpoint {
 					accountUid: filter.accountId,
 					kind: filter.kind,
 					search: filter.search,
+					tag: filter.tag,
 				});
 				return {
 					total: page.total,
@@ -898,6 +939,7 @@ class McpEndpoint {
 							deferred: row.cardRole === "deferred",
 							transferPairId: row.transferPairId,
 							recurringId: row.recurringId,
+							tags: row.tags,
 						};
 					}),
 				};

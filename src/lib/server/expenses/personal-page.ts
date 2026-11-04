@@ -51,7 +51,10 @@ class PersonalPage {
 		const accountUid = accounts.some((account) => account.uid === wantedAccount)
 			? (wantedAccount ?? undefined)
 			: undefined;
-		const filter = { folderId, category, search, bankId, accountUid };
+		const tag =
+			url.searchParams.get("tag")?.trim().toLowerCase().slice(0, 24) ||
+			undefined;
+		const filter = { folderId, category, search, bankId, accountUid, tag };
 		const page = PersonalExpenseDTO.page(userId, {
 			limit: limitSchema.parse(url.searchParams.get("limit") ?? pageSize),
 			...filter,
@@ -72,6 +75,8 @@ class PersonalPage {
 			bank: bankId ?? null,
 			account: accountUid ?? null,
 			search: search ?? "",
+			tag: tag ?? null,
+			reimbursable: PersonalExpenseDTO.reimbursable(userId),
 			stats,
 			months,
 			monthSetting: AppearanceDTO.monthSettingFor(userId),

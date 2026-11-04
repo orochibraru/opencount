@@ -6,6 +6,23 @@ import { parseMoney } from "#lib/money.js";
 import { monthStartDays } from "#lib/pay-month.js";
 import { type ParsedForm, parseForm } from "#lib/server/validation/form.js";
 
+export const tagsField = z
+	.string()
+	.default("")
+	.transform((value) => [
+		...new Set(
+			value
+				.split(",")
+				.map((tag) => tag.trim().toLowerCase())
+				.filter(Boolean),
+		),
+	])
+	.pipe(
+		z
+			.array(z.string().max(24, "Keep each tag under 24 characters."))
+			.max(10, "Keep it to 10 tags."),
+	);
+
 const personalSchema = z.object({
 	description: z
 		.string()
@@ -23,6 +40,7 @@ const personalSchema = z.object({
 		.trim()
 		.max(500, "Keep the note under 500 characters.")
 		.default(""),
+	tags: tagsField,
 });
 
 export const accountNamesSchema = z

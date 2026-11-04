@@ -10,6 +10,7 @@ import {
 	lt,
 	lte,
 	ne,
+	not,
 	notInArray,
 	or,
 	type SQL,
@@ -48,6 +49,7 @@ export interface PersonalExpenseRow {
 	aside: boolean;
 	pay: boolean;
 	cardRole: CardRole | null;
+	tags: string[];
 	recurringId: string | null;
 	transferPairId: string | null;
 	folderId: string | null;
@@ -65,6 +67,7 @@ export type PersonalExpenseInput = Pick<
 	"description" | "category" | "amountMinor" | "currency" | "spentOn"
 > & {
 	folderId?: string | null;
+	tags?: string[];
 	aside?: boolean;
 	kind?: PersonalKind;
 	note?: string | null;
@@ -89,6 +92,7 @@ export interface PersonalFilter {
 	from?: string;
 	to?: string;
 	kind?: PersonalKind;
+	tag?: string;
 }
 
 export interface SpendingRow {
@@ -117,6 +121,8 @@ export interface TransferLine {
 }
 
 export const internalCategory = "internal";
+
+export const reimbursableTag = "reimbursable";
 
 export interface CardStatement {
 	id: string;
@@ -165,6 +171,7 @@ function select() {
 			aside: personalExpense.aside,
 			pay: personalExpense.pay,
 			cardRole: personalExpense.cardRole,
+			tags: personalExpense.tags,
 			recurringId: personalExpense.recurringId,
 			transferPairId: personalExpense.transferPairId,
 			folderId: personalExpense.folderId,
@@ -228,6 +235,7 @@ function visible(
 		from,
 		to,
 		kind,
+		tag,
 	}: PersonalFilter = {},
 ) {
 	return and(
@@ -236,12 +244,18 @@ function visible(
 		from ? gte(personalExpense.spentOn, from) : undefined,
 		to ? lte(personalExpense.spentOn, to) : undefined,
 		kind ? eq(personalExpense.kind, kind) : undefined,
+		tag ? hasTag(tag) : undefined,
 		folderId ? eq(personalExpense.folderId, folderId) : undefined,
 		category ? eq(personalExpense.category, category) : undefined,
 		bankId ? eq(personalExpense.bankConnectionId, bankId) : undefined,
 		accountUid ? eq(personalExpense.bankAccountUid, accountUid) : undefined,
 		search ? inArray(personalExpense.id, searchIds(userId, search)) : undefined,
 	);
+}
+
+/** Lines carrying tag `tag`. */
+function hasTag(tag: string): SQL {
+	return sql`exists (select 1 from json_each(${personalExpense.tags}) where json_each.value = ${tag})`;
 }
 
 /** Leaves out deferred card statements: the purchases they settle already count, each on its own day. */
@@ -361,6 +375,7 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 			visible(userId, filter),
 			ne(personalExpense.category, internalCategory),
 			notStatement(),
+			not(hasTag(reimbursableTag)),
 			ownIncome(userId),
 		);
 		const spent = and(matching, eq(personalExpense.kind, "expense"));
@@ -676,6 +691,7 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 					visible(userId),
 					ne(personalExpense.category, internalCategory),
 					notStatement(),
+					not(hasTag(reimbursableTag)),
 					ownIncome(userId),
 				),
 			)
@@ -889,6 +905,54 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 			}
 			return changed;
 		});
+	}
+
+	/**
+	 * Sets the tags of each of `userId`'s expenses in `changes`, lower case and without repeats; returns how many
+	 * changed.
+	 */
+	static setTags(
+		userId: string,
+		changes: { id: string; tags: string[] }[],
+	): number {
+		return databaseConnection.get().transaction((transaction) => {
+			let changed = 0;
+			for (const { id, tags } of changes) {
+				changed += transaction
+					.update(personalExpense)
+					.set({
+						tags: [
+							...new Set(tags.map((tag) => tag.trim().toLowerCase())),
+						].filter(Boolean),
+					})
+					.where(
+						and(eq(personalExpense.userId, userId), eq(personalExpense.id, id)),
+					)
+					.returning({ id: personalExpense.id })
+					.all().length;
+			}
+			return changed;
+		});
+	}
+
+	/** What `userId` paid and tagged reimbursable, per currency: money they expect back, left out of their totals. */
+	static reimbursable(userId: string): MoneyTotal[] {
+		return databaseConnection
+			.get()
+			.select({
+				currency: personalExpense.currency,
+				minor: sql<number>`sum(${mine(userId)})`.mapWith(Number),
+			})
+			.from(personalExpense)
+			.where(
+				and(
+					visible(userId),
+					eq(personalExpense.kind, "expense"),
+					hasTag(reimbursableTag),
+				),
+			)
+			.groupBy(personalExpense.currency)
+			.all();
 	}
 
 	/** Records an expense `userId` typed in. */

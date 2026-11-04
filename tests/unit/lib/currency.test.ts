@@ -180,6 +180,7 @@ describe("parsePersonalForm", () => {
 				description: "Book",
 				folderId: null,
 				note: null,
+				tags: [],
 				amountMinor: 1500,
 				currency: "JPY",
 				category: "shopping",
@@ -187,6 +188,32 @@ describe("parsePersonalForm", () => {
 				spentOn: "2026-10-01",
 			},
 		});
+		expect(
+			parsePersonalForm(
+				form({
+					description: "Lunch",
+					amount: "12",
+					currency: "EUR",
+					spentOn: "2026-10-01",
+					tags: " Reimbursable, work,reimbursable, ",
+				}),
+			),
+		).toEqual(
+			expect.objectContaining({
+				data: expect.objectContaining({ tags: ["reimbursable", "work"] }),
+			}),
+		);
+		expect(
+			parsePersonalForm(
+				form({
+					description: "Lunch",
+					amount: "12",
+					currency: "EUR",
+					spentOn: "2026-10-01",
+					tags: "a".repeat(25),
+				}),
+			).success,
+		).toBe(false);
 		expect(
 			parsePersonalForm(
 				form({

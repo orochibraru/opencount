@@ -66,6 +66,8 @@
 	categories={data.categories}
 	category={data.category}
 	search={data.search}
+	tag={data.tag}
+	reimbursable={data.reimbursable}
 	accounts={data.accounts}
 	bank={data.bank}
 	account={data.account}
