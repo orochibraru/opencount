@@ -54,14 +54,35 @@ class PersonalPage {
 		const tag =
 			url.searchParams.get("tag")?.trim().toLowerCase().slice(0, 24) ||
 			undefined;
-		const filter = { folderId, category, search, bankId, accountUid, tag };
+		const showTransfers = url.searchParams.get("transfers") === "1";
+		const filter = {
+			folderId,
+			category,
+			search,
+			bankId,
+			accountUid,
+			tag,
+			hideTransfers: !showTransfers,
+		};
 		const page = PersonalExpenseDTO.page(userId, {
 			limit: limitSchema.parse(url.searchParams.get("limit") ?? pageSize),
 			...filter,
 		});
+		const shown = new Set(page.entries.map((entry) => entry.id));
+		const statements = PersonalExpenseDTO.cardStatements(userId)
+			.filter((statement) => shown.has(statement.id))
+			.map((statement) => ({
+				id: statement.id,
+				purchasesMinor: statement.purchasesMinor,
+				purchases: PersonalExpenseDTO.briefs(userId, statement.purchaseIds),
+			}));
 		const months = PersonalExpenseDTO.monthStarts(userId);
 		const calendar = new MonthCalendar(months);
-		const stats = PersonalExpenseDTO.stats(userId, filter, { calendar });
+		const stats = PersonalExpenseDTO.stats(
+			userId,
+			{ ...filter, hideTransfers: false },
+			{ calendar },
+		);
 		const defaultCurrency =
 			stats.totals[0]?.currency ?? page.entries[0]?.toJSON().currency ?? "EUR";
 		return {
@@ -76,6 +97,8 @@ class PersonalPage {
 			account: accountUid ?? null,
 			search: search ?? "",
 			tag: tag ?? null,
+			showTransfers,
+			statements,
 			reimbursable: PersonalExpenseDTO.reimbursable(userId),
 			stats,
 			months,

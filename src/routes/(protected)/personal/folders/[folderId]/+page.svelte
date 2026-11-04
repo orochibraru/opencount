@@ -67,6 +67,8 @@
 	category={data.category}
 	search={data.search}
 	tag={data.tag}
+	showTransfers={data.showTransfers}
+	statements={data.statements}
 	reimbursable={data.reimbursable}
 	accounts={data.accounts}
 	bank={data.bank}

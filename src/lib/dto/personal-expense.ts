@@ -98,6 +98,7 @@ export interface PersonalFilter {
 	to?: string;
 	kind?: PersonalKind;
 	tag?: string;
+	hideTransfers?: boolean;
 }
 
 export interface SpendingRow {
@@ -241,6 +242,7 @@ function visible(
 		to,
 		kind,
 		tag,
+		hideTransfers,
 	}: PersonalFilter = {},
 ) {
 	return and(
@@ -250,6 +252,12 @@ function visible(
 		to ? lte(personalExpense.spentOn, to) : undefined,
 		kind ? eq(personalExpense.kind, kind) : undefined,
 		tag ? hasTag(tag) : undefined,
+		hideTransfers
+			? and(
+					ne(personalExpense.category, internalCategory),
+					eq(personalExpense.aside, false),
+				)
+			: undefined,
 		folderId ? eq(personalExpense.folderId, folderId) : undefined,
 		category ? eq(personalExpense.category, category) : undefined,
 		bankId ? eq(personalExpense.bankConnectionId, bankId) : undefined,
@@ -1042,6 +1050,38 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 			}
 		});
 		return changed;
+	}
+
+	/** The description, day and amount of each of `userId`'s lines `ids`, oldest first. */
+	static briefs(
+		userId: string,
+		ids: string[],
+	): {
+		id: string;
+		description: string;
+		spentOn: string;
+		amountMinor: number;
+	}[] {
+		if (ids.length === 0) {
+			return [];
+		}
+		return databaseConnection
+			.get()
+			.select({
+				id: personalExpense.id,
+				description: personalExpense.description,
+				spentOn: personalExpense.spentOn,
+				amountMinor: personalExpense.amountMinor,
+			})
+			.from(personalExpense)
+			.where(
+				and(
+					eq(personalExpense.userId, userId),
+					inArray(personalExpense.id, ids),
+				),
+			)
+			.orderBy(personalExpense.spentOn)
+			.all();
 	}
 
 	/** Records an expense `userId` typed in. */

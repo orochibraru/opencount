@@ -1,6 +1,9 @@
 <script lang="ts">
+	import { goto } from "$app/navigation";
 	import { resolve } from "$app/paths";
+	import CalendarRangeIcon from "@lucide/svelte/icons/calendar-range";
 	import ChartLineIcon from "@lucide/svelte/icons/chart-line";
+	import CheckIcon from "@lucide/svelte/icons/check";
 	import HandCoinsIcon from "@lucide/svelte/icons/hand-coins";
 	import LandmarkIcon from "@lucide/svelte/icons/landmark";
 	import PiggyBankIcon from "@lucide/svelte/icons/piggy-bank";
@@ -14,13 +17,17 @@
 		categoryStyle,
 	} from "#lib/categories.js";
 	import BarList from "#lib/components/bar-list.svelte";
+	import DateField from "#lib/components/date-field.svelte";
 	import ItemMenu from "#lib/components/item-menu.svelte";
 	import ListFilters, {
 		type FilterChange,
 		type FilterSource,
 	} from "#lib/components/list-filters.svelte";
+	import ResponsiveSheet from "#lib/components/responsive-sheet.svelte";
 	import SpendingChart from "#lib/components/spending-chart.svelte";
 	import StatCard from "#lib/components/stat-card.svelte";
+	import { Button } from "#lib/components/ui/button/index.js";
+	import * as Field from "#lib/components/ui/field/index.js";
 	import { formatMoney } from "#lib/money.js";
 	import { setPageTitle } from "#lib/page-title.svelte.js";
 
@@ -63,7 +70,45 @@
 		data.folders.map((entry) => ({ value: entry.id, label: entry.name })),
 	);
 
-	function insightsHref(change: FilterChange & { period?: Period }): string {
+	let rangeOpen = $state(false);
+	let rangeFrom = $state("");
+	let rangeTo = $state("");
+
+	function label(period: Period): string {
+		return period === "month" && data.followsPay
+			? "Since payday"
+			: periodLabels[period];
+	}
+
+	function shortDay(value: string): string {
+		return new Date(`${value}T12:00:00`).toLocaleDateString(undefined, {
+			day: "numeric",
+			month: "short",
+		});
+	}
+
+	function openRange() {
+		rangeFrom = data.range.from;
+		rangeTo = data.range.to;
+		rangeOpen = true;
+	}
+
+	async function applyRange() {
+		const from = rangeFrom <= rangeTo ? rangeFrom : rangeTo;
+		const to = rangeFrom <= rangeTo ? rangeTo : rangeFrom;
+		rangeOpen = false;
+		await goto(insightsHref({ period: "custom", from, to }), {
+			replaceState: true,
+		});
+	}
+
+	function insightsHref(
+		change: FilterChange & {
+			period?: Period | "custom";
+			from?: string;
+			to?: string;
+		},
+	): string {
 		const params = new URLSearchParams();
 		const period = change.period ?? data.period;
 		const category =
@@ -74,6 +119,10 @@
 		const search = change.search ?? data.filter.search;
 		if (period !== "month") {
 			params.set("period", period);
+		}
+		if (period === "custom") {
+			params.set("from", change.from ?? data.range.from);
+			params.set("to", change.to ?? data.range.to);
 		}
 		if (category) {
 			params.set("category", category);
@@ -110,10 +159,51 @@
 			data-sveltekit-replacestate
 			class="border-border text-muted-foreground hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:bg-primary aria-[current=page]:text-primary-foreground flex h-9 shrink-0 items-center rounded-full border px-4 text-sm font-medium transition-colors"
 		>
-			{periodLabels[period]}
+			{label(period)}
 		</a>
 	{/each}
+	<button
+		type="button"
+		aria-current={data.period === "custom" ? "page" : undefined}
+		onclick={openRange}
+		class="border-border text-muted-foreground hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:bg-primary aria-[current=page]:text-primary-foreground flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-colors"
+	>
+		<CalendarRangeIcon class="size-4" />
+		{data.period === "custom"
+			? `${shortDay(data.range.from)} to ${shortDay(data.range.to)}`
+			: "Custom"}
+	</button>
 </nav>
+
+<ResponsiveSheet
+	bind:open={rangeOpen}
+	title="Custom period"
+	description="Both days count."
+>
+	<div class="flex flex-col gap-4 pb-4">
+		<Field.Field>
+			<Field.Label for="range-from">From</Field.Label>
+			<DateField
+				id="range-from"
+				name="from"
+				label="From"
+				bind:value={rangeFrom}
+			/>
+		</Field.Field>
+		<Field.Field>
+			<Field.Label for="range-to">To</Field.Label>
+			<DateField id="range-to" name="to" label="To" bind:value={rangeTo} />
+		</Field.Field>
+		<Button
+			class="h-11 rounded-xl"
+			disabled={!rangeFrom || !rangeTo}
+			onclick={applyRange}
+		>
+			<CheckIcon />
+			Show this period
+		</Button>
+	</div>
+</ResponsiveSheet>
 
 <ListFilters
 	search={data.filter.search}
@@ -184,6 +274,19 @@
 			};
 		})}
 	/>
+	{#if data.byAccount.length > 1}
+		<BarList
+			title="By account"
+			currency={data.currency}
+			empty="Nothing spent in this period."
+			rows={data.byAccount.map((row) => ({
+				...row,
+				label:
+					data.accounts.find((account) => account.uid === row.key)?.name ??
+					"Account",
+			}))}
+		/>
+	{/if}
 	<BarList
 		title="By folder"
 		currency={data.currency}

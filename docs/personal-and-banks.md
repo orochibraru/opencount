@@ -35,7 +35,10 @@ expense sheet sets or clears it by hand.
 
 **Insights** (`/personal/analytics`, also in the header menu) shows, for a
 period, what you spent, what you set aside, a chart by day, week or month, and
-the breakdown by category and by folder. It only counts your main currency.
+the breakdown by category and by folder. It only counts your main currency. With
+your months following your pay, the first period is **Since payday**; **Custom**
+picks any two days. With more than one account, **By account** shows where the
+spending came from.
 
 ## Month start
 
@@ -163,11 +166,18 @@ already have stay put, and the bank's full history comes in again without
 doubling anything. A link where Enable Banking can read no account is refused
 with the reason, and nothing is linked.
 
+Money moved between your own accounts, into savings or back, is hidden from the
+list: **Show transfers between your accounts** brings it back, both sides of a
+transfer as one row ("Everyday → Joint"). It never counts as spent or income;
+what went into savings shows as **set aside**.
+
 A deferred debit card shows each purchase on its own day (a line ending in
 "CARTE 1234") and, once a month, the statement that takes their total from your
 account ("RELEVE CARTE"). Purchases count as spent on the day you made them; the
 statement never counts, so nothing is counted twice. Purchases made since the
-last statement are already spent but not yet taken from your balance.
+last statement are already spent but not yet taken from your balance. In the
+list a statement reads "not counted", with the account it was taken from, and
+**Show the purchases** lists the purchases it settles.
 
 Delete an expense that came from your bank and it is hidden, so the next sync
 doesn't bring it back. A line from your bank keeps its amount, currency and

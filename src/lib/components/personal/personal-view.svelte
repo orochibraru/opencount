@@ -1,6 +1,10 @@
 <script lang="ts">
+	import { goto } from "$app/navigation";
 	import { resolve } from "$app/paths";
+	import ArrowLeftRightIcon from "@lucide/svelte/icons/arrow-left-right";
 	import BanknoteIcon from "@lucide/svelte/icons/banknote";
+	import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
+	import CreditCardIcon from "@lucide/svelte/icons/credit-card";
 	import FolderIcon from "@lucide/svelte/icons/folder";
 	import FolderInputIcon from "@lucide/svelte/icons/folder-input";
 	import HandCoinsIcon from "@lucide/svelte/icons/hand-coins";
@@ -42,6 +46,7 @@
 		type SimilarExpense,
 	} from "#lib/components/similar-sheet.svelte";
 	import { Button } from "#lib/components/ui/button/index.js";
+	import { Switch } from "#lib/components/ui/switch/index.js";
 	import type {
 		MoneyTotal,
 		PersonalExpenseRow,
@@ -64,6 +69,17 @@
 		category: string | null;
 		search: string;
 		tag: string | null;
+		showTransfers: boolean;
+		statements: {
+			id: string;
+			purchasesMinor: number;
+			purchases: {
+				id: string;
+				description: string;
+				spentOn: string;
+				amountMinor: number;
+			}[];
+		}[];
 		reimbursable: MoneyTotal[];
 		accounts: { uid: string; name: string; bankId: string; bankName: string }[];
 		bank: string | null;
@@ -96,6 +112,8 @@
 		category,
 		search,
 		tag,
+		showTransfers,
+		statements,
 		reimbursable,
 		accounts,
 		bank,
@@ -177,7 +195,11 @@
 	);
 
 	function listHref(
-		change: FilterChange & { limit?: number; tag?: string | null },
+		change: FilterChange & {
+			limit?: number;
+			tag?: string | null;
+			transfers?: boolean;
+		},
 	): string {
 		const params = new URLSearchParams();
 		const folderId = change.folder === undefined ? folder?.id : change.folder;
@@ -197,6 +219,9 @@
 		}
 		if (text) {
 			params.set("q", text);
+		}
+		if (change.transfers ?? showTransfers) {
+			params.set("transfers", "1");
 		}
 		const wantedTag = change.tag === undefined ? tag : change.tag;
 		if (wantedTag) {
@@ -368,7 +393,45 @@
 		new Map(series.map((entry) => [entry.id, entry.label])),
 	);
 
+	let openStatements = $state<string[]>([]);
+
+	const statementsById = $derived(
+		new Map(statements.map((statement) => [statement.id, statement])),
+	);
+	const pairOf = $derived(
+		Map.groupBy(
+			expenses.filter((entry) => entry.transferPairId),
+			(entry) => entry.transferPairId ?? "",
+		),
+	);
+
+	function counterpart(entry: PersonalExpenseRow) {
+		return pairOf
+			.get(entry.transferPairId ?? "")
+			?.find((other) => other.id !== entry.id);
+	}
+
+	function shown(entry: PersonalExpenseRow): boolean {
+		return !(entry.kind === "income" && counterpart(entry));
+	}
+
+	function accountName(uid: string | null): string {
+		return accounts.find((item) => item.uid === uid)?.name ?? "Account";
+	}
+
 	function detail(entry: PersonalExpenseRow): string {
+		const other = counterpart(entry);
+		if (other) {
+			return `${accountName(entry.bankAccountUid)} → ${accountName(other.bankAccountUid)}`;
+		}
+		const statement = statementsById.get(entry.id);
+		if (statement) {
+			return [
+				"Card statement, not counted",
+				`${statement.purchases.length} ${statement.purchases.length === 1 ? "purchase" : "purchases"}`,
+				`from ${accountName(entry.bankAccountUid)}`,
+			].join(" · ");
+		}
 		if (entry.sharedGroupName) {
 			return `Split in ${entry.sharedGroupName}`;
 		}
@@ -515,6 +578,15 @@
 				{activeFolder}
 				href={listHref}
 			/>
+			<label
+				class="text-muted-foreground mb-3 flex min-h-11 items-center justify-between gap-3 px-1 text-sm"
+			>
+				Show transfers between your accounts
+				<Switch
+					checked={showTransfers}
+					onCheckedChange={(on) => goto(listHref({ transfers: on }))}
+				/>
+			</label>
 			{#if filtered}
 				<p class="text-muted-foreground mb-3 px-1 text-sm">
 					{matching}
@@ -561,8 +633,9 @@
 						<ul
 							class="glass divide-border divide-y overflow-hidden rounded-2xl"
 						>
-							{#each block.entries as entry (entry.id)}
+							{#each block.entries.filter(shown) as entry (entry.id)}
 								{@const category = categoryOf(entry.category, categories)}
+								{@const statement = statementsById.get(entry.id)}
 								<li>
 									<ItemMenu
 										title={entry.description}
@@ -583,7 +656,11 @@
 											<span
 												class="text-muted-foreground flex items-center gap-1 truncate text-sm"
 											>
-												{#if entry.aside}<PiggyBankIcon
+												{#if entry.cardRole}<CreditCardIcon
+														class="size-3.5 shrink-0"
+													/>{:else if counterpart(entry)}<ArrowLeftRightIcon
+														class="size-3.5 shrink-0"
+													/>{:else if entry.aside}<PiggyBankIcon
 														class="size-3.5 shrink-0"
 													/>{:else if entry.recurringId}<RepeatIcon
 														class="size-3.5 shrink-0"
@@ -600,18 +677,75 @@
 											{/if}
 										</span>
 										<span
-											class="font-display font-semibold tabular {entry.aside
+											class="font-display font-semibold tabular {entry.aside ||
+											statement ||
+											counterpart(entry)
 												? 'text-muted-foreground'
 												: entry.kind === 'income'
 													? 'text-positive'
 													: ''}"
-											>{formatFlow(
-												entry.amountMinor,
-												entry.currency,
-												entry.kind === "income",
-											)}</span
+											>{counterpart(entry)
+												? formatMoney(entry.amountMinor, entry.currency)
+												: formatFlow(
+														entry.amountMinor,
+														entry.currency,
+														entry.kind === "income",
+													)}</span
 										>
 									</ItemMenu>
+									{#if statement && statement.purchases.length > 0}
+										{@const expanded = openStatements.includes(entry.id)}
+										<button
+											type="button"
+											aria-expanded={expanded}
+											class="text-muted-foreground hover:text-foreground flex min-h-11 w-full items-center gap-1 px-3 text-left text-sm md:px-4"
+											onclick={() =>
+												(openStatements = expanded
+													? openStatements.filter((id) => id !== entry.id)
+													: [...openStatements, entry.id])}
+										>
+											<ChevronDownIcon
+												class="size-4 shrink-0 transition-transform {expanded
+													? 'rotate-180'
+													: ''}"
+											/>
+											{expanded ? "Hide" : "Show"} the purchases ({formatMoney(
+												statement.purchasesMinor,
+												entry.currency,
+											)})
+										</button>
+										{#if expanded}
+											<ul
+												class="text-muted-foreground flex flex-col gap-1 px-3 pb-3 text-sm md:px-4"
+											>
+												{#each statement.purchases as purchase (purchase.id)}
+													<li class="flex justify-between gap-3">
+														<span class="min-w-0 truncate"
+															>{purchase.description}</span
+														>
+														<span class="tabular shrink-0"
+															>{formatFlow(
+																purchase.amountMinor,
+																entry.currency,
+																false,
+															)}</span
+														>
+													</li>
+												{/each}
+												{#if statement.purchasesMinor !== entry.amountMinor}
+													<li class="pt-1 text-xs">
+														The bank listed {formatMoney(
+															statement.purchasesMinor,
+															entry.currency,
+														)} of purchases for a {formatMoney(
+															entry.amountMinor,
+															entry.currency,
+														)} statement: some are on another account or came earlier.
+													</li>
+												{/if}
+											</ul>
+										{/if}
+									{/if}
 								</li>
 							{/each}
 						</ul>
