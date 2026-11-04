@@ -57,6 +57,25 @@ pay. **Not my pay** undoes it.
 The category bars on Personal's totals card count this month only, like the
 total above them; a folder or a search shows them for every month.
 
+## Recurring
+
+Pick **Mark as recurring** in any line's menu and give it a label, like Car loan
+or Music: that line and every line of the same kind with the same description
+join the series, and so do the ones later syncs bring. Two loans paid from the
+same bank keep apart as long as their descriptions differ. Pick a type
+(subscription, loan, pay in instalments or other), how often it comes back (read
+from the payments unless you say), and for a loan how many payments are left:
+OpenCount works out when it ends.
+
+**Recurring** in Personal's menu lists every series with its amount, how often
+it comes, when it's next due, how many payments are left and the account it's
+paid from, with what they cost each month on top. A series charged twice within
+half its period is flagged **Charged twice**. Ended series fold away at the
+bottom. **Not recurring** on a line takes it and the lines like it out of their
+series; deleting a series keeps its payments.
+
+Amounts show with a minus when money went out and a plus when it came in.
+
 ## Folders
 
 A folder is a project inside Personal: a trip, a renovation. Create one with

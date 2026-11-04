@@ -27,7 +27,7 @@ function daysApart(from: string, to: string): number {
 }
 
 /** The same day of the month as `day`, `months` later or earlier, held to the target month's last day. */
-function shiftClamped(day: string, months: number): string {
+export function shiftClamped(day: string, months: number): string {
 	const date = utc(day);
 	const year = date.getUTCFullYear();
 	const month = date.getUTCMonth() + months;

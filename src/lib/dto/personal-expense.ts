@@ -21,6 +21,7 @@ import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
 import { BaseDTO } from "#lib/dto/base-dto.js";
 import { fuzzyMatches } from "#lib/fuzzy.js";
 import { MonthCalendar, type MonthStarts } from "#lib/pay-month.js";
+import type { RecurringLine } from "#lib/recurring-schedule.js";
 import { databaseConnection } from "#lib/server/db/database.js";
 import {
 	bankConnection,
@@ -46,6 +47,7 @@ export interface PersonalExpenseRow {
 	aside: boolean;
 	pay: boolean;
 	cardRole: CardRole | null;
+	recurringId: string | null;
 	transferPairId: string | null;
 	folderId: string | null;
 	folderName: string | null;
@@ -159,6 +161,7 @@ function select() {
 			aside: personalExpense.aside,
 			pay: personalExpense.pay,
 			cardRole: personalExpense.cardRole,
+			recurringId: personalExpense.recurringId,
 			transferPairId: personalExpense.transferPairId,
 			folderId: personalExpense.folderId,
 			folderName: personalFolder.name,
@@ -572,6 +575,44 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 		);
 	}
 
+	/**
+	 * Files `userId`'s line `id` and every line of the same kind and description in recurring series `seriesId`, or out
+	 * of any series when null; returns how many lines it covers.
+	 */
+	static fileRecurring(
+		userId: string,
+		id: string,
+		seriesId: string | null,
+	): number {
+		const ids = lookAlikeIds(userId, id);
+		return ids.length === 0
+			? 0
+			: databaseConnection
+					.get()
+					.update(personalExpense)
+					.set({ recurringId: seriesId })
+					.where(inArray(personalExpense.id, ids))
+					.returning({ id: personalExpense.id })
+					.all().length;
+	}
+
+	/** Every visible line of `userId` filed in a recurring series, a shared account's at half. */
+	static recurringLines(userId: string): RecurringLine[] {
+		return databaseConnection
+			.get()
+			.select({
+				seriesId: sql<string>`${personalExpense.recurringId}`,
+				kind: personalExpense.kind,
+				amountMinor: mine(userId).mapWith(Number),
+				currency: personalExpense.currency,
+				spentOn: personalExpense.spentOn,
+				accountUid: personalExpense.bankAccountUid,
+			})
+			.from(personalExpense)
+			.where(and(visible(userId), isNotNull(personalExpense.recurringId)))
+			.all();
+	}
+
 	/** The oldest day each of `userId`'s bank links brought a line for, keyed by link id: how far back its history goes. */
 	static historyFromBank(userId: string): Record<string, string> {
 		return Object.fromEntries(
@@ -853,34 +894,55 @@ export class PersonalExpenseDTO extends BaseDTO<PersonalExpenseRow> {
 		if (expenses.length === 0) {
 			return 0;
 		}
-		const payKeys = new Set(
-			databaseConnection
-				.get()
-				.selectDistinct({ description: personalExpense.description })
-				.from(personalExpense)
-				.where(
-					and(
-						eq(personalExpense.userId, userId),
-						eq(personalExpense.kind, "income"),
-						eq(personalExpense.pay, true),
+		const known = new Map<
+			string,
+			{ pay: boolean; recurringId: string | null }
+		>();
+		for (const row of databaseConnection
+			.get()
+			.select({
+				description: personalExpense.description,
+				kind: personalExpense.kind,
+				pay: personalExpense.pay,
+				recurringId: personalExpense.recurringId,
+			})
+			.from(personalExpense)
+			.where(
+				and(
+					eq(personalExpense.userId, userId),
+					or(
+						and(
+							eq(personalExpense.pay, true),
+							eq(personalExpense.kind, "income"),
+						),
+						isNotNull(personalExpense.recurringId),
 					),
-				)
-				.all()
-				.map((row) => similarKey(row.description)),
-		);
+				),
+			)
+			.orderBy(personalExpense.spentOn)
+			.all()) {
+			known.set(`${row.kind}:${similarKey(row.description)}`, {
+				pay: row.pay,
+				recurringId: row.recurringId,
+			});
+		}
 		return databaseConnection
 			.get()
 			.insert(personalExpense)
 			.values(
-				expenses.map((entry) => ({
-					...entry,
-					userId,
-					bankConnectionId: connectionId,
-					pay:
-						entry.kind === "income" &&
-						payKeys.has(similarKey(entry.description)),
-					cardRole: cardRoleOf(entry.description),
-				})),
+				expenses.map((entry) => {
+					const match = known.get(
+						`${entry.kind ?? "expense"}:${similarKey(entry.description)}`,
+					);
+					return {
+						...entry,
+						userId,
+						bankConnectionId: connectionId,
+						pay: match?.pay ?? false,
+						recurringId: match?.recurringId ?? null,
+						cardRole: cardRoleOf(entry.description),
+					};
+				}),
 			)
 			.onConflictDoNothing({
 				target: [personalExpense.userId, personalExpense.bankRef],

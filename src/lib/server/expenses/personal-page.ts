@@ -6,6 +6,7 @@ import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
 import { PersonalCategoryDTO } from "#lib/dto/personal-category.js";
 import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
 import { PersonalFolderDTO } from "#lib/dto/personal-folder.js";
+import { RecurringSeriesDTO } from "#lib/dto/recurring-series.js";
 import { MonthCalendar } from "#lib/pay-month.js";
 
 const pageSize = 50;
@@ -76,6 +77,7 @@ class PersonalPage {
 			monthSetting: AppearanceDTO.monthSettingFor(userId),
 			folders: PersonalFolderDTO.forUser(userId).map((entry) => entry.toJSON()),
 			defaultCurrency,
+			series: RecurringSeriesDTO.forUser(userId).map((entry) => entry.toJSON()),
 		};
 	}
 }

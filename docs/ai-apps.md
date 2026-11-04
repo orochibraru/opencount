@@ -33,10 +33,12 @@ currency, date and category, and for a personal one whether it's an expense or
 income and its folder. It can list your bank accounts with their type, whether
 they're shared and their latest balance (synced or typed in, with its date), and
 record a balance for an account your bank doesn't report; each personal expense
-names the account it came from. It only reaches groups you're in, and a category
-or note it sets in a group changes it for everyone there; transfers between
-members are left alone. It never sees your email, password, bank credentials or
-keys, who's in a group, who paid, the splits or the balances.
+names the account it came from. It can list your recurring payments (amount, how
+often, next date, payments left, the account they come from) and file an expense
+as recurring, or out of it. It only reaches groups you're in, and a category or
+note it sets in a group changes it for everyone there; transfers between members
+are left alone. It never sees your email, password, bank credentials or keys,
+who's in a group, who paid, the splits or the balances.
 
 ## Staying in control
 

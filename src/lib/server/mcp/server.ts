@@ -22,9 +22,16 @@ import { PersonalCategoryDTO } from "#lib/dto/personal-category.js";
 import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
 import { PersonalFolderDTO } from "#lib/dto/personal-folder.js";
 import { minorToDecimal, parseSignedMoney } from "#lib/money.js";
+import {
+	cadences,
+	monthlyCost,
+	type RecurringPayment,
+	recurringTypes,
+} from "#lib/recurring-schedule.js";
 import { authService } from "#lib/server/auth/auth.js";
 import { configuration } from "#lib/server/core/config.js";
 import { accountBook } from "#lib/server/money/accounts.js";
+import { recurringBook } from "#lib/server/money/recurring.js";
 import { type Flow, flowOf } from "#lib/spending-kind.js";
 
 const jwksCacheKey = {};
@@ -44,6 +51,7 @@ interface LedgerEntry {
 	flow?: Flow;
 	deferred?: boolean;
 	transferPairId?: string | null;
+	recurringId?: string | null;
 }
 
 interface Ledger {
@@ -221,6 +229,7 @@ class McpEndpoint {
 		);
 		this.#registerSetNotes(server, userId);
 		this.#registerAccountTools(server, userId);
+		this.#registerRecurringTools(server, userId);
 		this.#registerCreateCategory(server, userId);
 		this.#registerMerchantTools(server, userId);
 		this.#registerFolderTools(server, userId);
@@ -370,6 +379,86 @@ class McpEndpoint {
 				return this.#reply({ updated, unknownFolders });
 			},
 		);
+	}
+
+	/** Adds the tools that list the person's recurring payments and file an expense in one or out of it. */
+	#registerRecurringTools(server: McpServer, userId: string): void {
+		const payment = (entry: RecurringPayment) => ({
+			id: entry.id,
+			label: entry.label,
+			type: entry.type,
+			direction: entry.kind,
+			amount: minorToDecimal(entry.amountMinor, entry.currency),
+			currency: entry.currency,
+			frequency:
+				entry.cadence === "days"
+					? `every ${entry.everyDays} days`
+					: entry.cadence,
+			monthlyCost: minorToDecimal(monthlyCost(entry), entry.currency),
+			accountId: entry.accountUid,
+			lastDate: entry.lastOn,
+			nextDate: entry.nextOn,
+			endDate: entry.endDate,
+			remainingInstallments: entry.remaining,
+			payments: entry.count,
+			chargedTwice: entry.duplicate,
+			ended: entry.ended,
+		});
+		server.registerTool(
+			"list_recurring",
+			{
+				title: "List recurring payments",
+				description:
+					"The person's recurring series (subscriptions, loans, pay in instalments, other), soonest first, ended ones last: label, type, direction (expense or income), the latest amount and the account it is paid from (accountId from list_accounts), frequency (set by the person, else read from the gaps between payments), monthlyCost (the amount scaled to a month), lastDate, nextDate (null once ended), endDate and remainingInstallments when known, chargedTwice when the latest payment came twice within half its period, and ended. Amounts on a shared account are the person's half.",
+				annotations: { readOnlyHint: true },
+			},
+			() => this.#reply({ recurring: recurringBook.list(userId).map(payment) }),
+		);
+		server.registerTool(
+			"set_recurring",
+			{
+				title: "File an expense as recurring",
+				description:
+					"Files personal expense expenseId (from list_expenses), and every expense of the same kind with the same description, in the recurring series named label, made when new, so future bank lines like it join it too; label null takes them out of any series. type, frequency (leave it out to read it from the payments), endDate (YYYY-MM-DD) or remainingInstallments (payments left from the next one, which sets endDate) apply to the series. Replies with the series as list_recurring shows it.",
+				inputSchema: z.object({
+					expenseId: z.string().min(1),
+					label: z.string().trim().min(1).max(40).nullable(),
+					type: z.enum(recurringTypes).optional(),
+					frequency: z.enum(cadences).nullable().optional(),
+					endDate: z.iso.date().nullable().optional(),
+					remainingInstallments: z.number().int().min(0).max(600).optional(),
+				}),
+				annotations: {
+					readOnlyHint: false,
+					destructiveHint: false,
+					idempotentHint: true,
+				},
+			},
+			({ expenseId, label, ...settings }) => {
+				if (label === null) {
+					return recurringBook.unfile(userId, expenseId)
+						? this.#reply({ unfiled: true })
+						: this.#missingExpense();
+				}
+				const filed = recurringBook.file(userId, expenseId, {
+					label,
+					...settings,
+				});
+				return filed
+					? this.#reply({ recurring: payment(filed) })
+					: this.#missingExpense();
+			},
+		);
+	}
+
+	/** The error reply for a personal expense id the person doesn't have. */
+	#missingExpense() {
+		return {
+			...this.#reply({
+				error: "No such personal expense. Call list_expenses for the ids.",
+			}),
+			isError: true,
+		};
 	}
 
 	/** Adds the tools that list the person's accounts with their balances and set a balance the bank doesn't report. */
@@ -700,6 +789,7 @@ class McpEndpoint {
 							flow: flowOf(row),
 							deferred: row.cardRole === "deferred",
 							transferPairId: row.transferPairId,
+							recurringId: row.recurringId,
 						};
 					}),
 				};

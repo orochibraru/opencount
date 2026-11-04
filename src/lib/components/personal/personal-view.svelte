@@ -8,6 +8,7 @@
 	import PencilIcon from "@lucide/svelte/icons/pencil";
 	import PiggyBankIcon from "@lucide/svelte/icons/piggy-bank";
 	import PlusIcon from "@lucide/svelte/icons/plus";
+	import RepeatIcon from "@lucide/svelte/icons/repeat";
 	import SearchIcon from "@lucide/svelte/icons/search";
 	import Trash2Icon from "@lucide/svelte/icons/trash-2";
 	import UsersIcon from "@lucide/svelte/icons/users";
@@ -34,6 +35,7 @@
 	import PersonalSheet, {
 		type EditablePersonalExpense,
 	} from "#lib/components/personal/personal-sheet.svelte";
+	import RecurringSheet from "#lib/components/personal/recurring-sheet.svelte";
 	import ShareSheet from "#lib/components/personal/share-sheet.svelte";
 	import SimilarSheet, {
 		type SimilarExpense,
@@ -45,8 +47,9 @@
 		PersonalStats,
 	} from "#lib/dto/personal-expense.js";
 	import { listBlocks } from "#lib/list-blocks.js";
-	import { formatMoney } from "#lib/money.js";
+	import { formatFlow, formatMoney } from "#lib/money.js";
 	import { MonthCalendar, type MonthStarts } from "#lib/pay-month.js";
+	import type { SeriesSettings } from "#lib/recurring-schedule.js";
 
 	interface Props {
 		expenses: PersonalExpenseRow[];
@@ -55,6 +58,7 @@
 		pageSize: number;
 		stats: PersonalStats;
 		months: MonthStarts;
+		series: SeriesSettings[];
 		categories: CustomCategory[];
 		category: string | null;
 		search: string;
@@ -84,6 +88,7 @@
 		pageSize,
 		stats,
 		months,
+		series,
 		categories,
 		category,
 		search,
@@ -109,6 +114,8 @@
 	let detailsOpen = $state(false);
 	let shareOpen = $state(false);
 	let sharing = $state<PersonalExpenseRow>();
+	let recurringOpen = $state(false);
+	let filing = $state<PersonalExpenseRow>();
 	let moveOpen = $state(false);
 	let moving = $state<PersonalExpenseRow>();
 	let similarOpen = $state(false);
@@ -272,6 +279,28 @@
 						},
 					]
 				: []),
+			{
+				label: entry.recurringId ? "Recurring payment" : "Mark as recurring",
+				icon: RepeatIcon,
+				onSelect: () => {
+					filing = entry;
+					recurringOpen = true;
+				},
+			},
+			...(entry.recurringId
+				? [
+						{
+							label: "Not recurring",
+							icon: RepeatIcon,
+							form: {
+								action: `${action}?/unfileRecurring`,
+								fields: { expenseId: entry.id },
+								loading: "Taking it out of the series",
+								success: "No longer recurring.",
+							},
+						},
+					]
+				: []),
 			...(entry.kind === "income"
 				? [
 						{
@@ -321,6 +350,10 @@
 		];
 	}
 
+	const seriesLabels = $derived(
+		new Map(series.map((entry) => [entry.id, entry.label])),
+	);
+
 	function detail(entry: PersonalExpenseRow): string {
 		if (entry.sharedGroupName) {
 			return `Split in ${entry.sharedGroupName}`;
@@ -332,6 +365,7 @@
 		return [
 			entry.aside ? "Set aside" : day,
 			entry.pay ? "Pay" : null,
+			seriesLabels.get(entry.recurringId ?? ""),
 			!folder ? entry.folderName : null,
 			sourceOf(entry),
 		]
@@ -517,6 +551,8 @@
 											>
 												{#if entry.aside}<PiggyBankIcon
 														class="size-3.5 shrink-0"
+													/>{:else if entry.recurringId}<RepeatIcon
+														class="size-3.5 shrink-0"
 													/>{:else if entry.fromBank}<LandmarkIcon
 														class="size-3.5 shrink-0"
 													/>{/if}
@@ -535,9 +571,10 @@
 												: entry.kind === 'income'
 													? 'text-positive'
 													: ''}"
-											>{entry.kind === "income" ? "+" : ""}{formatMoney(
+											>{formatFlow(
 												entry.amountMinor,
 												entry.currency,
+												entry.kind === "income",
 											)}</span
 										>
 									</ItemMenu>
@@ -602,6 +639,19 @@
 
 {#if moving}
 	<MoveSheet bind:open={moveOpen} expense={moving} {folders} {action} />
+{/if}
+
+{#if filing}
+	<RecurringSheet
+		bind:open={recurringOpen}
+		target={{
+			expenseId: filing.id,
+			description: filing.description,
+			seriesId: filing.recurringId,
+		}}
+		{series}
+		{action}
+	/>
 {/if}
 
 {#if similar}

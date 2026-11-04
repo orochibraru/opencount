@@ -62,6 +62,7 @@
 	pageSize={data.pageSize}
 	stats={data.stats}
 	months={data.months}
+	series={data.series}
 	categories={data.categories}
 	category={data.category}
 	search={data.search}

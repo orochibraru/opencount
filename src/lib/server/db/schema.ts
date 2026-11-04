@@ -10,6 +10,7 @@ import {
 
 import type { AccountType } from "#lib/account-types.js";
 import { cardRoles } from "#lib/deferred-card.js";
+import { cadences, recurringTypes } from "#lib/recurring-schedule.js";
 
 const createdAt = () =>
 	integer("created_at", { mode: "timestamp_ms" })
@@ -710,6 +711,29 @@ export const personalFolder = sqliteTable(
 	(table) => [index("personal_folder_user_id_idx").on(table.userId)],
 );
 
+export const recurringSeries = sqliteTable(
+	"recurring_series",
+	{
+		id: text("id")
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		label: text("label").notNull(),
+		type: text("type", { enum: recurringTypes }).notNull().default("other"),
+		frequency: text("frequency", { enum: cadences }),
+		endDate: text("end_date"),
+		createdAt: createdAt(),
+	},
+	(table) => [
+		uniqueIndex("recurring_series_user_label_idx").on(
+			table.userId,
+			table.label,
+		),
+	],
+);
+
 export const personalCategory = sqliteTable(
 	"personal_category",
 	{
@@ -795,6 +819,9 @@ export const personalExpense = sqliteTable(
 		aside: integer("aside", { mode: "boolean" }).notNull().default(false),
 		pay: integer("pay", { mode: "boolean" }).notNull().default(false),
 		cardRole: text("card_role", { enum: cardRoles }),
+		recurringId: text("recurring_id").references(() => recurringSeries.id, {
+			onDelete: "set null",
+		}),
 		currency: text("currency").notNull(),
 		spentOn: text("spent_on").notNull(),
 		bankRef: text("bank_ref"),

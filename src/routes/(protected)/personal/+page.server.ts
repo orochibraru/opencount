@@ -15,12 +15,17 @@ import { convertMinor, formatMoney } from "#lib/money.js";
 import { exchangeRates } from "#lib/server/expenses/exchange-rates.js";
 import { groupAccess } from "#lib/server/expenses/group-access.js";
 import { personalPage } from "#lib/server/expenses/personal-page.js";
+import { recurringBook } from "#lib/server/money/recurring.js";
 import { idSchema, parseForm } from "#lib/server/validation/form.js";
 import {
 	monthStartSchema,
 	parsePersonalForm,
 	paySchema,
 } from "#lib/server/validation/personal.js";
+import {
+	recurringSchema,
+	unfileRecurringSchema,
+} from "#lib/server/validation/recurring.js";
 import { splitByWeight } from "#lib/split.js";
 
 const folderSchema = z.object({
@@ -209,6 +214,33 @@ export const actions = {
 		}
 		existing.moveTo(parsed.data.folderId || null);
 		return { moved: true };
+	},
+	recurring: async ({ locals, request }) => {
+		if (!locals.user) {
+			return fail(401, { error: "Sign in again to continue." });
+		}
+		const parsed = parseForm(recurringSchema, await request.formData());
+		if (!parsed.success) {
+			return fail(400, { errors: parsed.errors });
+		}
+		const saved = recurringBook.save(locals.user.id, parsed.data);
+		if (!saved) {
+			return fail(404, { error: "That expense no longer exists." });
+		}
+		return { recurring: saved.label };
+	},
+	unfileRecurring: async ({ locals, request }) => {
+		if (!locals.user) {
+			return fail(401, { error: "Sign in again to continue." });
+		}
+		const parsed = parseForm(unfileRecurringSchema, await request.formData());
+		if (
+			!parsed.success ||
+			!recurringBook.unfile(locals.user.id, parsed.data.expenseId)
+		) {
+			return fail(404, { error: "That expense no longer exists." });
+		}
+		return { unfiled: true };
 	},
 	applyCategory: async ({ locals, request }) => {
 		if (!locals.user) {

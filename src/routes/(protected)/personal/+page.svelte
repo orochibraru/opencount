@@ -9,6 +9,7 @@
 	import FolderPlusIcon from "@lucide/svelte/icons/folder-plus";
 	import LandmarkIcon from "@lucide/svelte/icons/landmark";
 	import PlusIcon from "@lucide/svelte/icons/plus";
+	import RepeatIcon from "@lucide/svelte/icons/repeat";
 	import TagsIcon from "@lucide/svelte/icons/tags";
 	import WalletIcon from "@lucide/svelte/icons/wallet";
 	import { untrack } from "svelte";
@@ -45,6 +46,11 @@
 			label: "Insights",
 			icon: ChartColumnIcon,
 			href: resolve("/(protected)/personal/analytics"),
+		},
+		{
+			label: "Recurring",
+			icon: RepeatIcon,
+			href: resolve("/(protected)/personal/recurring"),
 		},
 		{
 			label: "Categories",
@@ -96,6 +102,7 @@
 	pageSize={data.pageSize}
 	stats={data.stats}
 	months={data.months}
+	series={data.series}
 	categories={data.categories}
 	category={data.category}
 	search={data.search}

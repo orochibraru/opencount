@@ -20,6 +20,7 @@ import { EnableBankingClient } from "#lib/server/banking/enable-banking.js";
 import { secrets } from "#lib/server/core/secrets.js";
 import { jobHandlers } from "#lib/server/jobs/handlers.js";
 import { accountBook } from "#lib/server/money/accounts.js";
+import { recurringBook } from "#lib/server/money/recurring.js";
 
 import { createUser, resetDatabase } from "../../database.js";
 
@@ -863,6 +864,109 @@ describe("transfers between own accounts", () => {
 			rows.find((row) => row.description === "PAIEMENT CB 0211 PARIS")
 				?.cardRole,
 		).toBeNull();
+	});
+
+	test("a line filed as recurring takes the lines like it and future syncs along", () => {
+		const ada = createUser("ada");
+		const connection = twoAccounts(ada.id);
+		const loan = (ref: string, spentOn: string, number = "01") =>
+			line("main", ref, {
+				description: `LOAN PAYMENT 0000 ${number}`,
+				category: "finance",
+				amountMinor: 20_000,
+				spentOn,
+			});
+		PersonalExpenseDTO.importFromBank(ada.id, connection.id, [
+			loan("aug", "2026-08-06"),
+			loan("sep", "2026-09-05"),
+			loan("other", "2026-09-05", "02"),
+		]);
+		const august = PersonalExpenseDTO.page(ada.id, { limit: 50 })
+			.entries.map((entry) => entry.toJSON())
+			.find((row) => row.spentOn === "2026-08-06");
+		const filed = recurringBook.file(ada.id, august?.id ?? "", {
+			label: "Car loan",
+			type: "loan",
+			remainingInstallments: 2,
+		});
+		expect(filed).toEqual(
+			expect.objectContaining({
+				label: "Car loan",
+				count: 2,
+				nextOn: "2026-10-05",
+				endDate: "2026-11-05",
+				remaining: 2,
+			}),
+		);
+		PersonalExpenseDTO.importFromBank(ada.id, connection.id, [
+			loan("oct", "2026-10-05"),
+		]);
+		expect(recurringBook.list(ada.id, "2026-10-06")[0]).toEqual(
+			expect.objectContaining({ count: 3, nextOn: "2026-11-05", remaining: 1 }),
+		);
+		expect(
+			recurringBook.file(ada.id, "missing", { label: "X" }),
+		).toBeUndefined();
+		expect(recurringBook.unfile(ada.id, august?.id ?? "")).toBe(true);
+		expect(recurringBook.list(ada.id)[0]?.count).toBe(0);
+		expect(recurringBook.remove(ada.id, filed?.id ?? "")).toBe(true);
+		expect(recurringBook.list(ada.id)).toEqual([]);
+	});
+
+	test("the recurring sheet files a line or edits its series", () => {
+		const ada = createUser("ada");
+		const connection = twoAccounts(ada.id);
+		PersonalExpenseDTO.importFromBank(ada.id, connection.id, [
+			line("main", "music", {
+				description: "MUSIC APP",
+				category: "subscriptions",
+				amountMinor: 999,
+				spentOn: "2026-10-12",
+			}),
+		]);
+		const [music] = PersonalExpenseDTO.page(ada.id, { limit: 1 }).entries;
+		const filed = recurringBook.save(ada.id, {
+			expenseId: music?.id ?? "",
+			seriesId: "",
+			label: "Music",
+			type: "subscription",
+			frequency: "monthly",
+			remaining: "",
+		});
+		expect(filed).toEqual(
+			expect.objectContaining({
+				label: "Music",
+				type: "subscription",
+				cadence: "monthly",
+				endDate: null,
+			}),
+		);
+		expect(recurringBook.labelTaken(ada.id, "music", "")).toBe(true);
+		expect(recurringBook.labelTaken(ada.id, "music", filed?.id ?? "")).toBe(
+			false,
+		);
+		const edited = recurringBook.save(ada.id, {
+			expenseId: "",
+			seriesId: filed?.id ?? "",
+			label: "Streaming",
+			type: "subscription",
+			frequency: null,
+			remaining: 3,
+		});
+		expect(edited).toEqual(
+			expect.objectContaining({ label: "Streaming", remaining: 3 }),
+		);
+		expect(
+			recurringBook.update(ada.id, filed?.id ?? "", {
+				remainingInstallments: 0,
+				endDate: null,
+			})?.endDate,
+		).toBeNull();
+		expect(
+			recurringBook.update(ada.id, "missing", { label: "X" }),
+		).toBeUndefined();
+		expect(recurringBook.remove(ada.id, "missing")).toBe(false);
+		expect(recurringBook.unfile(ada.id, "missing")).toBe(false);
 	});
 
 	test("a shared account's lines count at half", () => {

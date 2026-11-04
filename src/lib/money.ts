@@ -39,6 +39,15 @@ export function parseSignedMoney(
 	return minor === undefined ? undefined : negative ? -minor : minor;
 }
 
+/** `minor` in `currency` with the way it moved: "+" for money in, "-" for money out. */
+export function formatFlow(
+	minor: number,
+	currency: string,
+	income: boolean,
+): string {
+	return `${income ? "+" : "-"}${formatMoney(Math.abs(minor), currency)}`;
+}
+
 /** Parses what someone typed, `12`, `12.5`, `12,50` or `1 234,56`, into minor units; `undefined` when it isn't an amount. */
 export function parseMoney(
 	input: string,

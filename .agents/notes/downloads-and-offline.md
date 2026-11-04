@@ -235,9 +235,15 @@
   `set_balance` go through `accountBook` (`#lib/server/money/accounts.ts`), the
   one reader of linked accounts: type (stored in the account JSON, else derived
   from the shared and savings flags), and the newer of the synced and typed-in
-  balance; personal entries carry `accountId` (the bank account uid).
-  `csrfHandler` lets `/api/auth/oauth2/token`, `revoke` and `introspect`
-  through: AI apps call them server to server with no `Origin`.
+  balance; personal entries carry `accountId` (the bank account uid). Recurring
+  series live in `recurring_series` (label, type, frequency override, end date);
+  lines point at one through `recurring_id`, and `importFromBank` files a new
+  line in the series of an older line with the same kind and `similarKey`, like
+  pay. `recurringBook` (`#lib/server/money/recurring.ts`) turns series and lines
+  into payments with `recurringSchedule`; `list_recurring`, `set_recurring` and
+  the Recurring page all go through it. `csrfHandler` lets
+  `/api/auth/oauth2/token`, `revoke` and `introspect` through: AI apps call them
+  server to server with no `Origin`.
 - `browserPaths` in `auth.ts` lets the OAuth endpoints AI apps call
   (`authorize`, `token`, `register`, `consent`, `revoke`, `userinfo`, `/jwks`,
   `/.well-known/`) through the 404 every other direct better-auth call gets.

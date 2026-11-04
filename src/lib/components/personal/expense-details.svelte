@@ -9,7 +9,7 @@
 	import ResponsiveSheet from "#lib/components/responsive-sheet.svelte";
 	import { Button } from "#lib/components/ui/button/index.js";
 	import type { PersonalExpenseRow } from "#lib/dto/personal-expense.js";
-	import { formatMoney } from "#lib/money.js";
+	import { formatFlow } from "#lib/money.js";
 	import { spendingKind } from "#lib/spending-kind.js";
 
 	interface Props {
@@ -57,9 +57,10 @@
 						? 'text-positive'
 						: ''}"
 				>
-					{expense.kind === "income" ? "+" : ""}{formatMoney(
+					{formatFlow(
 						expense.amountMinor,
 						expense.currency,
+						expense.kind === "income",
 					)}
 				</p>
 				<p class="text-muted-foreground mt-1 text-sm">{counts}</p>
