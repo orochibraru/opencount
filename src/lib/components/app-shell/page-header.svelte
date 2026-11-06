@@ -40,21 +40,35 @@
 					/>
 				{/snippet}
 			</DropdownMenu.Trigger>
-			<DropdownMenu.Content align="end" class="min-w-52">
+			<DropdownMenu.Content align="end" class="w-80 p-1.5">
 				{#each secondary as action (action.label)}
+					{#snippet body()}
+						<span
+							class="bg-accent text-accent-foreground flex size-9 shrink-0 items-center justify-center rounded-lg"
+						>
+							<action.icon class="size-4" />
+						</span>
+						<span class="flex min-w-0 flex-col">
+							<span class="font-medium">{action.label}</span>
+							{#if action.description}
+								<span class="text-muted-foreground text-xs leading-snug"
+									>{action.description}</span
+								>
+							{/if}
+						</span>
+					{/snippet}
 					{#if action.href}
-						<DropdownMenu.Item>
+						<DropdownMenu.Item class="items-start gap-3 rounded-lg px-2 py-2">
 							{#snippet child({ props })}
-								<a {...props} href={action.href}>
-									<action.icon />
-									{action.label}
-								</a>
+								<a {...props} href={action.href}>{@render body()}</a>
 							{/snippet}
 						</DropdownMenu.Item>
 					{:else}
-						<DropdownMenu.Item onSelect={action.onSelect}>
-							<action.icon />
-							{action.label}
+						<DropdownMenu.Item
+							class="items-start gap-3 rounded-lg px-2 py-2"
+							onSelect={action.onSelect}
+						>
+							{@render body()}
 						</DropdownMenu.Item>
 					{/if}
 				{/each}

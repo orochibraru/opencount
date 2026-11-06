@@ -842,6 +842,14 @@ describe("transfers between own accounts", () => {
 			),
 		).toBe(true);
 		expect(accountBook.find(ada.id, id)?.balance?.minor).toBe(-500);
+		expect(accountBook.rename(ada.id, id, "Wallet")).toBe(true);
+		expect(accountBook.find(ada.id, id)?.name).toBe("Wallet");
+		expect(accountBook.rename(ada.id, id, "")).toBe(false);
+		expect(accountBook.rename(ada.id, "main", "Daily")).toBe(true);
+		expect(accountBook.find(ada.id, "main")?.name).toBe("Daily");
+		expect(accountBook.rename(ada.id, "main", "")).toBe(true);
+		expect(accountBook.find(ada.id, "main")?.name).toBe("Main");
+		expect(accountBook.rename(ada.id, "gone", "X")).toBe(false);
 		expect(accountBook.remove(ada.id, "main")).toBe(false);
 		expect(accountBook.remove(ada.id, id)).toBe(true);
 		expect(accountBook.find(ada.id, id)).toBeUndefined();

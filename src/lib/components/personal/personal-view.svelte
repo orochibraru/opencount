@@ -66,6 +66,7 @@
 		stats: PersonalStats;
 		months: MonthStarts;
 		series: SeriesSettings[];
+		loansThisMonth?: { label: string; currency: string; minor: number }[];
 		categories: CustomCategory[];
 		category: string | null;
 		search: string;
@@ -104,6 +105,7 @@
 		stats,
 		months,
 		series,
+		loansThisMonth = [],
 		categories,
 		category,
 		search,
@@ -511,6 +513,24 @@
 					{totals(folder || filtered ? stats.finance : stats.financeThisMonth)} in
 					loans, fees and cash{folder || filtered ? "" : " this month"}, apart
 				</p>
+			{/if}
+			{#if !folder && !filtered && loansThisMonth.length > 0}
+				<ul
+					class="text-muted-foreground mt-1 ml-5.5 flex flex-col gap-0.5 border-l pl-3 text-sm"
+					aria-label="Loans paid this month"
+				>
+					{#each loansThisMonth as loan (`${loan.label}:${loan.currency}`)}
+						<li class="flex items-center justify-between gap-3">
+							<span class="flex min-w-0 items-center gap-1.5">
+								<RepeatIcon class="size-3.5 shrink-0" />
+								<span class="truncate">{loan.label}</span>
+							</span>
+							<span class="tabular shrink-0"
+								>{formatMoney(loan.minor, loan.currency)}</span
+							>
+						</li>
+					{/each}
+				</ul>
 			{/if}
 			{#if (folder || filtered ? stats.income : stats.incomeThisMonth).length > 0}
 				<p class="text-positive mt-1 flex items-center gap-1.5 text-sm">

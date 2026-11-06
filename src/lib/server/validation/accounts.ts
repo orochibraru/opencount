@@ -21,6 +21,11 @@ export const accountBalanceSchema = z.object({
 
 export const accountIdSchema = z.object({ id: z.string().trim().min(1) });
 
+export const accountRenameSchema = z.object({
+	id: z.string().trim().min(1),
+	name: z.string().trim().max(60, "Keep the name under 60 characters."),
+});
+
 export const newAccountSchema = z.object({
 	name: z
 		.string()

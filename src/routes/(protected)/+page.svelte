@@ -12,6 +12,7 @@
 	setPageTitle("Home", undefined, [
 		{
 			label: "Personal",
+			description: "Every line from your accounts, and your own expenses",
 			icon: WalletIcon,
 			href: resolve("/(protected)/personal"),
 		},

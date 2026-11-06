@@ -5,10 +5,11 @@ import BotIcon from "@lucide/svelte/icons/bot";
 import FingerprintIcon from "@lucide/svelte/icons/fingerprint";
 import PaletteIcon from "@lucide/svelte/icons/palette";
 import UserRoundIcon from "@lucide/svelte/icons/user-round";
+import WalletIcon from "@lucide/svelte/icons/wallet";
 
 import type { SectionTab } from "#lib/components/nav-cards.svelte";
 
-/** The account section's pages, shared by its landing cards and its tabs; Bank sync only while the server allows it. */
+/** The account section's pages, shared by its landing cards and its tabs; Bank sync becomes just Accounts while the server turns sync off. */
 export function accountTabs(bankSync: boolean): SectionTab[] {
 	const tabs: SectionTab[] = [
 		{
@@ -36,12 +37,20 @@ export function accountTabs(bankSync: boolean): SectionTab[] {
 			description: "Get told on this device when someone adds an expense.",
 			icon: BellIcon,
 		},
-		{
-			href: resolve("/(protected)/account/banks"),
-			label: "Bank sync",
-			description: "Bring your card payments into your personal expenses.",
-			icon: BanknoteIcon,
-		},
+		bankSync
+			? {
+					href: resolve("/(protected)/account/banks"),
+					label: "Bank sync",
+					description:
+						"Your accounts and balances, and bringing your bank's lines in.",
+					icon: BanknoteIcon,
+				}
+			: {
+					href: resolve("/(protected)/account/banks/accounts"),
+					label: "Accounts",
+					description: "Accounts you keep by hand, with their balances.",
+					icon: WalletIcon,
+				},
 		{
 			href: resolve("/(protected)/account/ai-apps"),
 			label: "AI apps",
@@ -50,7 +59,5 @@ export function accountTabs(bankSync: boolean): SectionTab[] {
 			icon: BotIcon,
 		},
 	];
-	return bankSync
-		? tabs
-		: tabs.filter((tab) => tab.href !== resolve("/(protected)/account/banks"));
+	return tabs;
 }

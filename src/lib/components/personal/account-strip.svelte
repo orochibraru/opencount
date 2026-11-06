@@ -60,7 +60,7 @@
 					: "Mark as shared: counts half",
 				icon: UsersIcon,
 				form: {
-					action: `${resolve("/(protected)/personal/accounts")}?/setShared`,
+					action: `${resolve("/(protected)/account/banks/accounts")}?/setShared`,
 					fields: { id: account.id, shared: String(!account.shared) },
 					loading: "Saving",
 					success: account.shared
@@ -71,7 +71,8 @@
 			{
 				label: "Manage accounts",
 				icon: SettingsIcon,
-				onSelect: () => void goto(resolve("/(protected)/personal/accounts")),
+				onSelect: () =>
+					void goto(resolve("/(protected)/account/banks/accounts")),
 			},
 		];
 	}
@@ -120,7 +121,7 @@
 					<a
 						href={account.connectionId
 							? href(selected ? null : account.id)
-							: resolve("/(protected)/personal/accounts")}
+							: resolve("/(protected)/account/banks/accounts")}
 						data-sveltekit-reset="false"
 						aria-current={selected ? "true" : undefined}
 						title={account.failed

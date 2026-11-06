@@ -315,7 +315,7 @@
 			/>
 		</div>
 		<a
-			href={resolve("/(protected)/personal/accounts")}
+			href={resolve("/(protected)/account/banks/accounts")}
 			class="glass hover:bg-muted/50 flex min-h-16 items-center gap-3 rounded-2xl p-4 md:p-5"
 		>
 			<LandmarkIcon class="text-muted-foreground size-5 shrink-0" />

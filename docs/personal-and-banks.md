@@ -58,7 +58,9 @@ next one hasn't landed, months fall on the same day of the month as the nearest
 pay. **Not my pay** undoes it.
 
 The category bars on Personal's totals card count this month only, like the
-total above them; a folder or a search shows them for every month.
+total above them; a folder or a search shows them for every month. Under the
+loans, fees and cash line, each series marked as a loan or as pay in instalments
+shows what it took this month.
 
 ## Rules
 
@@ -153,19 +155,21 @@ when the link lasts, or why the last sync failed. Its menu has **Sync now**,
 only hand it over shortly after you confirm the link), **Relink or change
 accounts** and **Unlink**, which stops the sync.
 
-**Accounts** in Personal's menu lists every linked account with its balance: the
-one your bank reported at the last sync, or one you typed in with **Set the
-balance** when that is newer (handy when a bank reports none, or for an
-overdrawn account: type a minus). Each account has a type: everyday account,
-joint account, savings, investments or credit card. Savings and investments hold
-money set aside, so money moved into them counts as set aside, and a joint
-account is shared. The page splits your accounts into **Mine** and **Shared with
-someone**: **Mark as shared** moves any account there without changing its type,
-**It's only mine** moves it back. A shared account's lines count at half, and
-its balance stays out of your totals unless you switch **Count shared accounts**
-on (on Home; your choice stays on that device), then at half. **Add an account**
-adds one no bank reports, like cash or a broker: you keep its balance with **Set
-the balance**, it counts like any other, and it can be deleted.
+**Accounts**, the first tab under **Account, Bank sync** (also in Personal's
+menu), lists every account with its balance: the one your bank reported at the
+last sync, or one you typed in with **Set the balance** when that is newer
+(handy when a bank reports none, or for an overdrawn account: type a minus).
+Each account has a type: everyday account, joint account, savings, investments
+or credit card. Savings and investments hold money set aside, so money moved
+into them counts as set aside, and a joint account is shared. The page splits
+your accounts into **Mine** and **Shared with someone**: **Mark as shared**
+moves any account there without changing its type, **It's only mine** moves it
+back. A shared account's lines count at half, and its balance stays out of your
+totals unless you switch **Count shared accounts** on (on Home; your choice
+stays on that device), then at half. **Add an account** adds one no bank
+reports, like cash or a broker: you keep its balance with **Set the balance**,
+it counts like any other, and it can be deleted. **Rename** gives any account
+your own name; for a bank's account, an empty name brings back the bank's.
 
 **Relink or change accounts** sends you through the bank's consent screen again
 for the same bank: use it when the 90 days run out or to add or drop accounts

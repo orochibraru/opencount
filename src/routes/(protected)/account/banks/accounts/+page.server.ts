@@ -6,6 +6,7 @@ import { accountBook } from "#lib/server/money/accounts.js";
 import {
 	accountBalanceSchema,
 	accountIdSchema,
+	accountRenameSchema,
 	accountSharedSchema,
 	accountTypeSchema,
 	newAccountSchema,
@@ -56,6 +57,22 @@ export const actions = {
 			return gone();
 		}
 		return { removed: true };
+	},
+	rename: async ({ locals, request }) => {
+		if (!locals.user) {
+			return fail(401, { error: "Sign in again to continue." });
+		}
+		const parsed = parseForm(accountRenameSchema, await request.formData());
+		if (!parsed.success) {
+			return fail(400, { errors: parsed.errors });
+		}
+		if (!accountBook.find(locals.user.id, parsed.data.id)) {
+			return gone();
+		}
+		if (!accountBook.rename(locals.user.id, parsed.data.id, parsed.data.name)) {
+			return fail(400, { errors: { name: ["Name the account."] } });
+		}
+		return { saved: true };
 	},
 	setType: async ({ locals, request }) => {
 		if (!locals.user) {

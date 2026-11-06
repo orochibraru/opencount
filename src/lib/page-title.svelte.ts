@@ -8,6 +8,7 @@ const key = Symbol("page-title");
  */
 export interface HeaderAction {
 	label: string;
+	description?: string;
 	icon: Component<{ class?: string }>;
 	href?: string;
 	onSelect?: () => void;

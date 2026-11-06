@@ -10,6 +10,7 @@
 	import PlusIcon from "@lucide/svelte/icons/plus";
 	import TagIcon from "@lucide/svelte/icons/tag";
 	import Trash2Icon from "@lucide/svelte/icons/trash-2";
+	import TypeIcon from "@lucide/svelte/icons/type";
 	import UsersIcon from "@lucide/svelte/icons/users";
 	import WalletIcon from "@lucide/svelte/icons/wallet";
 	import type { Component } from "svelte";
@@ -30,7 +31,6 @@
 	import { Input } from "#lib/components/ui/input/index.js";
 	import { currencies } from "#lib/currencies.js";
 	import { currencyDigits, formatMoney } from "#lib/money.js";
-	import { setPageTitle } from "#lib/page-title.svelte.js";
 	import { enhanceToast } from "#lib/toast.js";
 
 	const { data } = $props();
@@ -62,15 +62,6 @@
 		adding = true;
 	}
 
-	setPageTitle("Accounts", resolve("/(protected)/personal"), [
-		{
-			label: "Add an account",
-			icon: PlusIcon,
-			onSelect: startAdding,
-			primary: true,
-		},
-	]);
-
 	type Account = (typeof data.accounts)[number];
 
 	const sections = $derived(
@@ -96,6 +87,18 @@
 
 	let typing = $state<Account>();
 	let typeOpen = $state(false);
+	let renaming = $state<Account>();
+	let renameOpen = $state(false);
+	let newAccountName = $state("");
+	let renameErrors = $state<Record<string, string[]>>({});
+
+	function openRename(account: Account) {
+		renaming = account;
+		newAccountName = account.name;
+		renameErrors = {};
+		renameOpen = true;
+	}
+
 	let balancing = $state<Account>();
 	let balanceOpen = $state(false);
 	let amount = $state("");
@@ -142,13 +145,22 @@
 	}
 </script>
 
-<div class="flex flex-col gap-4 px-4 md:max-w-2xl md:px-6">
-	<p class="text-muted-foreground text-sm">
-		Each account's balance comes from your bank's last sync, or the one you
-		typed in when it's newer. Savings and investments hold money set aside.
-		Shared accounts count at half and stay out of your totals unless you switch
-		them on.
-	</p>
+<div class="flex flex-col gap-4 md:max-w-2xl">
+	<div class="flex items-start justify-between gap-4">
+		<p class="text-muted-foreground text-sm">
+			Each account's balance comes from your bank's last sync, or the one you
+			typed in when it's newer. Savings and investments hold money set aside.
+			Shared accounts count at half and stay out of your totals unless you
+			switch them on.
+		</p>
+		<Button
+			class="hidden h-10 shrink-0 rounded-xl px-4 md:inline-flex"
+			onclick={startAdding}
+		>
+			<PlusIcon />
+			Add an account
+		</Button>
+	</div>
 	{#if data.accounts.length === 0}
 		<EmptyState
 			icon={LandmarkIcon}
@@ -187,6 +199,11 @@
 							title={account.name}
 							class="min-h-16 px-3 py-2 md:px-4"
 							actions={[
+								{
+									label: "Rename",
+									icon: TypeIcon,
+									onSelect: () => openRename(account),
+								},
 								{
 									label: "Set the balance",
 									icon: PencilIcon,
@@ -398,6 +415,51 @@
 					</li>
 				{/each}
 			</ul>
+		</form>
+	</ResponsiveSheet>
+{/if}
+
+{#if renaming}
+	<ResponsiveSheet
+		bind:open={renameOpen}
+		title="Rename the account"
+		description={renaming.connectionId
+			? "Only in OpenCount. Leave it empty to bring back your bank's name."
+			: undefined}
+	>
+		<form
+			method="POST"
+			action="?/rename"
+			class="flex flex-col gap-4 pb-4"
+			use:enhance={enhanceToast({
+				loading: "Renaming",
+				success: "Renamed.",
+				onFailure: (result) =>
+					(renameErrors = (result?.errors as Record<string, string[]>) ?? {}),
+				onSuccess: () => {
+					renameOpen = false;
+				},
+			})}
+		>
+			<input type="hidden" name="id" value={renaming.id} />
+			<Field.Field>
+				<Field.Label for="account-name">Name</Field.Label>
+				<Input
+					id="account-name"
+					name="name"
+					maxlength={60}
+					required={!renaming.connectionId}
+					class="h-11"
+					bind:value={newAccountName}
+				/>
+				<Field.Error
+					errors={renameErrors.name?.map((message) => ({ message }))}
+				/>
+			</Field.Field>
+			<Button type="submit" class="h-11 rounded-xl">
+				<CheckIcon />
+				Save
+			</Button>
 		</form>
 	</ResponsiveSheet>
 {/if}

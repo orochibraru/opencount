@@ -54,6 +54,7 @@
 			},
 			{
 				label: "Insights",
+				description: "Where the group spent, by period, category and person",
 				icon: ChartColumnIcon,
 				href: resolve("/(protected)/groups/[groupId]/analytics", {
 					groupId: data.group.id,
@@ -61,6 +62,7 @@
 			},
 			{
 				label: "Settings",
+				description: "Name, members, categories and archiving",
 				icon: SettingsIcon,
 				href: resolve("/(protected)/groups/[groupId]/settings", {
 					groupId: data.group.id,
@@ -68,6 +70,7 @@
 			},
 			{
 				label: "Invite people",
+				description: "A link to join this group",
 				icon: Share2Icon,
 				onSelect: handleShare,
 			},

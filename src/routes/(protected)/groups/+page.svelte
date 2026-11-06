@@ -24,6 +24,7 @@
 	setPageTitle("OpenCount", undefined, [
 		{
 			label: "Archived groups",
+			description: "Groups you put away, to open or bring back",
 			icon: RotateCcwClockIcon,
 			href: resolve("/(protected)/archived"),
 		},

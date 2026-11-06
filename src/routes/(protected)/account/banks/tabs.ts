@@ -3,12 +3,23 @@ import HouseIcon from "@lucide/svelte/icons/house";
 import KeyRoundIcon from "@lucide/svelte/icons/key-round";
 import LandmarkIcon from "@lucide/svelte/icons/landmark";
 import PowerOffIcon from "@lucide/svelte/icons/power-off";
+import WalletIcon from "@lucide/svelte/icons/wallet";
 
 import type { SectionTab } from "#lib/components/nav-cards.svelte";
 
-/** The bank sync section's pages, shared by its landing cards and its tabs. */
-export function bankSyncTabs(): SectionTab[] {
+/** The bank sync section's pages, shared by its landing cards and its tabs; only Accounts while bank sync is off. */
+export function bankSyncTabs(enabled: boolean): SectionTab[] {
+	const accounts = {
+		href: resolve("/(protected)/account/banks/accounts"),
+		label: "Accounts",
+		description: "Balances, types, shared accounts and accounts added by hand.",
+		icon: WalletIcon,
+	};
+	if (!enabled) {
+		return [accounts];
+	}
 	return [
+		accounts,
 		{
 			href: resolve("/(protected)/account/banks/linked"),
 			label: "Linked banks",

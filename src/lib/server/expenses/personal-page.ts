@@ -108,7 +108,49 @@ class PersonalPage {
 			folders: PersonalFolderDTO.forUser(userId).map((entry) => entry.toJSON()),
 			defaultCurrency,
 			series: RecurringSeriesDTO.forUser(userId).map((entry) => entry.toJSON()),
+			loansThisMonth: this.#loansThisMonth(userId, calendar),
 		};
+	}
+
+	/**
+	 * What `userId` paid this month to each of their series marked as a loan or as instalments, biggest first, in each
+	 * line's currency; a shared account's lines at half.
+	 */
+	#loansThisMonth(userId: string, calendar: MonthCalendar) {
+		const start = calendar.startOf(new Date().toISOString().slice(0, 10));
+		const end = calendar.next(start);
+		const loans = new Map(
+			RecurringSeriesDTO.forUser(userId)
+				.map((entry) => entry.toJSON())
+				.filter((entry) => entry.type === "loan" || entry.type === "bnpl")
+				.map((entry) => [entry.id, entry]),
+		);
+		const paid = new Map<
+			string,
+			{ label: string; currency: string; minor: number }
+		>();
+		for (const line of PersonalExpenseDTO.recurringLines(userId)) {
+			const series = loans.get(line.seriesId);
+			if (
+				!series ||
+				line.kind !== "expense" ||
+				line.spentOn < start ||
+				line.spentOn >= end
+			) {
+				continue;
+			}
+			const key = `${series.id}:${line.currency}`;
+			const entry = paid.get(key) ?? {
+				label: series.label,
+				currency: line.currency,
+				minor: 0,
+			};
+			entry.minor += line.amountMinor;
+			paid.set(key, entry);
+		}
+		return [...paid.values()].toSorted(
+			(left, right) => right.minor - left.minor,
+		);
 	}
 }
 

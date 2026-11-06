@@ -82,11 +82,18 @@
 						class="hover:bg-muted flex min-h-12 items-center gap-3 rounded-xl px-2 font-medium"
 					>
 						<span
-							class="bg-accent text-accent-foreground flex size-9 items-center justify-center rounded-lg"
+							class="bg-accent text-accent-foreground flex size-9 shrink-0 items-center justify-center rounded-lg"
 						>
 							<action.icon class="size-4" />
 						</span>
-						{action.label}
+						<span class="flex min-w-0 flex-col py-1.5">
+							{action.label}
+							{#if action.description}
+								<span class="text-muted-foreground text-sm font-normal"
+									>{action.description}</span
+								>
+							{/if}
+						</span>
 					</a>
 				{:else}
 					<button
@@ -95,11 +102,18 @@
 						class="hover:bg-muted flex min-h-12 w-full items-center gap-3 rounded-xl px-2 text-left font-medium"
 					>
 						<span
-							class="bg-accent text-accent-foreground flex size-9 items-center justify-center rounded-lg"
+							class="bg-accent text-accent-foreground flex size-9 shrink-0 items-center justify-center rounded-lg"
 						>
 							<action.icon class="size-4" />
 						</span>
-						{action.label}
+						<span class="flex min-w-0 flex-col py-1.5">
+							{action.label}
+							{#if action.description}
+								<span class="text-muted-foreground text-sm font-normal"
+									>{action.description}</span
+								>
+							{/if}
+						</span>
 					</button>
 				{/if}
 			</li>

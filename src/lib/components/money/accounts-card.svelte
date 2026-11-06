@@ -106,7 +106,7 @@
 	function href(account: AccountView): string {
 		return account.connectionId
 			? `${resolve("/(protected)/personal")}?account=${encodeURIComponent(account.id)}`
-			: resolve("/(protected)/personal/accounts");
+			: resolve("/(protected)/account/banks/accounts");
 	}
 </script>
 
@@ -214,7 +214,7 @@
 			{failed && !syncing ? "A bank's last sync failed" : synced(syncedAt)}
 		</span>
 		<a
-			href={resolve("/(protected)/personal/accounts")}
+			href={resolve("/(protected)/account/banks/accounts")}
 			class="text-primary flex min-h-11 items-center font-medium"
 			>Manage accounts</a
 		>

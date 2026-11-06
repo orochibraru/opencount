@@ -147,6 +147,22 @@ class AccountBook {
 		return this.#connectionOf(userId, id)?.setAccountType(id, type) ?? false;
 	}
 
+	/**
+	 * Names `userId`'s account `id` `name`; for a linked one an empty name brings back the bank's own. False when they
+	 * have no such account, or for an empty name on one added by hand.
+	 */
+	rename(userId: string, id: string, name: string): boolean {
+		const byHand = ManualAccountDTO.findForUser(id, userId);
+		if (byHand) {
+			if (!name) {
+				return false;
+			}
+			byHand.update({ name });
+			return true;
+		}
+		return this.#connectionOf(userId, id)?.renameAccount(id, name) ?? false;
+	}
+
 	/** Marks `userId`'s account `id` shared (counted at half) or not; false when they have no such account. */
 	setShared(userId: string, id: string, shared: boolean): boolean {
 		const byHand = ManualAccountDTO.findForUser(id, userId);

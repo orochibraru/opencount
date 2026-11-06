@@ -49,36 +49,43 @@
 	setPageTitle("Personal", undefined, [
 		{
 			label: "Insights",
+			description: "Where your money went, by period, category and account",
 			icon: ChartColumnIcon,
 			href: resolve("/(protected)/personal/analytics"),
 		},
 		{
 			label: "To sort",
+			description: "Lines still without a category, one at a time",
 			icon: InboxIcon,
 			href: resolve("/(protected)/personal/triage"),
 		},
 		{
 			label: "Rules",
+			description: "Words in a description that set a category, tag or series",
 			icon: WandIcon,
 			href: resolve("/(protected)/personal/rules"),
 		},
 		{
 			label: "Salary",
+			description: "Your paydays and what counts as your pay",
 			icon: BanknoteIcon,
 			href: resolve("/(protected)/personal/salary"),
 		},
 		{
 			label: "Recurring",
+			description: "Subscriptions, loans and instalments, and when they come",
 			icon: RepeatIcon,
 			href: resolve("/(protected)/personal/recurring"),
 		},
 		{
 			label: "Categories",
+			description: "Your own categories, and sorting old lines again",
 			icon: TagsIcon,
 			href: resolve("/(protected)/personal/categories"),
 		},
 		{
 			label: "Month start",
+			description: "Calendar months, a fixed day, or payday to payday",
 			icon: CalendarRangeIcon,
 			onSelect: () => {
 				monthStart = data.monthSetting.fromPay
@@ -89,13 +96,15 @@
 		},
 		{
 			label: "New folder",
+			description: "Group expenses of one project, like a trip or works",
 			icon: FolderPlusIcon,
 			onSelect: () => (folderOpen = true),
 		},
 		{
 			label: "Accounts",
+			description: "Balances, types, shared accounts and adding one by hand",
 			icon: WalletIcon,
-			href: resolve("/(protected)/personal/accounts"),
+			href: resolve("/(protected)/account/banks/accounts"),
 		},
 		...(untrack(() => data.bankSyncEnabled)
 			? [
@@ -105,6 +114,7 @@
 						? [
 								{
 									label: "Sync all accounts",
+									description: "Ask every linked bank for new lines now",
 									icon: RefreshCwIcon,
 									onSelect: () => syncAllForm?.requestSubmit(),
 								},
@@ -112,6 +122,7 @@
 						: []),
 					{
 						label: "Bank accounts",
+						description: "Your linked banks and where each sync stands",
 						icon: LandmarkIcon,
 						href: resolve("/(protected)/account/banks/linked"),
 					},
@@ -146,6 +157,7 @@
 	stats={data.stats}
 	months={data.months}
 	series={data.series}
+	loansThisMonth={data.loansThisMonth}
 	categories={data.categories}
 	category={data.category}
 	search={data.search}

@@ -30,11 +30,13 @@
 		() => [
 			{
 				label: "Rename folder",
+				description: "Give this folder another name",
 				icon: PencilIcon,
 				onSelect: () => (renameOpen = true),
 			},
 			{
 				label: "Delete folder",
+				description: "Its expenses stay in Personal, out of any folder",
 				icon: Trash2Icon,
 				onSelect: () => (deleteOpen = true),
 			},
@@ -63,6 +65,7 @@
 	stats={data.stats}
 	months={data.months}
 	series={data.series}
+	loansThisMonth={data.loansThisMonth}
 	categories={data.categories}
 	category={data.category}
 	search={data.search}
