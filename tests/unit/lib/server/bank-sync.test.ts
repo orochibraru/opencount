@@ -766,7 +766,8 @@ describe("transfers between own accounts", () => {
 		expect(accountBook.find(ada.id, "joint")).toEqual(
 			expect.objectContaining({ type: "joint", shared: true }),
 		);
-		expect(accountBook.held(ada.id, "EUR", false)).toBe(100_000 + 25_000);
+		expect(accountBook.held(ada.id, "EUR", false)).toBe(100_000);
+		expect(accountBook.held(ada.id, "EUR", false, true)).toBe(100_000 + 25_000);
 		expect(accountBook.held(ada.id, "EUR", true)).toBe(0);
 
 		expect(

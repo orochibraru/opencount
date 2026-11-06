@@ -73,6 +73,19 @@
 
 	type Account = (typeof data.accounts)[number];
 
+	const sections = $derived(
+		[
+			{
+				title: "Mine",
+				rows: data.accounts.filter((account) => !account.shared),
+			},
+			{
+				title: "Shared with someone",
+				rows: data.accounts.filter((account) => account.shared),
+			},
+		].filter((section) => section.rows.length > 0),
+	);
+
 	const typeIcons: Record<AccountType, Component> = {
 		checking: WalletIcon,
 		joint: UsersIcon,
@@ -132,8 +145,9 @@
 <div class="flex flex-col gap-4 px-4 md:max-w-2xl md:px-6">
 	<p class="text-muted-foreground text-sm">
 		Each account's balance comes from your bank's last sync, or the one you
-		typed in when it's newer. A joint account counts at half; savings and
-		investments hold money set aside.
+		typed in when it's newer. Savings and investments hold money set aside.
+		Shared accounts count at half and stay out of your totals unless you switch
+		them on.
 	</p>
 	{#if data.accounts.length === 0}
 		<EmptyState
@@ -158,94 +172,102 @@
 			</div>
 		</EmptyState>
 	{:else}
-		<ul
-			class="glass divide-border divide-y overflow-hidden rounded-2xl"
-			aria-label="Accounts"
-		>
-			{#each data.accounts as account (account.id)}
-				{@const Icon = typeIcons[account.type]}
-				<li>
-					<ItemMenu
-						title={account.name}
-						class="min-h-16 px-3 py-2 md:px-4"
-						actions={[
-							{
-								label: "Set the balance",
-								icon: PencilIcon,
-								onSelect: () => openBalance(account),
-							},
-							{
-								label: "Change the type",
-								icon: TagIcon,
-								onSelect: () => {
-									typing = account;
-									typeOpen = true;
+		{#each sections as section (section.title)}
+			<h2 class="text-muted-foreground -mb-2 px-1 text-sm font-medium">
+				{section.title}
+			</h2>
+			<ul
+				class="glass divide-border divide-y overflow-hidden rounded-2xl"
+				aria-label={section.title}
+			>
+				{#each section.rows as account (account.id)}
+					{@const Icon = typeIcons[account.type]}
+					<li>
+						<ItemMenu
+							title={account.name}
+							class="min-h-16 px-3 py-2 md:px-4"
+							actions={[
+								{
+									label: "Set the balance",
+									icon: PencilIcon,
+									onSelect: () => openBalance(account),
 								},
-							},
-							{
-								label: account.shared
-									? "Not shared"
-									: "Shared with someone: counts half",
-								icon: UsersIcon,
-								form: {
-									action: "?/setShared",
-									fields: {
-										id: account.id,
-										shared: String(!account.shared),
+								{
+									label: "Change the type",
+									icon: TagIcon,
+									onSelect: () => {
+										typing = account;
+										typeOpen = true;
 									},
-									loading: "Saving",
-									success: "Saved.",
 								},
-							},
-							...(account.connectionId === null
-								? [
-										{
-											label: "Delete",
-											icon: Trash2Icon,
-											destructive: true,
-											form: {
-												action: "?/remove",
-												fields: { id: account.id },
-												loading: "Deleting the account",
-												success: "Account deleted.",
-												confirm: {
-													title: `Delete ${account.name}?`,
-													description:
-														"Its balance stops counting anywhere. Your expenses stay.",
-													confirmLabel: "Delete",
+								{
+									label: account.shared
+										? "It's only mine"
+										: "Mark as shared: counts half",
+									icon: UsersIcon,
+									form: {
+										action: "?/setShared",
+										fields: {
+											id: account.id,
+											shared: String(!account.shared),
+										},
+										loading: "Saving",
+										success: "Saved.",
+									},
+								},
+								...(account.connectionId === null
+									? [
+											{
+												label: "Delete",
+												icon: Trash2Icon,
+												destructive: true,
+												form: {
+													action: "?/remove",
+													fields: { id: account.id },
+													loading: "Deleting the account",
+													success: "Account deleted.",
+													confirm: {
+														title: `Delete ${account.name}?`,
+														description:
+															"Its balance stops counting anywhere. Your expenses stay.",
+														confirmLabel: "Delete",
+													},
 												},
 											},
-										},
-									]
-								: []),
-						]}
-					>
-						<span
-							class="category-tile flex size-11 shrink-0 items-center justify-center rounded-xl"
-							style="--category-chroma: 0"
+										]
+									: []),
+							]}
 						>
-							<Icon class="size-5" />
-						</span>
-						<span class="min-w-0 flex-1">
-							<span class="block truncate font-medium">{account.name}</span>
-							<span class="text-muted-foreground block truncate text-sm">
-								{detail(account)}
+							<span
+								class="category-tile flex size-11 shrink-0 items-center justify-center rounded-xl"
+								style="--category-chroma: 0"
+							>
+								<Icon class="size-5" />
 							</span>
-						</span>
-						<span class="flex shrink-0 flex-col items-end">
-							<span class="font-display font-semibold tabular">
-								{account.balance
-									? formatMoney(account.balance.minor, account.balance.currency)
-									: "-"}
+							<span class="min-w-0 flex-1">
+								<span class="block truncate font-medium">{account.name}</span>
+								<span class="text-muted-foreground block truncate text-sm">
+									{detail(account)}
+								</span>
 							</span>
-							<span class="text-muted-foreground text-xs">
-								{balanceNote(account)}
+							<span class="flex shrink-0 flex-col items-end">
+								<span class="font-display font-semibold tabular">
+									{account.balance
+										? formatMoney(
+												account.balance.minor,
+												account.balance.currency,
+											)
+										: "-"}
+								</span>
+								<span class="text-muted-foreground text-xs">
+									{balanceNote(account)}
+								</span>
 							</span>
-						</span>
-					</ItemMenu>
-				</li>
-			{/each}
-		</ul>
+						</ItemMenu>
+					</li>
+				{/each}
+			</ul>
+		{/each}
 	{/if}
 </div>
 

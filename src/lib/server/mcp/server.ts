@@ -722,13 +722,14 @@ class McpEndpoint {
 				ownShare: account.balance
 					? minorToDecimal(accountBook.share(account), account.balance.currency)
 					: null,
+				countedInTotals: !account.shared,
 			}));
 		server.registerTool(
 			"list_accounts",
 			{
 				title: "List accounts",
 				description:
-					"The person's bank accounts: id (the accountId on each personal expense), name, bank, type (checking, joint, savings, investment or credit_card), currency, isShared, and the latest balance with balanceAsOf and where it came from: the bank's last sync, or one the person typed in when that is newer. ownShare is the person's part of the balance: half of a shared account, all of any other. Savings and investment accounts hold money set aside, not money to spend.",
+					"The person's bank accounts: id (the accountId on each personal expense), name, bank, type (checking, joint, savings, investment or credit_card), currency, isShared, and the latest balance with balanceAsOf and where it came from: the bank's last sync, or one the person typed in when that is newer. ownShare is the person's part of the balance: half of a shared account, all of any other. Shared accounts are left out of the person's totals in the app (countedInTotals false) unless they switch them on: add them only when asked. Savings and investment accounts hold money set aside, not money to spend.",
 				annotations: { readOnlyHint: true },
 			},
 			() => this.#reply({ accounts: accounts() }),

@@ -157,10 +157,13 @@ balance** when that is newer (handy when a bank reports none, or for an
 overdrawn account: type a minus). Each account has a type: everyday account,
 joint account, savings, investments or credit card. Savings and investments hold
 money set aside, so money moved into them counts as set aside, and a joint
-account is shared: it counts at half. **Shared with someone** marks any account
-that way without changing its type. **Add an account** adds one no bank reports,
-like cash or a broker: you keep its balance with **Set the balance**, it counts
-like any other, and it can be deleted.
+account is shared. The page splits your accounts into **Mine** and **Shared with
+someone**: **Mark as shared** moves any account there without changing its type,
+**It's only mine** moves it back. A shared account's lines count at half, and
+its balance stays out of your totals unless you switch **Count shared accounts**
+on (on Home; your choice stays on that device), then at half. **Add an account**
+adds one no bank reports, like cash or a broker: you keep its balance with **Set
+the balance**, it counts like any other, and it can be deleted.
 
 **Relink or change accounts** sends you through the bank's consent screen again
 for the same bank: use it when the 90 days run out or to add or drop accounts
@@ -205,14 +208,16 @@ your money, and Groups moves to its own tab: groups are for splitting with
 others, Home and Personal follow your own money. Switch it off with **Open on my
 money** under **Account, Bank sync, Home** to open on your groups again.
 
-Home starts with **On your accounts**: what every account holds together (a
-joint one at half), split into what's there to spend and what's saved, then each
-account with its balance, everyday ones first, savings and investments after.
-Tap an account to see its lines. Below come **Left until payday**, then this
-month's spent, came in, set aside and left over, your pace against last month
-and a forecast for the month's end, yesterday's report, your biggest habit
-(something you pay for more than once a month), the top category against last
-month, payments that repeat every month and spending day by day.
+Home starts with **On your accounts**: what your own accounts hold together,
+split into what's there to spend and what's saved, then each account with its
+balance, everyday ones first, then savings and investments, then shared ones.
+Shared accounts stay out of the total unless you switch on **Count shared
+accounts**, which adds your half. Tap an account to see its lines. Below come
+**Left until payday**, then this month's spent, came in, set aside and left
+over, your pace against last month and a forecast for the month's end,
+yesterday's report, your biggest habit (something you pay for more than once a
+month), the top category against last month, payments that repeat every month
+and spending day by day.
 
 ## Setting it up
 

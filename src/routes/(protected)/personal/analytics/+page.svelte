@@ -305,7 +305,7 @@
 				label="Available now"
 				icon={LandmarkIcon}
 				value={formatMoney(data.availableMinor, data.currency)}
-				hint="Your everyday accounts, half of shared ones"
+				hint="Your own everyday accounts, shared ones left out"
 			/>
 			<StatCard
 				label="Invested or set aside"

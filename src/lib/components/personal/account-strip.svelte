@@ -4,9 +4,11 @@
 	import LandmarkIcon from "@lucide/svelte/icons/landmark";
 	import LayersIcon from "@lucide/svelte/icons/layers";
 	import LoaderCircleIcon from "@lucide/svelte/icons/loader-circle";
+	import UsersIcon from "@lucide/svelte/icons/users";
 	import WalletIcon from "@lucide/svelte/icons/wallet";
 
-	import type { AccountView } from "#lib/account-types.js";
+	import { type AccountView, balanceTotals } from "#lib/account-types.js";
+	import { countShared } from "#lib/count-shared.svelte.js";
 	import { formatMoney } from "#lib/money.js";
 
 	interface Props {
@@ -18,14 +20,19 @@
 
 	const { accounts, currency, active, href }: Props = $props();
 
-	const totalMinor = $derived(
-		accounts
-			.filter((account) => account.balance?.currency === currency)
-			.reduce((total, account) => {
-				const minor = account.balance?.minor ?? 0;
-				return total + (account.shared ? Math.trunc(minor / 2) : minor);
-			}, 0),
+	let mounted = $state(false);
+
+	$effect(() => {
+		mounted = true;
+	});
+
+	const totals = $derived(
+		balanceTotals(accounts, currency, mounted && countShared.on),
 	);
+	const ordered = $derived([
+		...accounts.filter((account) => !account.shared),
+		...accounts.filter((account) => account.shared),
+	]);
 	const syncing = $derived(accounts.some((account) => account.syncing));
 
 	$effect(() => {
@@ -57,12 +64,15 @@
 				<span class="flex flex-col leading-tight">
 					<span class="text-xs opacity-80">All accounts</span>
 					<span class="font-semibold tabular"
-						>{formatMoney(totalMinor, currency)}</span
+						>{formatMoney(
+							totals.toSpendMinor + totals.savedMinor,
+							currency,
+						)}</span
 					>
 				</span>
 			</a>
 		</li>
-		{#each accounts as account (account.id)}
+		{#each ordered as account (account.id)}
 			{@const selected = active === account.id}
 			<li>
 				<a
@@ -90,6 +100,8 @@
 								class="size-7 object-contain"
 								loading="lazy"
 							/>
+						{:else if account.shared}
+							<UsersIcon class="size-4" />
 						{:else if account.connectionId}
 							<LandmarkIcon class="size-4" />
 						{:else}

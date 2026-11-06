@@ -1,7 +1,8 @@
 import {
 	type AccountType,
 	type AccountView,
-	holdsSavings,
+	balanceTotals,
+	ownShare,
 } from "#lib/account-types.js";
 import { AppearanceDTO } from "#lib/dto/appearance.js";
 import {
@@ -63,23 +64,22 @@ class AccountBook {
 	}
 
 	/**
-	 * What `userId`'s accounts in `currency` hold, a shared one at half: savings and investment accounts when `aside`,
-	 * everyday ones otherwise.
+	 * What `userId`'s own accounts in `currency` hold: savings and investment accounts when `aside`, everyday ones
+	 * otherwise. Shared accounts stay out unless `withShared`, then count at half.
 	 */
-	held(userId: string, currency: string, aside: boolean): number {
-		return this.list(userId)
-			.filter(
-				(account) =>
-					holdsSavings(account.type) === aside &&
-					account.balance?.currency === currency,
-			)
-			.reduce((total, account) => total + this.share(account), 0);
+	held(
+		userId: string,
+		currency: string,
+		aside: boolean,
+		withShared = false,
+	): number {
+		const totals = balanceTotals(this.list(userId), currency, withShared);
+		return aside ? totals.savedMinor : totals.toSpendMinor;
 	}
 
 	/** The part of `account`'s balance that is its owner's: half of a shared one, none without a balance. */
 	share(account: AccountView): number {
-		const minor = account.balance?.minor ?? 0;
-		return account.shared ? Math.trunc(minor / 2) : minor;
+		return ownShare(account);
 	}
 
 	/**

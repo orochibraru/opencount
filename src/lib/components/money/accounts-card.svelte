@@ -9,8 +9,11 @@
 	import {
 		accountTypeLabels,
 		type AccountView,
+		balanceTotals,
 		holdsSavings,
 	} from "#lib/account-types.js";
+	import { Switch } from "#lib/components/ui/switch/index.js";
+	import { countShared } from "#lib/count-shared.svelte.js";
 	import { formatMoney } from "#lib/money.js";
 
 	interface Props {
@@ -20,36 +23,37 @@
 
 	const { accounts, currency }: Props = $props();
 
-	const share = (account: AccountView) => {
-		const minor = account.balance?.minor ?? 0;
-		return account.shared ? Math.trunc(minor / 2) : minor;
-	};
-	const counted = $derived(
-		accounts.filter((account) => account.balance?.currency === currency),
-	);
-	const toSpendMinor = $derived(
-		counted
-			.filter((account) => !holdsSavings(account.type))
-			.reduce((total, account) => total + share(account), 0),
-	);
-	const savedMinor = $derived(
-		counted
-			.filter((account) => holdsSavings(account.type))
-			.reduce((total, account) => total + share(account), 0),
-	);
+	let mounted = $state(false);
+
+	$effect(() => {
+		mounted = true;
+	});
+
+	const withShared = $derived(mounted && countShared.on);
+	const totals = $derived(balanceTotals(accounts, currency, withShared));
 	const sections = $derived(
 		[
 			{
 				title: "Everyday",
-				rows: accounts.filter((account) => !holdsSavings(account.type)),
+				rows: accounts.filter(
+					(account) => !account.shared && !holdsSavings(account.type),
+				),
 			},
 			{
 				title: "Savings and investments",
-				rows: accounts.filter((account) => holdsSavings(account.type)),
+				rows: accounts.filter(
+					(account) => !account.shared && holdsSavings(account.type),
+				),
+			},
+			{
+				title: "Shared with someone",
+				rows: accounts.filter((account) => account.shared),
 			},
 		].filter((section) => section.rows.length > 0),
 	);
-	const elsewhere = $derived(accounts.length - counted.length);
+	const elsewhere = $derived(
+		accounts.filter((account) => account.balance?.currency !== currency).length,
+	);
 	const syncing = $derived(accounts.some((account) => account.syncing));
 	const failed = $derived(accounts.some((account) => account.failed));
 	const syncedAt = $derived(
@@ -109,21 +113,40 @@
 <section class="glass rounded-3xl p-5 md:p-6" aria-label="Your accounts">
 	<p class="text-muted-foreground text-sm">On your accounts</p>
 	<p class="font-display mt-1 text-5xl font-semibold tracking-tight tabular">
-		{money(toSpendMinor + savedMinor)}
+		{money(totals.toSpendMinor + totals.savedMinor)}
 	</p>
 	<p class="text-muted-foreground mt-2 text-sm">
 		<span class="text-foreground font-medium tabular"
-			>{money(toSpendMinor)}</span
+			>{money(totals.toSpendMinor)}</span
 		>
 		to spend
-		{#if savedMinor !== 0}
+		{#if totals.savedMinor !== 0}
 			·
 			<span class="text-foreground font-medium tabular"
-				>{money(savedMinor)}</span
+				>{money(totals.savedMinor)}</span
 			>
 			saved
 		{/if}
 	</p>
+	{#if totals.sharedCount > 0}
+		<label
+			class="bg-muted/60 mt-3 flex min-h-11 items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm"
+		>
+			<span class="min-w-0">
+				<span class="block font-medium">Count shared accounts</span>
+				<span class="text-muted-foreground block">
+					Your half: {money(totals.sharedMinor)}{withShared
+						? ", in the total"
+						: ", left out"}
+				</span>
+			</span>
+			<Switch
+				checked={withShared}
+				onCheckedChange={(on) => (countShared.on = on)}
+				aria-label="Count shared accounts"
+			/>
+		</label>
+	{/if}
 
 	{#each sections as section (section.title)}
 		<h3 class="text-muted-foreground mt-5 mb-1 text-xs font-medium uppercase">
