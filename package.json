@@ -24,10 +24,10 @@
 		"prepare": "svelte-kit sync || true && prek install --allow-missing-config || true"
 	},
 	"dependencies": {
-		"@better-auth/cimd": "1.7.13",
-		"@better-auth/mcp": "1.7.13",
-		"@better-auth/oauth-provider": "1.7.13",
-		"@better-auth/passkey": "1.7.13",
+		"@better-auth/cimd": "1.7.18",
+		"@better-auth/mcp": "1.7.18",
+		"@better-auth/oauth-provider": "1.7.18",
+		"@better-auth/passkey": "1.7.18",
 		"@modelcontextprotocol/server": "2.4.0",
 		"@opentelemetry/api": "1.10.0",
 		"@opentelemetry/context-async-hooks": "3.0.0",
@@ -36,7 +36,7 @@
 		"@opentelemetry/sdk-trace": "3.0.0",
 		"@pdf-lib/fontkit": "1.1.1",
 		"@sentry/bun": "11.9.0",
-		"better-auth": "1.7.13",
+		"better-auth": "1.7.18",
 		"drizzle-orm": "0.45.4",
 		"nodemailer": "10.2.1",
 		"openapi-fetch": "0.17.0",
