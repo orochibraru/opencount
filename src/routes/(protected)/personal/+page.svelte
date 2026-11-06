@@ -11,6 +11,7 @@
 	import InboxIcon from "@lucide/svelte/icons/inbox";
 	import LandmarkIcon from "@lucide/svelte/icons/landmark";
 	import PlusIcon from "@lucide/svelte/icons/plus";
+	import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
 	import RepeatIcon from "@lucide/svelte/icons/repeat";
 	import TagsIcon from "@lucide/svelte/icons/tags";
 	import WalletIcon from "@lucide/svelte/icons/wallet";
@@ -30,6 +31,7 @@
 	const { data } = $props();
 
 	let adding = $state(false);
+	let syncAllForm = $state<HTMLFormElement>();
 	let folderOpen = $state(false);
 	let monthOpen = $state(false);
 	let monthStart = $state("1");
@@ -97,6 +99,17 @@
 		},
 		...(untrack(() => data.bankSyncEnabled)
 			? [
+					...(untrack(() =>
+						data.balances.some((account) => account.connectionId),
+					)
+						? [
+								{
+									label: "Sync all accounts",
+									icon: RefreshCwIcon,
+									onSelect: () => syncAllForm?.requestSubmit(),
+								},
+							]
+						: []),
 					{
 						label: "Bank accounts",
 						icon: LandmarkIcon,
@@ -112,6 +125,18 @@
 		},
 	]);
 </script>
+
+<form
+	bind:this={syncAllForm}
+	method="POST"
+	action="?/syncAll"
+	class="hidden"
+	use:enhance={enhanceToast({
+		loading: "Asking your banks",
+		success: (result) =>
+			`Syncing ${Number(result?.syncing ?? 0)} ${Number(result?.syncing) === 1 ? "bank" : "banks"}. New lines show up in a moment.`,
+	})}
+></form>
 
 <PersonalView
 	expenses={data.expenses}

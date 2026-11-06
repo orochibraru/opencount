@@ -132,7 +132,8 @@ your bank credentials. The consent lasts 90 days, after which you link again.
 **Personal** opens on your accounts: **All accounts** with what they hold
 together, then each account with its logo and balance. Tap one to see only its
 lines, tap it again (or All accounts) to see everything. Right-click an account
-(long-press on a phone) to sync its bank now or mark it shared or only yours. A
+(long-press on a phone) to sync its bank now or mark it shared or only yours.
+**Sync all accounts** in Personal's menu asks every linked bank at once. A
 spinning one is syncing, a red dot means its bank's last sync failed.
 
 Once a day the server fetches your booked transactions and adds them to your
@@ -195,14 +196,16 @@ AMZN MKTP" can say what it was for. A sync never overwrites it.
 ## Money overview
 
 **Left until payday** sits on top: what you can still spend until your next
-payday, and per day. It's the balance of your everyday accounts and cards, minus
-the recurring payments due before payday from them and the deferred card
-purchases not yet taken from them. Tap it for the breakdown and to switch each
-account on or off (a joint account starts off and counts at half when on;
-savings and investments never count). Your choice stays on that device. With
-your months following your pay, payday is the next day your pay is expected;
-otherwise it's the start of your next month. AI apps get the same number from
-`get_period_summary`.
+payday, and per day. A bar sets it against what came in since your last payday:
+green while the share of your income left is at least the share of the month
+still to go, red once you're spending faster than that. It's the balance of your
+everyday accounts and cards, minus the recurring payments due before payday from
+them and the deferred card purchases not yet taken from them. Tap it for the
+breakdown and to switch each account on or off (a joint account starts off and
+counts at half when on; savings and investments never count). Your choice stays
+on that device. With your months following your pay, payday is the next day your
+pay is expected; otherwise it's the start of your next month. AI apps get the
+same number from `get_period_summary`.
 
 Once you have an account, linked or added by hand, the app opens on **Home**,
 your money, and Groups moves to its own tab: groups are for splitting with

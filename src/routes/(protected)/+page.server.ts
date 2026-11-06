@@ -20,7 +20,12 @@ export const load = async ({ parent }) => {
 		currency: summary.currency,
 		left:
 			summary.left.accounts.length > 0
-				? { parts: summary.left, included: summary.included }
+				? {
+						parts: summary.left,
+						included: summary.included,
+						incomeMinor: summary.incomeMinor,
+						since: summary.from,
+					}
 				: null,
 		overview: {
 			...moneyOverview(

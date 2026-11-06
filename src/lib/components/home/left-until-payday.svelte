@@ -16,9 +16,11 @@
 	interface Props {
 		parts: LeftParts;
 		included: string[];
+		incomeMinor: number;
+		since: string;
 	}
 
-	const { parts, included }: Props = $props();
+	const { parts, included, incomeMinor, since }: Props = $props();
 
 	const storageKey = "left-until-payday-accounts";
 
@@ -48,6 +50,20 @@
 		parts.accounts.filter((account) => spendable(account.type)),
 	);
 	const custom = $derived(chosen !== null);
+
+	const moneyShare = $derived(
+		incomeMinor > 0
+			? Math.min(1, Math.max(0, result.leftMinor / incomeMinor))
+			: null,
+	);
+	const timeShare = $derived.by(() => {
+		const total =
+			(new Date(`${parts.nextPayday}T00:00:00Z`).getTime() -
+				new Date(`${since}T00:00:00Z`).getTime()) /
+			86_400_000;
+		return total > 0 ? Math.min(1, parts.daysLeft / total) : 0;
+	});
+	const behind = $derived(moneyShare !== null && moneyShare < timeShare);
 
 	function day(value: string): string {
 		return new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString(
@@ -110,6 +126,32 @@
 			for {parts.daysLeft}
 			{parts.daysLeft === 1 ? "day" : "days"}, payday {day(parts.nextPayday)}
 		</span>
+		{#if moneyShare !== null}
+			<span
+				class="bg-muted relative mt-3 block h-2 overflow-hidden rounded-full"
+				aria-hidden="true"
+			>
+				<span
+					class="block h-full rounded-full {behind
+						? 'bg-negative'
+						: 'bg-positive'}"
+					style="width: {Math.max(2, moneyShare * 100)}%"
+				></span>
+				<span
+					class="bg-foreground/60 absolute top-0 h-full w-0.5"
+					style="left: {timeShare * 100}%"
+				></span>
+			</span>
+			<span class="text-muted-foreground mt-1.5 block text-sm">
+				<span
+					class="font-medium tabular {behind
+						? 'text-negative'
+						: 'text-positive'}">{Math.round(moneyShare * 100)}%</span
+				>
+				of the {money(incomeMinor)} that came in since {day(since)}, with
+				{Math.round(timeShare * 100)}% of the month to go
+			</span>
+		{/if}
 	</span>
 	<ChevronRightIcon class="text-muted-foreground size-5 shrink-0" />
 </button>

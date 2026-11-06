@@ -27,7 +27,12 @@
 		</div>
 	{/if}
 	{#if data.left}
-		<LeftUntilPayday parts={data.left.parts} included={data.left.included} />
+		<LeftUntilPayday
+			parts={data.left.parts}
+			included={data.left.included}
+			incomeMinor={data.left.incomeMinor}
+			since={data.left.since}
+		/>
 	{/if}
 </div>
 <MoneyOverview overview={data.overview} />

@@ -12,6 +12,7 @@ import { PersonalCategoryDTO } from "#lib/dto/personal-category.js";
 import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
 import { PersonalFolderDTO } from "#lib/dto/personal-folder.js";
 import { convertMinor, formatMoney } from "#lib/money.js";
+import { bankSync } from "#lib/server/banking/bank-sync.js";
 import { exchangeRates } from "#lib/server/expenses/exchange-rates.js";
 import { groupAccess } from "#lib/server/expenses/group-access.js";
 import { personalPage } from "#lib/server/expenses/personal-page.js";
@@ -76,6 +77,22 @@ export const load = async ({ parent, url }) => {
 };
 
 export const actions = {
+	syncAll: ({ locals }) => {
+		if (!locals.user) {
+			return fail(401, { error: "Sign in again to continue." });
+		}
+		if (!bankSync.enabled()) {
+			return fail(403, { error: bankSync.offMessage });
+		}
+		const connections = BankConnectionDTO.forUser(locals.user.id);
+		if (connections.length === 0) {
+			return fail(404, { error: "No bank is linked yet." });
+		}
+		for (const connection of connections) {
+			bankSync.queue(connection);
+		}
+		return { syncing: connections.length };
+	},
 	create: async ({ locals, request }) => {
 		if (!locals.user) {
 			return fail(401, { error: "Sign in again to continue." });
