@@ -131,8 +131,9 @@ your bank credentials. The consent lasts 90 days, after which you link again.
 
 **Personal** opens on your accounts: **All accounts** with what they hold
 together, then each account with its logo and balance. Tap one to see only its
-lines, tap it again (or All accounts) to see everything. A spinning one is
-syncing, a red dot means its bank's last sync failed.
+lines, tap it again (or All accounts) to see everything. Right-click an account
+(long-press on a phone) to sync its bank now or mark it shared or only yours. A
+spinning one is syncing, a red dot means its bank's last sync failed.
 
 Once a day the server fetches your booked transactions and adds them to your
 personal ledger, categorized like any expense, reusing how you filed the same

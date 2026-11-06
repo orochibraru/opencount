@@ -38,6 +38,7 @@
 		actions: MenuAction[];
 		class?: string;
 		onOpen?: () => void;
+		bare?: boolean;
 		children: Snippet;
 	}
 
@@ -46,6 +47,7 @@
 		actions,
 		class: className,
 		onOpen,
+		bare = false,
 		children,
 	}: Props = $props();
 
@@ -89,7 +91,7 @@
 {/snippet}
 
 {#snippet trailing()}
-	{#if desktop.current}
+	{#if bare}{:else if desktop.current}
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger>
 				{#snippet child({ props })}
