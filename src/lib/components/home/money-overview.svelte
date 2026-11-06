@@ -15,7 +15,6 @@
 
 	interface Props {
 		overview: MoneyOverview & {
-			syncedAt: Date | null;
 			recurring: { description: string; amountMinor: number }[];
 			categories: CustomCategory[];
 		};
@@ -53,26 +52,9 @@
 	function day(value: string, options: Intl.DateTimeFormatOptions): string {
 		return new Date(`${value}T12:00:00`).toLocaleDateString(undefined, options);
 	}
-
-	function synced(date: Date | null): string {
-		if (!date) {
-			return "Waiting for the first sync";
-		}
-		const minutes = Math.round((Date.now() - date.getTime()) / 60_000);
-		const format = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
-		if (minutes < 60) {
-			return `Synced ${format.format(-minutes, "minute")}`;
-		}
-		if (minutes < 48 * 60) {
-			return `Synced ${format.format(-Math.round(minutes / 60), "hour")}`;
-		}
-		return `Synced ${format.format(-Math.round(minutes / 1_440), "day")}`;
-	}
 </script>
 
 <section class="flex flex-col gap-4" aria-label="Your money">
-	<p class="text-muted-foreground px-1 text-sm">{synced(overview.syncedAt)}</p>
-
 	<div class="grid gap-4 lg:grid-cols-3">
 		<article class="glass rounded-3xl p-5 md:p-6 lg:col-span-2">
 			<p class="text-muted-foreground text-sm">

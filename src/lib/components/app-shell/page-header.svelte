@@ -10,7 +10,7 @@
 </script>
 
 <header class="mb-6 hidden min-h-10 items-center gap-3 md:flex">
-	{#if title.backHref && title.backHref !== resolve("/(protected)")}
+	{#if title.backHref && title.backHref !== resolve("/(protected)") && title.backHref !== resolve("/(protected)/groups")}
 		<IconButton
 			label="Back"
 			icon={ChevronLeftIcon}

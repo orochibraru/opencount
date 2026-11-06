@@ -1,93 +1,48 @@
-import { fail } from "@sveltejs/kit";
-import { z } from "zod";
+import { resolve } from "$app/paths";
+import { redirect } from "@sveltejs/kit";
 
-import { AppearanceDTO } from "#lib/dto/appearance.js";
-import { BankConnectionDTO } from "#lib/dto/bank-connection.js";
-import { ExpenseDTO } from "#lib/dto/expense.js";
-import { GroupMemberDTO } from "#lib/dto/group-member.js";
-import { GroupDTO } from "#lib/dto/group.js";
-import { homePages } from "#lib/server/db/schema.js";
-import { groupAccess } from "#lib/server/expenses/group-access.js";
-import { parseForm } from "#lib/server/validation/form.js";
-import { newGroupSchema } from "#lib/server/validation/group.js";
-
-const groupIdSchema = z.object({ id: z.string().min(1) });
-const homeSchema = z.object({ home: z.enum(homePages) });
-
-function askHome(userId: string): boolean {
-	return (
-		BankConnectionDTO.forUser(userId).length > 0 &&
-		AppearanceDTO.homeFor(userId) === null
-	);
-}
+import { PersonalCategoryDTO } from "#lib/dto/personal-category.js";
+import { PersonalExpenseDTO } from "#lib/dto/personal-expense.js";
+import { moneyOverview } from "#lib/money-overview.js";
+import { monthlyCost } from "#lib/recurring-schedule.js";
+import { accountBook } from "#lib/server/money/accounts.js";
+import { periodSummary } from "#lib/server/money/period-summary.js";
+import { recurringBook } from "#lib/server/money/recurring.js";
 
 export const load = async ({ parent }) => {
 	const { user } = await parent();
+	if (!accountBook.moneyHomeFor(user.id)) {
+		redirect(307, resolve("/(protected)/groups"));
+	}
+	const summary = periodSummary.summarize(user.id);
 	return {
-		askHome: askHome(user.id),
-		groups: GroupDTO.forMember(user.id).map((entry) => {
-			const group = entry.toJSON();
-			const members = GroupMemberDTO.forGroup(group.id).map((member) =>
-				member.toJSON(),
-			);
-			const myMemberId = members.find(
-				(member) => member.userId === user.id,
-			)?.id;
-			const balances = ExpenseDTO.balances(
-				group.id,
-				members.map((member) => member.id),
-			);
-			return {
-				...group,
-				memberNames: members.map((member) => member.displayName),
-				myBalanceMinor: myMemberId ? (balances.get(myMemberId) ?? 0) : 0,
-				isOwner: group.createdBy === user.id,
-			};
-		}),
+		accounts: accountBook.list(user.id),
+		currency: summary.currency,
+		left:
+			summary.left.accounts.length > 0
+				? { parts: summary.left, included: summary.included }
+				: null,
+		overview: {
+			...moneyOverview(
+				PersonalExpenseDTO.spending(user.id),
+				new Date().toISOString().slice(0, 10),
+				PersonalExpenseDTO.monthCalendar(user.id),
+			),
+			recurring: recurringBook
+				.list(user.id)
+				.filter(
+					(payment) =>
+						!payment.ended &&
+						payment.kind === "expense" &&
+						payment.currency === summary.currency,
+				)
+				.map((payment) => ({
+					description: payment.label,
+					amountMinor: monthlyCost(payment),
+				})),
+			categories: PersonalCategoryDTO.forUser(user.id).map((entry) =>
+				entry.toJSON(),
+			),
+		},
 	};
-};
-
-export const actions = {
-	home: async ({ locals, request }) => {
-		if (!locals.user) {
-			return fail(401, { error: "Sign in again to continue." });
-		}
-		const parsed = parseForm(homeSchema, await request.formData());
-		if (!parsed.success) {
-			return fail(400, { error: "Pick whether to show the Home tab." });
-		}
-		AppearanceDTO.saveHome(locals.user.id, parsed.data.home);
-		return { home: parsed.data.home };
-	},
-	create: async ({ locals, request }) => {
-		if (!locals.user) {
-			return fail(401, { error: "Sign in again to continue." });
-		}
-		const parsed = parseForm(newGroupSchema, await request.formData());
-		if (!parsed.success) {
-			return fail(400, { errors: parsed.errors });
-		}
-		const group = GroupDTO.create({
-			...parsed.data,
-			owner: { id: locals.user.id, name: locals.user.name },
-		});
-		return { group: group.toJSON() };
-	},
-	delete: async ({ locals, request }) => {
-		if (!locals.user) {
-			return fail(401, { error: "Sign in again to continue." });
-		}
-		const parsed = parseForm(groupIdSchema, await request.formData());
-		if (!parsed.success) {
-			return fail(400, { error: "Pick a group." });
-		}
-		const { group } = groupAccess.forMember(parsed.data.id, locals.user.id);
-		if (!group.isOwnedBy(locals.user.id)) {
-			return fail(403, {
-				error: "Only the person who created the group can delete it.",
-			});
-		}
-		group.delete();
-		return { deleted: true };
-	},
 };

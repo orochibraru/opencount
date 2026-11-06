@@ -2,13 +2,14 @@ import { fail } from "@sveltejs/kit";
 import { z } from "zod";
 
 import { AppearanceDTO } from "#lib/dto/appearance.js";
+import { accountBook } from "#lib/server/money/accounts.js";
 import { parseForm } from "#lib/server/validation/form.js";
 
 const homeSchema = z.object({ moneyHome: z.stringbool().default(false) });
 
 export const load = async ({ parent }) => {
 	const { user } = await parent();
-	return { moneyHome: AppearanceDTO.homeFor(user.id) === "money" };
+	return { moneyHome: accountBook.moneyHomeFor(user.id) };
 };
 
 export const actions = {
@@ -18,7 +19,7 @@ export const actions = {
 		}
 		const parsed = parseForm(homeSchema, await request.formData());
 		if (!parsed.success) {
-			return fail(400, { error: "Pick whether to show the Home tab." });
+			return fail(400, { error: "Pick where the app opens." });
 		}
 		AppearanceDTO.saveHome(
 			locals.user.id,

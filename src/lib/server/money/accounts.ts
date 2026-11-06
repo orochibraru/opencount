@@ -1,27 +1,15 @@
-import type { AccountType } from "#lib/account-types.js";
+import {
+	type AccountType,
+	type AccountView,
+	holdsSavings,
+} from "#lib/account-types.js";
+import { AppearanceDTO } from "#lib/dto/appearance.js";
 import {
 	accountTypeOf,
 	balanceOf,
 	BankConnectionDTO,
 } from "#lib/dto/bank-connection.js";
 import { ManualAccountDTO } from "#lib/dto/manual-account.js";
-
-export interface AccountView {
-	id: string;
-	connectionId: string | null;
-	bankName: string | null;
-	name: string;
-	type: AccountType;
-	currency: string;
-	shared: boolean;
-	balance: {
-		minor: number;
-		currency: string;
-		at: string;
-		manual: boolean;
-	} | null;
-	syncedAt: string | null;
-}
 
 /** Someone's accounts as one list, linked or added by hand: what each is, whether it's shared, its latest balance. */
 class AccountBook {
@@ -31,11 +19,16 @@ class AccountBook {
 	 */
 	list(userId: string): AccountView[] {
 		const linked = BankConnectionDTO.forUser(userId).flatMap((connection) => {
-			const { id, bankName, syncedAt } = connection.toJSON();
+			const { id, bankName, bankLogo, syncedAt, lastError } =
+				connection.toJSON();
+			const syncing = connection.syncing();
 			return connection.accounts.map((account) => ({
 				id: account.uid,
 				connectionId: id,
 				bankName,
+				bankLogo,
+				syncing,
+				failed: lastError !== null,
 				name: account.name,
 				type: accountTypeOf(account),
 				currency: account.balance?.currency ?? account.currency,
@@ -50,6 +43,9 @@ class AccountBook {
 				id: account.id,
 				connectionId: null,
 				bankName: null,
+				bankLogo: null,
+				syncing: false,
+				failed: false,
 				name: account.name,
 				type: account.type,
 				currency: account.currency,
@@ -74,8 +70,8 @@ class AccountBook {
 		return this.list(userId)
 			.filter(
 				(account) =>
-					(account.type === "savings" || account.type === "investment") ===
-						aside && account.balance?.currency === currency,
+					holdsSavings(account.type) === aside &&
+					account.balance?.currency === currency,
 			)
 			.reduce((total, account) => total + this.share(account), 0);
 	}
@@ -84,6 +80,20 @@ class AccountBook {
 	share(account: AccountView): number {
 		const minor = account.balance?.minor ?? 0;
 		return account.shared ? Math.trunc(minor / 2) : minor;
+	}
+
+	/**
+	 * Whether `userId`'s app opens on their money: when they asked for it, or when they never chose and have an account,
+	 * linked or added by hand.
+	 */
+	moneyHomeFor(userId: string): boolean {
+		const home = AppearanceDTO.homeFor(userId);
+		return (
+			home === "money" ||
+			(home === null &&
+				(BankConnectionDTO.forUser(userId).length > 0 ||
+					ManualAccountDTO.forUser(userId).length > 0))
+		);
 	}
 
 	/** `userId`'s account `id`, or undefined when they have none by that id. */

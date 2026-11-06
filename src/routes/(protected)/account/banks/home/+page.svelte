@@ -14,12 +14,12 @@
 		method="POST"
 		action="?/home"
 		class="glass flex flex-col gap-4 rounded-2xl p-4 md:p-6"
-		use:enhance={saveToast("Home tab")}
+		use:enhance={saveToast("Home")}
 	>
 		<SettingSwitch
 			name="moneyHome"
-			label="Home tab"
-			description="A Home tab with how you're doing: yesterday's spending, a month-end forecast, your habits and what repeats every month."
+			label="Open on my money"
+			description="Open the app on your money: what's on every account, what's left until payday, then how the month is going. Off, it opens on your groups."
 			checked={data.moneyHome}
 		/>
 		<Button

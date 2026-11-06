@@ -15,6 +15,7 @@ import { convertMinor, formatMoney } from "#lib/money.js";
 import { exchangeRates } from "#lib/server/expenses/exchange-rates.js";
 import { groupAccess } from "#lib/server/expenses/group-access.js";
 import { personalPage } from "#lib/server/expenses/personal-page.js";
+import { accountBook } from "#lib/server/money/accounts.js";
 import { recurringBook } from "#lib/server/money/recurring.js";
 import { idSchema, parseForm } from "#lib/server/validation/form.js";
 import {
@@ -66,16 +67,7 @@ export const load = async ({ parent, url }) => {
 	const { user } = await parent();
 	return {
 		...personalPage.load(user.id, url),
-		banks: BankConnectionDTO.forUser(user.id).map((entry) => {
-			const { id, bankName, bankLogo, lastError } = entry.toJSON();
-			return {
-				id,
-				bankName,
-				bankLogo,
-				failed: lastError !== null,
-				syncing: entry.syncing(),
-			};
-		}),
+		balances: accountBook.list(user.id),
 		shareGroups: GroupDTO.forMember(user.id).map((entry) => {
 			const { id, name, currency } = entry.toJSON();
 			return { id, name, currency };

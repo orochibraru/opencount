@@ -1,8 +1,8 @@
 import { AppLockDTO } from "#lib/dto/app-lock.js";
-import { AppearanceDTO } from "#lib/dto/appearance.js";
 import { GroupDTO } from "#lib/dto/group.js";
 import { getSetting } from "#lib/dto/setting.js";
 import { access } from "#lib/server/auth/access.js";
+import { accountBook } from "#lib/server/money/accounts.js";
 
 export const load = ({ locals, url }) => {
 	if (!locals.user) {
@@ -15,7 +15,7 @@ export const load = ({ locals, url }) => {
 			email: locals.user.email,
 		},
 		isAdmin: access.isAdmin(locals.user),
-		moneyHome: AppearanceDTO.homeFor(locals.user.id) === "money",
+		moneyHome: accountBook.moneyHomeFor(locals.user.id),
 		bankSyncEnabled: getSetting("bankSyncEnabled"),
 		lockAfterMinutes:
 			AppLockDTO.forUser(locals.user.id)?.lockAfterMinutes ?? null,

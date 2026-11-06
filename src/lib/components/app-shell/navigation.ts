@@ -12,13 +12,17 @@ export interface NavigationItem {
 	icon: Component<{ class?: string }>;
 }
 
-/** The app's top-level destinations, shared by the bottom tab bar and the sidebar; Home leads when the money overview is on, admins also get Admin. */
+/** The app's top-level destinations, shared by the bottom tab bar and the sidebar; Home, the money overview, leads when it's on, admins also get Admin. */
 export function navigationItems(
 	isAdmin: boolean,
 	moneyHome: boolean,
 ): NavigationItem[] {
 	const items = [
-		{ href: resolve("/(protected)"), label: "Groups", icon: UsersIcon },
+		{
+			href: resolve("/(protected)/groups"),
+			label: "Groups",
+			icon: UsersIcon,
+		},
 		{
 			href: resolve("/(protected)/personal"),
 			label: "Personal",
@@ -32,7 +36,7 @@ export function navigationItems(
 	];
 	if (moneyHome) {
 		items.unshift({
-			href: resolve("/(protected)/home"),
+			href: resolve("/(protected)"),
 			label: "Home",
 			icon: HouseIcon,
 		});
@@ -47,11 +51,13 @@ export function navigationItems(
 	return items;
 }
 
-/** Whether `pathname` sits under the destination at `href`. */
+/** Whether `pathname` sits under the destination at `href`: Home is only itself, Groups also holds the archived ones. */
 export function isActive(pathname: string, href: string): boolean {
-	return href === "/"
-		? pathname === "/" ||
-				pathname === "/archived" ||
-				pathname.startsWith("/groups/")
-		: pathname === href || pathname.startsWith(`${href}/`);
+	if (href === "/") {
+		return pathname === "/";
+	}
+	if (href === "/groups") {
+		return pathname.startsWith("/groups") || pathname === "/archived";
+	}
+	return pathname === href || pathname.startsWith(`${href}/`);
 }

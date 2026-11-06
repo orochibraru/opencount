@@ -133,7 +133,7 @@
 	bank={data.bank}
 	account={data.account}
 	folders={data.folders}
-	banks={data.banks}
+	balances={data.balances}
 	shareGroups={data.shareGroups}
 	defaultCurrency={data.defaultCurrency}
 	empty="Track what you spend on your own, apart from your groups, in folders for each project if you like."
@@ -181,7 +181,7 @@
 <ResponsiveSheet
 	bind:open={monthOpen}
 	title="Month start"
-	description="Make your months run payday to payday: totals, the Home tab and Insights count each month from this day to the day before it comes back."
+	description="Make your months run payday to payday: totals, Home and Insights count each month from this day to the day before it comes back."
 >
 	<form
 		method="POST"

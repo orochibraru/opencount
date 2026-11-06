@@ -52,6 +52,6 @@ export const actions = {
 			throw caught;
 		}
 		invite.accept();
-		redirect(303, resolve("/(protected)"));
+		redirect(303, resolve("/(protected)/groups"));
 	},
 };

@@ -1,4 +1,12 @@
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	setSystemTime,
+	spyOn,
+	test,
+} from "bun:test";
 import { createVerify, generateKeyPairSync } from "node:crypto";
 
 import { AppearanceDTO } from "#lib/dto/appearance.js";
@@ -922,6 +930,7 @@ describe("transfers between own accounts", () => {
 	});
 
 	test("a line filed as recurring takes the lines like it and future syncs along", () => {
+		setSystemTime(new Date("2026-10-06T12:00:00Z"));
 		const ada = createUser("ada");
 		const connection = twoAccounts(ada.id);
 		const loan = (ref: string, spentOn: string, number = "01") =>
@@ -966,6 +975,7 @@ describe("transfers between own accounts", () => {
 		expect(recurringBook.list(ada.id)[0]?.count).toBe(0);
 		expect(recurringBook.remove(ada.id, filed?.id ?? "")).toBe(true);
 		expect(recurringBook.list(ada.id)).toEqual([]);
+		setSystemTime();
 	});
 
 	test("the recurring sheet files a line or edits its series", () => {

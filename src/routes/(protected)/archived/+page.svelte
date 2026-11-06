@@ -12,7 +12,7 @@
 
 	const { data } = $props();
 
-	setPageTitle("Archived groups", resolve("/(protected)"));
+	setPageTitle("Archived groups", resolve("/(protected)/groups"));
 </script>
 
 {#if data.archived.length === 0}

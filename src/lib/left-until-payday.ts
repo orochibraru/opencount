@@ -1,4 +1,4 @@
-import type { AccountType } from "#lib/account-types.js";
+import { type AccountType, holdsSavings } from "#lib/account-types.js";
 
 export interface LeftAccount {
 	id: string;
@@ -35,7 +35,7 @@ export interface LeftResult {
 
 /** Whether an account of type `type` holds money to spend: savings and investments don't, a joint one does but starts off. */
 export function spendable(type: AccountType): boolean {
-	return type !== "savings" && type !== "investment";
+	return !holdsSavings(type);
 }
 
 /**

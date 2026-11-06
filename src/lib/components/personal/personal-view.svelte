@@ -20,6 +20,7 @@
 	import XIcon from "@lucide/svelte/icons/x";
 	import type { Snippet } from "svelte";
 
+	import type { AccountView } from "#lib/account-types.js";
 	import {
 		categoryOf,
 		categoryOptions,
@@ -34,7 +35,7 @@
 		type FilterSource,
 	} from "#lib/components/list-filters.svelte";
 	import LoadedFromHere from "#lib/components/loaded-from-here.svelte";
-	import BankPills from "#lib/components/personal/bank-pills.svelte";
+	import AccountStrip from "#lib/components/personal/account-strip.svelte";
 	import ExpenseDetails from "#lib/components/personal/expense-details.svelte";
 	import MoveSheet from "#lib/components/personal/move-sheet.svelte";
 	import PersonalSheet, {
@@ -86,13 +87,7 @@
 		bank: string | null;
 		account: string | null;
 		folders: { id: string; name: string }[];
-		banks?: {
-			id: string;
-			bankName: string;
-			bankLogo: string | null;
-			failed: boolean;
-			syncing: boolean;
-		}[];
+		balances?: AccountView[];
 		shareGroups: { id: string; name: string; currency: string }[];
 		defaultCurrency: string;
 		folder?: { id: string; name: string };
@@ -121,7 +116,7 @@
 		bank,
 		account,
 		folders,
-		banks = [],
+		balances = [],
 		shareGroups,
 		defaultCurrency,
 		folder,
@@ -457,11 +452,13 @@
 	}
 </script>
 
-{#if banks.length > 0}
-	<BankPills
-		{banks}
-		active={account ? null : bank}
-		href={(bankId) => listHref({ source: bankId ? `bank:${bankId}` : null })}
+{#if balances.length > 0 && !folder}
+	<AccountStrip
+		accounts={balances}
+		currency={defaultCurrency}
+		active={account}
+		href={(accountId) =>
+			listHref({ source: accountId ? `account:${accountId}` : null })}
 	/>
 {/if}
 

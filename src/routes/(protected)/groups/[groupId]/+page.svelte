@@ -44,7 +44,7 @@
 
 	setPageTitle(
 		() => data.group.name,
-		() => resolve("/(protected)"),
+		() => resolve("/(protected)/groups"),
 		() => [
 			{
 				label: "Add expense",

@@ -104,10 +104,11 @@
   month's start, and Personal stats (`byMonth` keyed by that start date), the
   list headings, `moneyOverview` and the personal `periodRange` all take it.
   Groups stay on calendar months.
-- The money overview is the Home tab at `/home`, first in the navigation when
-  `AppearanceDTO.homeFor` is `money` (`groups`, the stored "no", or null by
-  default; asked once on Groups after a first bank link, switch under Account >
-  Bank sync). `/home` redirects to Groups while it's off.
+- The money overview is Home at `/`, first in the navigation, when
+  `accountBook.moneyHomeFor` says so: `AppearanceDTO.homeFor` is `money`, or
+  null (never chosen) with a linked bank or an account added by hand; `groups`
+  turns it off (Account > Bank sync > Home). The groups list lives at `/groups`
+  for everyone, and `/` redirects there while the money home is off.
   `#lib/money-overview.ts` computes it from `spending()`: month totals, pace
   against last month, forecast, yesterday, the biggest habit, top category
   change, monthly repeats and the daily series.

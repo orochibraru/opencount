@@ -91,7 +91,7 @@
 
 <button
 	type="button"
-	class="glass flex w-full items-center gap-3 rounded-2xl p-4 text-left md:p-6"
+	class="glass flex w-full min-w-0 items-center gap-3 rounded-2xl p-4 text-left md:p-6"
 	onclick={() => (open = true)}
 	aria-label="Left until payday: {money(result.leftMinor)}, see how"
 >

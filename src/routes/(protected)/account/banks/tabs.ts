@@ -23,8 +23,8 @@ export function bankSyncTabs(): SectionTab[] {
 		},
 		{
 			href: resolve("/(protected)/account/banks/home"),
-			label: "Home tab",
-			description: "A Home tab with how you're doing this month.",
+			label: "Home",
+			description: "Whether the app opens on your money or your groups.",
 			icon: HouseIcon,
 		},
 		{

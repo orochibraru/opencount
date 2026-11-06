@@ -58,7 +58,7 @@ export const actions = {
 			});
 		}
 		group.delete();
-		redirect(303, resolve("/(protected)"));
+		redirect(303, resolve("/(protected)/groups"));
 	},
 	setArchived: async ({ locals, params, request }) => {
 		if (!locals.user) {

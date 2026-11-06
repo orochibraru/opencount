@@ -45,7 +45,7 @@
 			<div class="absolute top-1/2 left-1.5 -translate-y-1/2">
 				<IconButton label="Back" icon={ChevronLeftIcon} href={title.backHref} />
 			</div>
-		{:else if page.url.pathname === resolve("/(protected)")}
+		{:else if page.url.pathname === resolve("/(protected)") || page.url.pathname === resolve("/(protected)/groups")}
 			<BrandMark class="absolute top-1/2 left-3.5 -translate-y-1/2" />
 		{/if}
 		<h1 class="truncate text-[1.0625rem] font-semibold">{title.current}</h1>

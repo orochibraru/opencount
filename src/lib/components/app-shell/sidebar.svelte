@@ -27,7 +27,7 @@
 
 	const { isAdmin, moneyHome, user, groups }: Props = $props();
 
-	const homeHref = resolve("/(protected)");
+	const groupsHref = resolve("/(protected)/groups");
 	const accountHref = resolve("/(protected)/account");
 	const items = $derived(
 		navigationItems(isAdmin, moneyHome).filter(
@@ -58,8 +58,9 @@
 					<a
 						href={item.href}
 						aria-current={(
-							item.href === homeHref
-								? page.url.pathname === homeHref
+							item.href === groupsHref
+								? page.url.pathname === groupsHref ||
+									page.url.pathname === resolve("/(protected)/archived")
 								: isActive(page.url.pathname, item.href)
 						)
 							? "page"

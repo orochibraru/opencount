@@ -43,9 +43,10 @@ open-source alternative to Tricount that installs on your phone like an app.
   personal ledger every day, categorized, with savings and investing kept apart
   from spending. Each person sets up their own Enable Banking keys under
   **Account, Bank sync**.
-- **Money overview**, optional: once a bank is linked, a Home tab shows how
-  you're doing: this month against the last, a month-end forecast, yesterday's
-  spending, your habits and what repeats every month.
+- **Money overview**: once you have an account, linked or added by hand, the app
+  opens on your money, like a banking app: what's on every account, what's left
+  until payday, this month against the last, a month-end forecast, your habits
+  and what repeats. Groups keep splitting with others in their own tab.
 - **AI apps**, optional: connect Claude, ChatGPT or Gemini over MCP and let them
   sort your expenses and your groups' into categories, add categories, write
   notes and attach merchants to group expenses. They see descriptions, notes,

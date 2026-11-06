@@ -108,7 +108,7 @@ describe("setting up and using it", () => {
 			password: admin.password,
 		});
 		expect(right.type).toBe("redirect");
-		const home = await stranger.get("/");
+		const home = await stranger.get("/groups");
 		expect(home.status).toBe(200);
 		expect(home.headers.get("content-security-policy")).toContain(
 			"frame-ancestors 'none'",
@@ -116,7 +116,7 @@ describe("setting up and using it", () => {
 	});
 
 	test("a group, an expense, its merchant and a repeating copy", async () => {
-		const created = await client().action("/", "create", {
+		const created = await client().action("/groups", "create", {
 			name: "Lisbon trip",
 			currency: "EUR",
 		});
@@ -197,15 +197,20 @@ describe("setting up and using it", () => {
 		);
 	});
 
-	test("the Home tab only opens once someone turns it on", async () => {
-		const off = await client().get("/home");
-		expect(off.status).toBe(303);
-		expect(off.headers.get("location")).not.toContain("home");
-		const saved = await client().action("/", "home", { home: "money" });
+	test("the app opens on groups until money comes in", async () => {
+		const off = await client().get("/");
+		expect(off.status).toBe(307);
+		expect(off.headers.get("location")).toContain("/groups");
+		const saved = await client().action("/account/banks/home", "home", {
+			moneyHome: "true",
+		});
 		expect(saved.type).toBe("success");
-		const on = await client().get("/home");
+		const on = await client().get("/");
 		expect(on.status).toBe(200);
 		expect(await on.text()).toContain("Spent in");
+		await client().action("/account/banks/home", "home", {
+			moneyHome: "false",
+		});
 	});
 
 	test("an AI app without a token is pointed at sign-in", async () => {

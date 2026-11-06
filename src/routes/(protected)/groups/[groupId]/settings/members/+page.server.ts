@@ -146,7 +146,7 @@ export const actions = {
 			});
 		}
 		members.find((member) => member.userId === locals.user?.id)?.unlink();
-		redirect(303, resolve("/(protected)"));
+		redirect(303, resolve("/(protected)/groups"));
 	},
 	claim: async ({ locals, params, request }) => {
 		if (!locals.user) {

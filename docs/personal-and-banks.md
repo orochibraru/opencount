@@ -44,9 +44,9 @@ spending came from.
 
 Paid on the 25th? Pick **Month start** in Personal's menu and choose the day
 your month starts, from 1 (calendar months, the default) to 28. Personal's "this
-month", its month headings ("25 Oct – 24 Nov"), the Home tab and Personal
-Insights then count each month from that day to the day before it comes back.
-Groups keep calendar months.
+month", its month headings ("25 Oct – 24 Nov"), Home and Personal Insights then
+count each month from that day to the day before it comes back. Groups keep
+calendar months.
 
 Paid on a different day each month? Choose **The day my pay comes in** instead,
 then pick **This is my pay** in your salary's menu. Every income line with the
@@ -124,14 +124,15 @@ group's name.
 ## Bank sync
 
 **Account, Bank sync** has four tabs, cards on a phone: **Linked banks**, **Bank
-sync** (your keys), **Home tab** and **Turn off**. Once your keys are in (see
+sync** (your keys), **Home** and **Turn off**. Once your keys are in (see
 below), link your own bank under **Linked banks** with **Link a bank**: pick a
 country and a bank, then confirm on the bank's own screen. OpenCount never sees
 your bank credentials. The consent lasts 90 days, after which you link again.
 
-**Personal** shows a pill per linked bank at the top, with its logo: tap one to
-see only that bank's lines, tap it again to see everything. A spinning pill is
-syncing, a red dot means its last sync failed.
+**Personal** opens on your accounts: **All accounts** with what they hold
+together, then each account with its logo and balance. Tap one to see only its
+lines, tap it again (or All accounts) to see everything. A spinning one is
+syncing, a red dot means its bank's last sync failed.
 
 Once a day the server fetches your booked transactions and adds them to your
 personal ledger, categorized like any expense, reusing how you filed the same
@@ -199,13 +200,19 @@ your months following your pay, payday is the next day your pay is expected;
 otherwise it's the start of your next month. AI apps get the same number from
 `get_period_summary`.
 
-Off by default. Once a bank is linked, Groups asks once whether to add a
-**Home** tab; you can change it later with **Home tab** under **Account, Bank
-sync**. Home shows this month's spent, came in, set aside and left over, your
-pace against last month and a forecast for the month's end, yesterday's report,
-your biggest habit (something you pay for more than once a month), the top
-category against last month, payments that repeat every month and spending day
-by day.
+Once you have an account, linked or added by hand, the app opens on **Home**,
+your money, and Groups moves to its own tab: groups are for splitting with
+others, Home and Personal follow your own money. Switch it off with **Open on my
+money** under **Account, Bank sync, Home** to open on your groups again.
+
+Home starts with **On your accounts**: what every account holds together (a
+joint one at half), split into what's there to spend and what's saved, then each
+account with its balance, everyday ones first, savings and investments after.
+Tap an account to see its lines. Below come **Left until payday**, then this
+month's spent, came in, set aside and left over, your pace against last month
+and a forecast for the month's end, yesterday's report, your biggest habit
+(something you pay for more than once a month), the top category against last
+month, payments that repeat every month and spending day by day.
 
 ## Setting it up
 
