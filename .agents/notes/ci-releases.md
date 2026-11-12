@@ -31,9 +31,9 @@
 
 ## One-time setup
 
-- Secrets: `DOCKER_REGISTRY_PASSWORD` (a Docker Hub access token for
-  `orochibraru` with read, write and delete scope: deleting PR tags needs it)
-  and `RELEASE_DEPLOY_KEY` (private half of a deploy key with write access,
+- Secrets: `DOCKER_REGISTRY_PASSWORD` (a Docker Hub access token for `zedensix`
+  with read, write and delete scope: deleting PR tags needs it) and
+  `RELEASE_DEPLOY_KEY` (private half of a deploy key with write access,
   bypassing the branch and tag rulesets).
 - The Docker Hub repository must be public: self-hosters pull `latest` from it.
 - `CI Gate` as the required check, squash merges only.

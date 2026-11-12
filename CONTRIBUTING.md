@@ -1,8 +1,8 @@
 # Contributing
 
 The long-form documentation lives in [`docs/`](docs/) and is published at
-<https://orochibraru.com/opencount>. This file is the short version: what you
-need to get a change landed.
+<https://zedensix.com/opencount>. This file is the short version: what you need
+to get a change landed.
 
 - [docs/development.md](docs/development.md): setup, scripts, hooks,
   conventions, releases

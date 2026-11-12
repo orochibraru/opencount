@@ -1,5 +1,5 @@
 {
-	"$schema": "https://orochibraru.com/docs-config.schema.json",
+	"$schema": "https://zedensix.com/docs-config.schema.json",
 	"categories": [
 		{
 			"title": "Getting started",
@@ -11,14 +11,26 @@
 					"title": "Introduction",
 					"icon": "book-open"
 				},
-				{ "slug": "showcase", "title": "Showcase", "icon": "images" },
-				{ "slug": "install", "title": "Install", "icon": "container" },
+				{
+					"slug": "showcase",
+					"title": "Showcase",
+					"icon": "images"
+				},
+				{
+					"slug": "install",
+					"title": "Install",
+					"icon": "container"
+				},
 				{
 					"slug": "configuration",
 					"title": "Configuration",
 					"icon": "sliders-horizontal"
 				},
-				{ "slug": "first-run", "title": "First run", "icon": "play" }
+				{
+					"slug": "first-run",
+					"title": "First run",
+					"icon": "play"
+				}
 			]
 		},
 		{
@@ -31,7 +43,11 @@
 					"title": "Groups and members",
 					"icon": "users"
 				},
-				{ "slug": "expenses", "title": "Expenses", "icon": "receipt" },
+				{
+					"slug": "expenses",
+					"title": "Expenses",
+					"icon": "receipt"
+				},
 				{
 					"slug": "balances-and-settling",
 					"title": "Balances and settling up",
@@ -52,14 +68,26 @@
 					"title": "Scanning receipts",
 					"icon": "scan-text"
 				},
-				{ "slug": "insights", "title": "Insights", "icon": "chart-pie" },
+				{
+					"slug": "insights",
+					"title": "Insights",
+					"icon": "chart-pie"
+				},
 				{
 					"slug": "personal-and-banks",
 					"title": "Personal expenses and bank sync",
 					"icon": "landmark"
 				},
-				{ "slug": "ai-apps", "title": "AI apps", "icon": "bot" },
-				{ "slug": "archiving", "title": "Archiving", "icon": "archive" },
+				{
+					"slug": "ai-apps",
+					"title": "AI apps",
+					"icon": "bot"
+				},
+				{
+					"slug": "archiving",
+					"title": "Archiving",
+					"icon": "archive"
+				},
 				{
 					"slug": "accounts-and-appearance",
 					"title": "Your account",
@@ -72,13 +100,21 @@
 			"description": "Running an instance for your friends, flat or family.",
 			"icon": "server",
 			"pages": [
-				{ "slug": "admin", "title": "The admin area", "icon": "shield-user" },
+				{
+					"slug": "admin",
+					"title": "The admin area",
+					"icon": "shield-user"
+				},
 				{
 					"slug": "sign-in-and-sso",
 					"title": "Sign-in and single sign-on",
 					"icon": "key-round"
 				},
-				{ "slug": "email", "title": "Email", "icon": "mail" },
+				{
+					"slug": "email",
+					"title": "Email",
+					"icon": "mail"
+				},
 				{
 					"slug": "receipt-reading",
 					"title": "Receipt reading",
@@ -106,9 +142,21 @@
 			"description": "Working on OpenCount itself.",
 			"icon": "git-pull-request",
 			"pages": [
-				{ "slug": "development", "title": "Development", "icon": "terminal" },
-				{ "slug": "architecture", "title": "Architecture", "icon": "workflow" },
-				{ "slug": "testing", "title": "Testing", "icon": "flask-conical" }
+				{
+					"slug": "development",
+					"title": "Development",
+					"icon": "terminal"
+				},
+				{
+					"slug": "architecture",
+					"title": "Architecture",
+					"icon": "workflow"
+				},
+				{
+					"slug": "testing",
+					"title": "Testing",
+					"icon": "flask-conical"
+				}
 			]
 		}
 	]

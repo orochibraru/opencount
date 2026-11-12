@@ -16,7 +16,7 @@ directory:
 
 ```bash
 mkdir opencount && cd opencount
-curl -fsSLO https://raw.githubusercontent.com/orochibraru/opencount/main/compose.prod.yaml
+curl -fsSLO https://raw.githubusercontent.com/zedensix/opencount/main/compose.prod.yaml
 ```
 
 It runs `docker.io/zedensix/opencount:latest` on port 3000 with a named volume,
@@ -129,5 +129,5 @@ docker buildx build --build-arg OCR_LANGUAGES="eng fra nld por" \
 ## Homerun
 
 The repository carries a `.homerun.json` manifest, so it deploys on
-[Homerun](https://github.com/orochibraru/homerun) as is, with traces and error
+[Homerun](https://github.com/zedensix/homerun) as is, with traces and error
 reporting wired up. See [Logs, traces and errors](observability).

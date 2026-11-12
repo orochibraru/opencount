@@ -77,8 +77,8 @@ open-source alternative to Tricount that installs on your phone like an app.
 ## Documentation
 
 The full documentation lives in [`docs/`](docs/) and is published at
-<https://orochibraru.com/opencount>: install and configuration, every screen,
-the admin area, backups and upgrades, troubleshooting.
+<https://zedensix.com/opencount>: install and configuration, every screen, the
+admin area, backups and upgrades, troubleshooting.
 
 ## Install
 
@@ -90,7 +90,7 @@ Download the compose file into an empty directory:
 
 ```bash
 mkdir opencount && cd opencount
-curl -fsSLO https://raw.githubusercontent.com/orochibraru/opencount/main/compose.prod.yaml
+curl -fsSLO https://raw.githubusercontent.com/zedensix/opencount/main/compose.prod.yaml
 ```
 
 ```yaml

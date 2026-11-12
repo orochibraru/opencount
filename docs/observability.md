@@ -68,7 +68,7 @@ reported: they are answers, not failures.
 
 ## On Homerun
 
-[Homerun](https://github.com/orochibraru/homerun) injects
+[Homerun](https://github.com/zedensix/homerun) injects
 `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES`
 and `SENTRY_DSN` when traces are on, so the `.homerun.json` manifest in the
 repository is all it takes.

@@ -69,7 +69,7 @@ frozen on it.
 
 ## License
 
-[MIT](https://github.com/orochibraru/opencount/blob/main/LICENSE).
+[MIT](https://github.com/zedensix/opencount/blob/main/LICENSE).
 
 ## Where to go next
 
