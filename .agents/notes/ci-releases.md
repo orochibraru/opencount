@@ -4,8 +4,8 @@
 
 - `pull_request.yaml` runs code quality (prek over every file, then the pre-push
   hooks), builds the image on native amd64 and arm64 runners and tags it
-  `pr-<number>` on Docker Hub (`docker.io/orochibraru/opencount`). A PR from a
-  fork gets no credentials: its image is built, not pushed.
+  `pr-<number>` on Docker Hub (`docker.io/zedensix/opencount`). A PR from a fork
+  gets no credentials: its image is built, not pushed.
 - A docs-only PR gets the checks but no image. A release PR (`releaser/release`)
   may only touch `CHANGELOG.md` and `package.json`'s version, and builds
   nothing.
@@ -27,7 +27,7 @@
   `package.json`'s description as the short one. The `markdown-links` hook keeps
   those links alive.
 - Every image, PR, canary and release, lives on Docker Hub only
-  (`docker.io/orochibraru/opencount`). Nothing is pushed to ghcr.io.
+  (`docker.io/zedensix/opencount`). Nothing is pushed to ghcr.io.
 
 ## One-time setup
 

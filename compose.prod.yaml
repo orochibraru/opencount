@@ -1,6 +1,6 @@
 services:
   opencount:
-    image: docker.io/orochibraru/opencount:latest
+    image: docker.io/zedensix/opencount:latest
     restart: unless-stopped
     ports:
       - 3000:3000

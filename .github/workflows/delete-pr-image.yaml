@@ -27,7 +27,7 @@ jobs:
         env:
           DOCKER_HUB_USERNAME: orochibraru
           DOCKER_HUB_TOKEN: ${{ secrets.registry_password }}
-          REPOSITORY: orochibraru/opencount
+          REPOSITORY: zedensix/opencount
           TAG: pr-${{ inputs.pr_number }}
         run: |
           set -euo pipefail

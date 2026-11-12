@@ -7,8 +7,8 @@
 Split expenses with friends, see who owes whom, settle up. A self-hosted,
 open-source alternative to Tricount that installs on your phone like an app.
 
-[![Docker Hub](https://img.shields.io/docker/v/orochibraru/opencount?label=docker%20hub&sort=semver)](https://hub.docker.com/r/orochibraru/opencount)
-[![Image size](https://img.shields.io/docker/image-size/orochibraru/opencount/latest)](https://hub.docker.com/r/orochibraru/opencount)
+[![Docker Hub](https://img.shields.io/docker/v/zedensix/opencount?label=docker%20hub&sort=semver)](https://hub.docker.com/r/zedensix/opencount)
+[![Image size](https://img.shields.io/docker/image-size/zedensix/opencount/latest)](https://hub.docker.com/r/zedensix/opencount)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 [See every screen, on a desktop and a phone](docs/showcase.md)
@@ -83,7 +83,7 @@ the admin area, backups and upgrades, troubleshooting.
 ## Install
 
 OpenCount is one container and one SQLite file. The image,
-[`docker.io/orochibraru/opencount`](https://hub.docker.com/r/orochibraru/opencount),
+[`docker.io/zedensix/opencount`](https://hub.docker.com/r/zedensix/opencount),
 is built for `linux/amd64` and `linux/arm64`.
 
 Download the compose file into an empty directory:
@@ -96,7 +96,7 @@ curl -fsSLO https://raw.githubusercontent.com/orochibraru/opencount/main/compose
 ```yaml
 services:
   opencount:
-    image: docker.io/orochibraru/opencount:latest
+    image: docker.io/zedensix/opencount:latest
     restart: unless-stopped
     ports:
       - 3000:3000

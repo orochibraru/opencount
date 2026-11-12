@@ -1,7 +1,7 @@
 # Install
 
 OpenCount is distributed as a multi-arch Docker image
-([`orochibraru/opencount`](https://hub.docker.com/r/orochibraru/opencount)) for
+([`zedensix/opencount`](https://hub.docker.com/r/zedensix/opencount)) for
 `linux/amd64` and `linux/arm64`. It needs one volume, mounted on `/data`, which
 holds the SQLite database: every account, group and expense. Lose it and you
 lose everything, so back it up ([Backups and upgrades](backups-and-upgrades)).
@@ -19,13 +19,13 @@ mkdir opencount && cd opencount
 curl -fsSLO https://raw.githubusercontent.com/orochibraru/opencount/main/compose.prod.yaml
 ```
 
-It runs `docker.io/orochibraru/opencount:latest` on port 3000 with a named
-volume, `opencount`, on `/data`:
+It runs `docker.io/zedensix/opencount:latest` on port 3000 with a named volume,
+`opencount`, on `/data`:
 
 ```yaml
 services:
   opencount:
-    image: docker.io/orochibraru/opencount:latest
+    image: docker.io/zedensix/opencount:latest
     restart: unless-stopped
     ports:
       - 3000:3000
@@ -77,7 +77,7 @@ docker run -d --name opencount -p 3000:3000 \
   -v opencount:/data \
   -e AUTH_SECRET="$(openssl rand -base64 32)" \
   -e ORIGIN=https://opencount.example.com \
-  docker.io/orochibraru/opencount:latest
+  docker.io/zedensix/opencount:latest
 ```
 
 Generate the secret once and keep it: running that line again with a new one
