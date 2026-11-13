@@ -18,7 +18,7 @@
 	<span>© {year} Orochibraru</span>
 	<span aria-hidden="true">·</span>
 	<a
-		href="https://github.com/orochibraru/opencount/blob/main/LICENSE"
+		href="https://github.com/zedensix/opencount/blob/main/LICENSE"
 		target="_blank"
 		rel="noopener noreferrer"
 		class="hover:text-foreground underline-offset-4 hover:underline"
@@ -26,7 +26,7 @@
 	>
 	<span aria-hidden="true">·</span>
 	<a
-		href="https://github.com/orochibraru/opencount"
+		href="https://github.com/zedensix/opencount"
 		target="_blank"
 		rel="noopener noreferrer"
 		class="hover:text-foreground underline-offset-4 hover:underline"

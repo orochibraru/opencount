@@ -22,12 +22,14 @@ test("a group from creation to insights and back from the archive", async ({
 	await expect(page.getByText("Expense added.")).toBeVisible();
 	await expect(page.getByText("Dinner at the harbour")).toBeVisible();
 
-	await page.getByRole("link", { name: "Insights" }).click();
+	await page.getByRole("button", { name: "More options" }).click();
+	await page.getByRole("menuitem", { name: /^Insights/ }).click();
 	await expect(page.getByRole("heading", { name: "Insights" })).toBeVisible();
 	await expect(page.getByText("€42.50").first()).toBeVisible();
 
 	await page.goBack();
-	await page.getByRole("link", { name: "Settings" }).click();
+	await page.getByRole("button", { name: "More options" }).click();
+	await page.getByRole("menuitem", { name: /^Settings/ }).click();
 	await expect(page).toHaveURL(/\/settings\/general/);
 	await expect(page.getByRole("link", { name: "Categories" })).toBeVisible();
 	await page.getByRole("button", { name: "Archive group" }).click();
